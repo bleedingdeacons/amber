@@ -51,12 +51,12 @@ spl_autoload_register(function ($class) {
 });
 
 /**
- * Get the Amber dependency container
+ * Get the Amber dependency container (Unity's container)
  *
- * @return \Amber\Core\DependencyContainer
+ * @return \Unity\Core\DependencyContainer
  * @throws \RuntimeException If Amber is not initialized
  */
-function amber(): \Amber\Core\DependencyContainer {
+function amber(): \Unity\Core\DependencyContainer {
     return \Amber\Plugin::getContainer();
 }
 

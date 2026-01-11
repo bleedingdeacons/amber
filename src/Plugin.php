@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Amber;
 
 use Amber\Core\AmberServiceProvider;
-use Amber\Core\DependencyContainer;
 use Amber\Groups\GroupAdmin;
 use Amber\Members\MemberAdmin;
 use Amber\Positions\PositionAdmin;
 use RuntimeException;
+use Unity\Core\DependencyContainer;
 use function is_admin;
 
 /**
@@ -18,22 +18,26 @@ use function is_admin;
 class Plugin
 {
     private static ?DependencyContainer $container = null;
-    private static $unityContainer = null;
+    private static bool $initialized = false;
 
     /**
      * Initialize the plugin
      *
-     * @param mixed $unityContainer The Unity dependency container
+     * @param DependencyContainer $unityContainer The Unity dependency container
      */
-    public static function init($unityContainer = null): void
+    public static function init(DependencyContainer $unityContainer): void
     {
-        self::$unityContainer = $unityContainer;
-
-        if (self::$container === null) {
-            self::$container = new DependencyContainer();
-            $provider = new AmberServiceProvider();
-            $provider->register(self::$container, $unityContainer);
+        if (self::$initialized) {
+            return;
         }
+
+        self::$container = $unityContainer;
+        
+        // Register Amber services with Unity's container
+        $provider = new AmberServiceProvider();
+        $provider->register($unityContainer);
+        
+        self::$initialized = true;
 
         // Initialize admin services
         if (is_admin()) {
@@ -55,15 +59,5 @@ class Plugin
             throw new RuntimeException('Amber Plugin not initialized');
         }
         return self::$container;
-    }
-
-    /**
-     * Get the Unity container
-     *
-     * @return mixed
-     */
-    public static function getUnityContainer()
-    {
-        return self::$unityContainer;
     }
 }
