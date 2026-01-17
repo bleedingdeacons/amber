@@ -7,6 +7,7 @@ namespace Amber;
 use Amber\Groups\GroupAdmin;
 use Amber\Members\MemberAdmin;
 use Amber\Positions\PositionAdmin;
+use Amber\Positions\PositionDashboard;
 use RuntimeException;
 use Unity\Core\DependencyContainer;
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
@@ -47,6 +48,7 @@ class Plugin
             self::$container->get(PositionAdmin::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(GroupAdmin::class);
+            self::$container->get(PositionDashboard::class);
         }
     }
 
@@ -68,6 +70,14 @@ class Plugin
         // Register Position Admin
         $container->register(PositionAdmin::class, function (DependencyContainer $c) {
             return new PositionAdmin(
+                $c->get(PositionViewFactoryInterface::class),
+                $c->get(PositionRepositoryInterface::class)
+            );
+        });
+
+        // Register Position Dashboard
+        $container->register(PositionDashboard::class, function (DependencyContainer $c) {
+            return new PositionDashboard(
                 $c->get(PositionViewFactoryInterface::class),
                 $c->get(PositionRepositoryInterface::class)
             );
