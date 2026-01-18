@@ -6,8 +6,8 @@ declare(strict_types=1);
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin.
  * Version: 1.1.1
- * Requires at least: 5.0
- * Requires PHP: 7.4
+ * Requires at least: 6.0
+ * Requires PHP: 8.0
  * Author: The Bleeding Deacons
  * Author URI: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
