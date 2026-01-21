@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Amber;
 
 use Amber\Groups\GroupAdmin;
+use Amber\Managers\IntergroupManager;
 use Amber\Members\MemberAdmin;
 use Amber\Positions\PositionAdmin;
 use Amber\Positions\PositionDashboard;
@@ -43,6 +44,9 @@ class Plugin
 
         self::$initialized = true;
 
+        // Initialize IntergroupManager (always needed for shortcodes)
+        self::$container->get(IntergroupManager::class);
+
         // Initialize admin services
         if (is_admin()) {
             self::$container->get(PositionAdmin::class);
@@ -60,6 +64,13 @@ class Plugin
      */
     private static function registerServices(DependencyContainer $container): void
     {
+        // Register Intergroup Manager
+        $container->register(IntergroupManager::class, function (DependencyContainer $c) {
+            return new IntergroupManager(
+                $c->get(PositionViewFactoryInterface::class)
+            );
+        });
+
         // Register Member Admin
         $container->register(MemberAdmin::class, function (DependencyContainer $c) {
             return new MemberAdmin(
