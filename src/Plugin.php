@@ -10,14 +10,14 @@ use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
-
-use RuntimeException;
 use Unity\Core\DependencyContainer;
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
 use Unity\Groups\Interfaces\GroupViewFactoryInterface;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
+use RuntimeException;
+
 use function add_action;
 use function add_menu_page;
 use function add_submenu_page;
@@ -62,7 +62,6 @@ class Plugin
 
             self::$container->get(PositionAdmin::class);
             self::$container->get(MemberAdmin::class);
-            self::$container->get(GroupAdmin::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
         }
@@ -150,14 +149,6 @@ class Plugin
             return new PositionDashboard(
                 $c->get(PositionViewFactoryInterface::class),
                 $c->get(PositionRepositoryInterface::class)
-            );
-        });
-
-        // Register Group Admin
-        $container->register(GroupAdmin::class, function (DependencyContainer $c) {
-            return new GroupAdmin(
-                $c->get(GroupViewFactoryInterface::class),
-                $c->get(GroupRepositoryInterface::class)
             );
         });
 
