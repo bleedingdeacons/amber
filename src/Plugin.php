@@ -6,6 +6,7 @@ namespace Amber;
 
 use Amber\Groups\GroupAdmin;
 use Amber\Managers\IntergroupManager;
+use Amber\Meetings\MeetingAdmin;
 use Amber\Members\MemberAdmin;
 use Amber\Positions\PositionAdmin;
 use Amber\Positions\PositionDashboard;
@@ -16,7 +17,11 @@ use Unity\Groups\Interfaces\GroupViewFactoryInterface;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
+use function add_action;
+use function add_menu_page;
+use function add_submenu_page;
 use function is_admin;
+use function remove_submenu_page;
 
 /**
  * Main Amber Plugin Class
@@ -25,6 +30,9 @@ class Plugin
 {
     private static ?DependencyContainer $container = null;
     private static bool $initialized = false;
+
+    public const MENU_SLUG = 'intergroup';
+    public const MENU_CAPABILITY = 'edit_posts';
 
     /**
      * Initialize the plugin
@@ -49,11 +57,61 @@ class Plugin
 
         // Initialize admin services
         if (is_admin()) {
+            add_action('admin_menu', [self::class, 'registerMenus']);
+
             self::$container->get(PositionAdmin::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(GroupAdmin::class);
+            self::$container->get(MeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
         }
+    }
+
+    /**
+     * Register the Intergroup admin menu and sub-menus
+     */
+    public static function registerMenus(): void
+    {
+        // Add main Intergroup menu
+        add_menu_page(
+            'Intergroup',
+            'Intergroup',
+            self::MENU_CAPABILITY,
+            self::MENU_SLUG,
+            '',
+            'dashicons-admin-multisite',
+            30
+        );
+
+        // Add Positions sub-menu
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Positions',
+            'Positions',
+            self::MENU_CAPABILITY,
+            'edit.php?post_type=intergroup-position'
+        );
+
+        // Add Members sub-menu
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Members',
+            'Members',
+            self::MENU_CAPABILITY,
+            'edit.php?post_type=intergroup-member'
+        );
+
+        // Add Meetings sub-menu
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Meetings',
+            'Groups / Meetings',
+            self::MENU_CAPABILITY,
+            'edit.php?post_type=tsml_meeting'
+        );
+
+        // Remove the default Intergroup submenu item
+        remove_submenu_page(self::MENU_SLUG, self::MENU_SLUG);
     }
 
     /**
@@ -98,6 +156,13 @@ class Plugin
         $container->register(GroupAdmin::class, function (DependencyContainer $c) {
             return new GroupAdmin(
                 $c->get(GroupViewFactoryInterface::class),
+                $c->get(GroupRepositoryInterface::class)
+            );
+        });
+
+        // Register Meeting Admin
+        $container->register(MeetingAdmin::class, function (DependencyContainer $c) {
+            return new MeetingAdmin(
                 $c->get(GroupRepositoryInterface::class)
             );
         });
