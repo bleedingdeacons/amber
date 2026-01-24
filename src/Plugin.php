@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Amber;
 
-use Amber\Groups\GroupAdmin;
+use Amber\Admin\Groups\GroupAdmin;
+use Amber\Admin\Meetings\MeetingAdmin;
+use Amber\Admin\Members\MemberAdmin;
+use Amber\Admin\Positions\PositionAdmin;
+use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
-use Amber\Meetings\MeetingAdmin;
-use Amber\Members\MemberAdmin;
-use Amber\Positions\PositionAdmin;
-use Amber\Positions\PositionDashboard;
+
 use RuntimeException;
 use Unity\Core\DependencyContainer;
 use Unity\Groups\Interfaces\GroupRepositoryInterface;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Amber\Positions;
+namespace Amber\Admin\Positions;
 
 use Unity\Members\MemberConstants;
 use Unity\Positions\Interfaces\PositionRepositoryInterface;

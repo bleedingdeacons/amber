@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Amber\Positions;
+namespace Amber\Admin\Positions;
 
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
@@ -14,7 +14,6 @@ use function esc_url;
 use function get_current_screen;
 use function get_edit_post_link;
 use function wp_add_dashboard_widget;
-use function wp_enqueue_style;
 
 /**
  * Position Dashboard Widget

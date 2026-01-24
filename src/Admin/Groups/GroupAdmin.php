@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Amber\Groups;
+namespace Amber\Admin\Groups;
 
+use Unity\Groups\GroupFields;
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
 use Unity\Groups\Interfaces\GroupViewFactoryInterface;
 use Unity\Groups\Interfaces\GroupViewInterface;
-use Unity\Groups\GroupFields;
 use WP_Post;
 use function add_action;
 use function add_filter;

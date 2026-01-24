@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Amber\Meetings;
+namespace Amber\Admin\Meetings;
 
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
 use WP_Query;
@@ -53,6 +53,11 @@ class MeetingAdmin
 
         // Ensure the group column is visible by default
         add_filter('default_hidden_columns', [$this, 'setDefaultHiddenColumns'], 10, 2);
+
+        // Extend search to include group names
+        add_filter('posts_join', [$this, 'searchJoin'], 10, 2);
+        add_filter('posts_where', [$this, 'searchWhere'], 10, 2);
+        add_filter('posts_distinct', [$this, 'searchDistinct'], 10, 2);
     }
 
     /**
@@ -120,7 +125,29 @@ class MeetingAdmin
             return;
         }
 
-        echo esc_html($group->getTitle());
+        // Try different methods to get the group name
+        $name = null;
+        if (method_exists($group, 'getName')) {
+            $name = $group->getName();
+        } elseif (method_exists($group, 'name')) {
+            $name = $group->name();
+        } elseif (method_exists($group, 'getTitle')) {
+            $name = $group->getTitle();
+        } elseif (method_exists($group, 'title')) {
+            $name = $group->title();
+        } elseif (property_exists($group, 'name')) {
+            $name = $group->name;
+        } elseif (property_exists($group, 'post_title')) {
+            $name = $group->post_title;
+        } elseif ($group instanceof \WP_Post) {
+            $name = $group->post_title;
+        }
+
+        if ($name) {
+            echo esc_html($name);
+        } else {
+            echo '<span style="color: gray;">N/A</span>';
+        }
     }
 
     /**
@@ -155,8 +182,109 @@ class MeetingAdmin
         $orderby = $query->get('orderby');
 
         if ($orderby === 'group') {
-            $query->set('meta_key', self::GROUP_META_KEY);
+            // Use a LEFT JOIN approach via meta_query to include posts without the meta key
+            $query->set('meta_query', [
+                'relation' => 'OR',
+                [
+                    'key' => self::GROUP_META_KEY,
+                    'compare' => 'EXISTS',
+                ],
+                [
+                    'key' => self::GROUP_META_KEY,
+                    'compare' => 'NOT EXISTS',
+                ],
+            ]);
             $query->set('orderby', 'meta_value_num');
         }
+    }
+
+    /**
+     * Check if this is a search query for our post type
+     *
+     * @param WP_Query $query
+     * @return bool
+     */
+    private function isSearchQuery(WP_Query $query): bool
+    {
+        if (!is_admin() || !$query->is_main_query() || !$query->is_search()) {
+            return false;
+        }
+
+        $screen = get_current_screen();
+        return $screen && $screen->post_type === self::POST_TYPE;
+    }
+
+    /**
+     * Join the posts table with postmeta and tsml_group posts for search
+     *
+     * @param string $join The JOIN clause
+     * @param WP_Query $query The query object
+     * @return string Modified JOIN clause
+     */
+    public function searchJoin(string $join, WP_Query $query): string
+    {
+        if (!$this->isSearchQuery($query)) {
+            return $join;
+        }
+
+        global $wpdb;
+
+        // Join to get the group_id from postmeta
+        $join .= " LEFT JOIN {$wpdb->postmeta} AS group_meta ON ({$wpdb->posts}.ID = group_meta.post_id AND group_meta.meta_key = '" . self::GROUP_META_KEY . "')";
+
+        // Join to get the group post (tsml_group) to search its title
+        $join .= " LEFT JOIN {$wpdb->posts} AS group_post ON (group_meta.meta_value = group_post.ID AND group_post.post_type = 'tsml_group')";
+
+        return $join;
+    }
+
+    /**
+     * Modify the WHERE clause to include group name in search
+     *
+     * @param string $where The WHERE clause
+     * @param WP_Query $query The query object
+     * @return string Modified WHERE clause
+     */
+    public function searchWhere(string $where, WP_Query $query): string
+    {
+        if (!$this->isSearchQuery($query)) {
+            return $where;
+        }
+
+        global $wpdb;
+
+        $searchTerm = $query->get('s');
+        if (empty($searchTerm)) {
+            return $where;
+        }
+
+        // Escape the search term for LIKE
+        $like = '%' . $wpdb->esc_like($searchTerm) . '%';
+
+        // Add group post_title to the search
+        // Find the existing search condition and extend it
+        $where = preg_replace(
+            "/\(\s*{$wpdb->posts}\.post_title\s+LIKE\s*('[^']+')(\s*\))/",
+            "({$wpdb->posts}.post_title LIKE $1 OR group_post.post_title LIKE $1$2",
+            $where
+        );
+
+        return $where;
+    }
+
+    /**
+     * Ensure distinct results when joining tables
+     *
+     * @param string $distinct The DISTINCT clause
+     * @param WP_Query $query The query object
+     * @return string Modified DISTINCT clause
+     */
+    public function searchDistinct(string $distinct, WP_Query $query): string
+    {
+        if (!$this->isSearchQuery($query)) {
+            return $distinct;
+        }
+
+        return 'DISTINCT';
     }
 }

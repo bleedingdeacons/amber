@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Amber\Members;
+namespace Amber\Admin\Members;
 
-use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Members\MemberConstants;
+use Unity\Positions\Interfaces\PositionFactoryInterface;
 use WP_Query;
 use function add_action;
 use function add_filter;
