@@ -90,8 +90,8 @@ class MeetingAdmin
         foreach ($columns as $key => $value) {
             $newColumns[$key] = $value;
 
-            // Insert after 'title' (standard WP) or 'meeting' (TSML's name for the title column)
-            if ($key === 'title' || $key === 'meeting') {
+            // Insert after 'time' column
+            if ($key === 'time') {
                 $newColumns['group'] = __('Group', 'amber');
             }
         }
