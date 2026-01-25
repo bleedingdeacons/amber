@@ -80,7 +80,7 @@ class Plugin
             self::MENU_SLUG,
             '',
             'dashicons-admin-multisite',
-            30
+            3
         );
 
         // Add Positions sub-menu
