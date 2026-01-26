@@ -49,7 +49,7 @@ class IntergroupManager
     }
 
     /**
-     * Handle member_before_save hook to update post title if empty or "Auto Draft"
+     * Handle member_before_save hook to always sync post title with anonymous name
      *
      * @param int $postId The post ID being saved
      * @param MemberInterface|null $originalMember The original member before changes (may be null for new posts)
@@ -78,32 +78,31 @@ class IntergroupManager
                 error_log('onMemberBeforeSave: Post title is "' . $postTitle . '", Anonymous name is "' . $anonymousName . '"');
             }
 
-            if ($postTitle === 'Auto Draft' || $postTitle === '') {
-                if (!empty($anonymousName)) {
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('onMemberBeforeSave: Updating post title to "' . $anonymousName . '"');
-                    }
+            // Always sync the post title with the anonymous name if they differ
+            if (!empty($anonymousName) && $postTitle !== $anonymousName) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onMemberBeforeSave: Updating post title to "' . $anonymousName . '"');
+                }
 
-                    $result = wp_update_post([
-                        'ID' => $postId,
-                        'post_title' => $anonymousName
-                    ]);
+                $result = wp_update_post([
+                    'ID' => $postId,
+                    'post_title' => $anonymousName
+                ]);
 
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        if (is_wp_error($result)) {
-                            error_log('onMemberBeforeSave: wp_update_post failed: ' . $result->get_error_message());
-                        } else {
-                            error_log('onMemberBeforeSave: wp_update_post succeeded, returned: ' . $result);
-                        }
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    if (is_wp_error($result)) {
+                        error_log('onMemberBeforeSave: wp_update_post failed: ' . $result->get_error_message());
+                    } else {
+                        error_log('onMemberBeforeSave: wp_update_post succeeded, returned: ' . $result);
                     }
-                } else {
-                    if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('onMemberBeforeSave: Anonymous name is empty, not updating');
-                    }
+                }
+            } elseif (empty($anonymousName)) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onMemberBeforeSave: Anonymous name is empty, not updating');
                 }
             } else {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('onMemberBeforeSave: Post title is not "Auto Draft" or empty, skipping update');
+                    error_log('onMemberBeforeSave: Post title already matches anonymous name, skipping update');
                 }
             }
         } catch (Exception $e) {
