@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Amber;
 
-use Amber\Admin\Groups\GroupAdmin;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
 use Unity\Core\DependencyContainer;
+use Unity\Groups\Interfaces\GroupFactoryInterface;
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
-use Unity\Groups\Interfaces\GroupViewFactoryInterface;
+use Unity\Members\Interfaces\MemberRepositoryInterface;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
@@ -122,6 +122,7 @@ class Plugin
      */
     private static function registerServices(DependencyContainer $container): void
     {
+
         // Register Intergroup Manager
         $container->register(IntergroupManager::class, function (DependencyContainer $c) {
             return new IntergroupManager(
@@ -132,7 +133,9 @@ class Plugin
         // Register Member Admin
         $container->register(MemberAdmin::class, function (DependencyContainer $c) {
             return new MemberAdmin(
-                $c->get(PositionFactoryInterface::class)
+                $c->get(PositionFactoryInterface::class),
+                $c->get(MemberRepositoryInterface::class),
+                $c->get(GroupFactoryInterface::class)
             );
         });
 

@@ -7,6 +7,8 @@ namespace Amber\Managers;
 use Amber\Common\Functions;
 use Unity\Configuration\UnityConfiguration;
 use Unity\Configuration\UnityFields;
+use Unity\Members\Interfaces\MemberInterface;
+use Unity\Members\MemberConstants;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
 use Exception;
 use function add_action;
@@ -16,10 +18,12 @@ use function delete_post_meta;
 use function esc_html;
 use function esc_url;
 use function get_field;
+use function get_post;
 use function get_post_type;
 use function get_the_ID;
 use function update_post_meta;
 use function wp_kses_post;
+use function wp_update_post;
 
 /**
  * Class IntergroupManager
@@ -35,12 +39,76 @@ class IntergroupManager
         $this->positionViewFactory = $positionViewFactory;
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
+        add_action('member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
 
         add_shortcode('position_state', [$this, 'getPositionState']);
         add_shortcode('position_highlight', [$this, 'generatePositionState']);
         add_shortcode('position_header', [$this, 'generatePositionHeader']);
         add_shortcode('directory_list', [$this, 'renderDirectoryTable']);
         add_shortcode('position_summary', [$this, 'renderPositionSummary']);
+    }
+
+    /**
+     * Handle member_before_save hook to update post title if empty or "Auto Draft"
+     *
+     * @param int $postId The post ID being saved
+     * @param MemberInterface|null $originalMember The original member before changes (may be null for new posts)
+     * @return void
+     */
+    public function onMemberBeforeSave(int $postId, ?MemberInterface $originalMember): void
+    {
+        try {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('member_before_save hook fired for post ID: ' . $postId);
+            }
+
+            $post = get_post($postId);
+
+            if (!$post) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onMemberBeforeSave: Could not get post for ID: ' . $postId);
+                }
+                return;
+            }
+
+            $postTitle = $post->post_title;
+            $anonymousName = get_field(MemberConstants::FIELD_ANONYMOUS_NAME, $postId);
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('onMemberBeforeSave: Post title is "' . $postTitle . '", Anonymous name is "' . $anonymousName . '"');
+            }
+
+            if ($postTitle === 'Auto Draft' || $postTitle === '') {
+                if (!empty($anonymousName)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('onMemberBeforeSave: Updating post title to "' . $anonymousName . '"');
+                    }
+
+                    $result = wp_update_post([
+                        'ID' => $postId,
+                        'post_title' => $anonymousName
+                    ]);
+
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        if (is_wp_error($result)) {
+                            error_log('onMemberBeforeSave: wp_update_post failed: ' . $result->get_error_message());
+                        } else {
+                            error_log('onMemberBeforeSave: wp_update_post succeeded, returned: ' . $result);
+                        }
+                    }
+                } else {
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('onMemberBeforeSave: Anonymous name is empty, not updating');
+                    }
+                }
+            } else {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onMemberBeforeSave: Post title is not "Auto Draft" or empty, skipping update');
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Error in onMemberBeforeSave: ' . $e->getMessage());
+        }
     }
 
     /**

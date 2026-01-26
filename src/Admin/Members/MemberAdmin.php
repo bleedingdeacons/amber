@@ -4,34 +4,44 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Members;
 
+use Unity\Members\Interfaces\MemberRepositoryInterface;
 use Unity\Members\MemberConstants;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
+use Unity\Groups\Interfaces\GroupFactoryInterface;
 use WP_Query;
 use function add_action;
 use function add_filter;
 use function esc_html;
 use function get_current_screen;
-use function get_field;
 use function is_admin;
 
 /**
  * Member Admin Table Class
- * 
+ *
  * Extends the WordPress admin table for Members post type
  * to include GSR status and service position fields
  */
 class MemberAdmin
 {
     private PositionFactoryInterface $positionFactory;
+    private MemberRepositoryInterface $memberRepository;
+    private GroupFactoryInterface $groupFactory;
 
     /**
      * Initialize the admin table customizations
      *
      * @param PositionFactoryInterface $positionFactory
+     * @param MemberRepositoryInterface $memberRepository
+     * @param GroupFactoryInterface $groupFactory
      */
-    public function __construct(PositionFactoryInterface $positionFactory)
-    {
+    public function __construct(
+        PositionFactoryInterface $positionFactory,
+        MemberRepositoryInterface $memberRepository,
+        GroupFactoryInterface $groupFactory
+    ) {
         $this->positionFactory = $positionFactory;
+        $this->memberRepository = $memberRepository;
+        $this->groupFactory = $groupFactory;
 
         add_filter('manage_' . MemberConstants::MEMBER_POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
         add_action('manage_' . MemberConstants::MEMBER_POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
@@ -41,7 +51,7 @@ class MemberAdmin
 
     /**
      * Add custom columns to the admin table
-     * 
+     *
      * @param array $columns Existing columns
      * @return array Modified columns
      */
@@ -56,6 +66,7 @@ class MemberAdmin
                 $newColumns['anonymous_name'] = 'Anonymous Name';
                 $newColumns['gsr_status'] = 'GSR Status';
                 $newColumns['service_position'] = 'Service Position';
+                $newColumns['homegroup'] = 'Homegroup';
             }
         }
 
@@ -64,34 +75,49 @@ class MemberAdmin
 
     /**
      * Populate content for the custom columns
-     * 
+     *
      * @param string $column Column name
      * @param int $postId Post ID
      */
     public function populateCustomColumns(string $column, int $postId): void
     {
+        $member = $this->memberRepository->find($postId);
+
+        if (!$member) {
+            echo '<span style="color: gray;">N/A</span>';
+            return;
+        }
+
         switch ($column) {
             case 'anonymous_name':
-                echo esc_html(get_field(MemberConstants::FIELD_ANONYMOUS_NAME, $postId) ?? '');
+                echo esc_html($member->getAnonymousName() ?? '');
                 break;
 
             case 'gsr_status':
-                $isGSR = get_field(MemberConstants::FIELD_HOMEGROUP_GSR, $postId);
+                $isGSR = $member->isGsr();
                 echo $isGSR ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
                 break;
 
             case 'service_position':
-                $positionId = get_field(MemberConstants::FIELD_INTERGROUP_POSITION, $postId);
+//                $positionId = get_field(MemberConstants::FIELD_INTERGROUP_POSITION, $postId);
+                $positionId = $member->getIntergroupPosition();
 
-                if (!empty($positionId)) {
-                    $position = $this->positionFactory->createFromSource((int)$positionId[0]);
+                $position = $this->positionFactory->createFromSource($positionId);
 
-                    if ($position) {
-                        $positionTitle = $position->getLongName();
-                        echo esc_html($positionTitle);
-                    } else {
-                        echo '<span style="color: gray;">N/A</span>';
-                    }
+                if ($position) {
+                    echo esc_html($position->getLongName());
+                } else {
+                    echo '<span style="color: gray;">N/A</span>';
+                }
+
+                break;
+
+            case 'homegroup':
+                $homegroupId = $member->getHomeGroup();
+                $homegroup = $this->groupFactory->createFromSource($homegroupId);
+
+                if ($homegroup) {
+                    echo esc_html($homegroup->getTitle());
                 } else {
                     echo '<span style="color: gray;">N/A</span>';
                 }
@@ -102,7 +128,7 @@ class MemberAdmin
 
     /**
      * Make columns sortable
-     * 
+     *
      * @param array $columns Sortable columns
      * @return array Modified sortable columns
      */
@@ -111,13 +137,14 @@ class MemberAdmin
         $columns['anonymous_name'] = 'anonymous_name';
         $columns['gsr_status'] = 'gsr_status';
         $columns['service_position'] = 'service_position';
+        $columns['homegroup'] = 'homegroup';
 
         return $columns;
     }
 
     /**
      * Handle custom sorting for the columns
-     * 
+     *
      * @param WP_Query $query WordPress query object
      */
     public function handleCustomSorting(WP_Query $query): void
@@ -146,6 +173,11 @@ class MemberAdmin
 
             case 'service_position':
                 $query->set('meta_key', MemberConstants::FIELD_INTERGROUP_POSITION);
+                $query->set('orderby', 'meta_value_num');
+                break;
+
+            case 'homegroup':
+                $query->set('meta_key', MemberConstants::FIELD_HOME_GROUP);
                 $query->set('orderby', 'meta_value_num');
                 break;
         }
