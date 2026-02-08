@@ -461,7 +461,8 @@ class PositionAdmin
             return;
         }
         
-        $memberName = $member->getPrivateName();
+//        $memberName = $member->getPrivateName();
+        $memberName = $member->getAnonymousName();
         update_post_meta($positionId, '_position_member_name', strtolower($memberName));
         update_post_meta($positionId, '_position_member_id', $member->getId());
     }
