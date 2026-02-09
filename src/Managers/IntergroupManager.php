@@ -7,8 +7,8 @@ namespace Amber\Managers;
 use Amber\Common\Functions;
 use TsmlForUnity\Members\TsmlMemberFields;
 use TsmlForUnity\Positions\TsmlPositionFields;
-use Unity\Members\Interfaces\MemberInterface;
-use Unity\Positions\Interfaces\PositionViewFactoryInterface;
+use Unity\Members\Interfaces\Member;
+use Unity\Positions\Interfaces\PositionViewFactory;
 use Exception;
 use function add_action;
 use function add_post_meta;
@@ -31,9 +31,9 @@ use function wp_update_post;
  */
 class IntergroupManager
 {
-    private PositionViewFactoryInterface $positionViewFactory;
+    private PositionViewFactory $positionViewFactory;
 
-    public function __construct(PositionViewFactoryInterface $positionViewFactory)
+    public function __construct(PositionViewFactory $positionViewFactory)
     {
         $this->positionViewFactory = $positionViewFactory;
 
@@ -51,10 +51,10 @@ class IntergroupManager
      * Handle member_before_save hook to always sync post title with anonymous name
      *
      * @param int $postId The post ID being saved
-     * @param MemberInterface|null $originalMember The original member before changes (may be null for new posts)
+     * @param Member|null $originalMember The original member before changes (may be null for new posts)
      * @return void
      */
-    public function onMemberBeforeSave(int $postId, ?MemberInterface $originalMember): void
+    public function onMemberBeforeSave(int $postId, ?Member $originalMember): void
     {
         try {
             if (defined('WP_DEBUG') && WP_DEBUG) {

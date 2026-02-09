@@ -6,7 +6,7 @@ namespace Amber\Admin\Meetings;
 
 use TsmlForUnity\Meetings\TsmlMeetingFields;
 
-use Unity\Groups\Interfaces\GroupRepositoryInterface;
+use Unity\Groups\Interfaces\GroupRepository;
 
 use WP_Query;
 
@@ -25,14 +25,14 @@ use function is_admin;
  */
 class MeetingAdmin
 {
-    private GroupRepositoryInterface $groupRepository;
+    private GroupRepository $groupRepository;
 
     /**
      * Initialize the admin table customizations
      *
-     * @param GroupRepositoryInterface $groupRepository
+     * @param GroupRepository $groupRepository
      */
-    public function __construct(GroupRepositoryInterface $groupRepository)
+    public function __construct(GroupRepository $groupRepository)
     {
         $this->groupRepository = $groupRepository;
 

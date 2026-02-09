@@ -7,9 +7,9 @@ namespace Amber\Admin\Positions;
 use TsmlForUnity\Members\TsmlMemberFields;
 use TsmlForUnity\Positions\TsmlPositionFields;
 
-use Unity\Positions\Interfaces\PositionRepositoryInterface;
-use Unity\Positions\Interfaces\PositionViewFactoryInterface;
-use Unity\Positions\Interfaces\PositionViewInterface;
+use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\PositionViewFactory;
+use Unity\Positions\Interfaces\PositionView;
 
 use WP_Post;
 use WP_Query;
@@ -34,18 +34,18 @@ use const DOING_AUTOSAVE;
  */
 class PositionAdmin
 {
-    private PositionViewFactoryInterface $positionViewFactory;
-    private PositionRepositoryInterface $positionRepository;
+    private PositionViewFactory $positionViewFactory;
+    private PositionRepository $positionRepository;
 
     /**
      * Constructor
      * 
-     * @param PositionViewFactoryInterface $positionViewFactory Position view factory
-     * @param PositionRepositoryInterface $positionRepository Position repository
+     * @param PositionViewFactory $positionViewFactory Position view factory
+     * @param PositionRepository $positionRepository Position repository
      */
     public function __construct(
-        PositionViewFactoryInterface $positionViewFactory,
-        PositionRepositoryInterface $positionRepository
+        PositionViewFactory $positionViewFactory,
+        PositionRepository $positionRepository
     ) {
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository = $positionRepository;
@@ -165,9 +165,9 @@ class PositionAdmin
     /**
      * Display the current member assigned to the position
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayPositionMember(PositionViewInterface $positionView): void
+    private function displayPositionMember(PositionView $positionView): void
     {
         $member = $positionView->getMember();
         
@@ -191,9 +191,9 @@ class PositionAdmin
     /**
      * Display the position email address as a mailto link
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayPositionEmail(PositionViewInterface $positionView): void
+    private function displayPositionEmail(PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
         
@@ -209,9 +209,9 @@ class PositionAdmin
     /**
      * Display the private email for the position holder as a mailto link
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayPrivateEmail(PositionViewInterface $positionView): void
+    private function displayPrivateEmail(PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             echo '-';
@@ -232,9 +232,9 @@ class PositionAdmin
     /**
      * Display the private mobile contact for the position holder as a tel link
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayPrivateContact(PositionViewInterface $positionView): void
+    private function displayPrivateContact(PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             echo '-';
@@ -255,9 +255,9 @@ class PositionAdmin
     /**
      * Display the rotation date for the position
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayRotationDate(PositionViewInterface $positionView): void
+    private function displayRotationDate(PositionView $positionView): void
     {
         $rotationDate = $positionView->getRotationDate();
         
@@ -272,9 +272,9 @@ class PositionAdmin
     /**
      * Display the rotation status with color coding and icons
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function displayRotationStatus(PositionViewInterface $positionView): void
+    private function displayRotationStatus(PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             echo '<span class="status-vacant"><span class="dashicons dashicons-warning"></span> Vacant Position</span>';
@@ -452,9 +452,9 @@ class PositionAdmin
      * Update member name metadata for a position (for alphabetical sorting)
      * 
      * @param int $positionId The position ID
-     * @param PositionViewInterface $positionView The position view object
+     * @param PositionView $positionView The position view object
      */
-    private function updateMemberNameMetadata(int $positionId, PositionViewInterface $positionView): void
+    private function updateMemberNameMetadata(int $positionId, PositionView $positionView): void
     {
         $member = $positionView->getMember();
         
@@ -474,9 +474,9 @@ class PositionAdmin
      * Update position email metadata for sortability
      * 
      * @param int $positionId The position ID
-     * @param PositionViewInterface $positionView The position view object
+     * @param PositionView $positionView The position view object
      */
-    private function updatePositionEmailMetadata(int $positionId, PositionViewInterface $positionView): void
+    private function updatePositionEmailMetadata(int $positionId, PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
         
@@ -491,9 +491,9 @@ class PositionAdmin
      * Update member contact metadata for a position (for email and phone sorting)
      * 
      * @param int $positionId The position ID
-     * @param PositionViewInterface $positionView The position view object
+     * @param PositionView $positionView The position view object
      */
-    private function updateMemberContactMetadata(int $positionId, PositionViewInterface $positionView): void
+    private function updateMemberContactMetadata(int $positionId, PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             delete_post_meta($positionId, '_member_private_email');
@@ -522,9 +522,9 @@ class PositionAdmin
      * Update rotation status metadata for a position
      * 
      * @param int $positionId The position ID
-     * @param PositionViewInterface $positionView The position view object
+     * @param PositionView $positionView The position view object
      */
-    private function updateRotationStatusMetadata(int $positionId, PositionViewInterface $positionView): void
+    private function updateRotationStatusMetadata(int $positionId, PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             update_post_meta($positionId, '_rotation_status', 'vacant');

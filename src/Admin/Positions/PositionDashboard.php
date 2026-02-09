@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Positions;
 
-use Unity\Positions\Interfaces\PositionRepositoryInterface;
-use Unity\Positions\Interfaces\PositionViewFactoryInterface;
-use Unity\Positions\Interfaces\PositionViewInterface;
+use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\PositionViewFactory;
+use Unity\Positions\Interfaces\PositionView;
 use function add_action;
 use function esc_attr;
 use function esc_html;
@@ -22,18 +22,18 @@ use function wp_add_dashboard_widget;
  */
 class PositionDashboard
 {
-    private PositionViewFactoryInterface $positionViewFactory;
-    private PositionRepositoryInterface $positionRepository;
+    private PositionViewFactory $positionViewFactory;
+    private PositionRepository $positionRepository;
 
     /**
      * Constructor
      * 
-     * @param PositionViewFactoryInterface $positionViewFactory Position view factory
-     * @param PositionRepositoryInterface $positionRepository Position repository
+     * @param PositionViewFactory $positionViewFactory Position view factory
+     * @param PositionRepository $positionRepository Position repository
      */
     public function __construct(
-        PositionViewFactoryInterface $positionViewFactory,
-        PositionRepositoryInterface $positionRepository
+        PositionViewFactory $positionViewFactory,
+        PositionRepository $positionRepository
     ) {
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository = $positionRepository;
@@ -109,9 +109,9 @@ class PositionDashboard
     /**
      * Render a single position row
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function renderPositionRow(PositionViewInterface $positionView): void
+    private function renderPositionRow(PositionView $positionView): void
     {
         $position = $positionView->getPosition();
         $positionId = $position->getId();
@@ -152,9 +152,9 @@ class PositionDashboard
     /**
      * Render the member cell content
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function renderMemberCell(PositionViewInterface $positionView): void
+    private function renderMemberCell(PositionView $positionView): void
     {
         $member = $positionView->getMember();
         
@@ -188,9 +188,9 @@ class PositionDashboard
     /**
      * Render the position email
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function renderPositionEmail(PositionViewInterface $positionView): void
+    private function renderPositionEmail(PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
         
@@ -206,9 +206,9 @@ class PositionDashboard
     /**
      * Render the status badge
      * 
-     * @param PositionViewInterface $positionView Position view object
+     * @param PositionView $positionView Position view object
      */
-    private function renderStatusBadge(PositionViewInterface $positionView): void
+    private function renderStatusBadge(PositionView $positionView): void
     {
         if ($positionView->isVacant()) {
             echo '<span class="status-badge status-vacant">Vacant</span>';

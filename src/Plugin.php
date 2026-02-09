@@ -10,12 +10,12 @@ use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
 use Unity\Core\DependencyContainer;
-use Unity\Groups\Interfaces\GroupFactoryInterface;
-use Unity\Groups\Interfaces\GroupRepositoryInterface;
-use Unity\Members\Interfaces\MemberRepositoryInterface;
-use Unity\Positions\Interfaces\PositionFactoryInterface;
-use Unity\Positions\Interfaces\PositionRepositoryInterface;
-use Unity\Positions\Interfaces\PositionViewFactoryInterface;
+use Unity\Groups\Interfaces\GroupFactory;
+use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Members\Interfaces\MemberRepository;
+use Unity\Positions\Interfaces\PositionFactory;
+use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\PositionViewFactory;
 
 use RuntimeException;
 
@@ -127,39 +127,39 @@ class Plugin
         // Register Intergroup Manager
         $container->register(IntergroupManager::class, function (DependencyContainer $c) {
             return new IntergroupManager(
-                $c->get(PositionViewFactoryInterface::class)
+                $c->get(PositionViewFactory::class)
             );
         });
 
         // Register Member Admin
         $container->register(MemberAdmin::class, function (DependencyContainer $c) {
             return new MemberAdmin(
-                $c->get(PositionFactoryInterface::class),
-                $c->get(MemberRepositoryInterface::class),
-                $c->get(GroupFactoryInterface::class)
+                $c->get(PositionFactory::class),
+                $c->get(MemberRepository::class),
+                $c->get(GroupFactory::class)
             );
         });
 
         // Register Position Admin
         $container->register(PositionAdmin::class, function (DependencyContainer $c) {
             return new PositionAdmin(
-                $c->get(PositionViewFactoryInterface::class),
-                $c->get(PositionRepositoryInterface::class)
+                $c->get(PositionViewFactory::class),
+                $c->get(PositionRepository::class)
             );
         });
 
         // Register Position Dashboard
         $container->register(PositionDashboard::class, function (DependencyContainer $c) {
             return new PositionDashboard(
-                $c->get(PositionViewFactoryInterface::class),
-                $c->get(PositionRepositoryInterface::class)
+                $c->get(PositionViewFactory::class),
+                $c->get(PositionRepository::class)
             );
         });
 
         // Register Meeting Admin
         $container->register(MeetingAdmin::class, function (DependencyContainer $c) {
             return new MeetingAdmin(
-                $c->get(GroupRepositoryInterface::class)
+                $c->get(GroupRepository::class)
             );
         });
     }

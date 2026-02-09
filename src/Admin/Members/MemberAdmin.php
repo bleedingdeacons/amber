@@ -6,9 +6,9 @@ namespace Amber\Admin\Members;
 
 use TsmlForUnity\Members\TsmlMemberFields;
 
-use Unity\Members\Interfaces\MemberRepositoryInterface;
-use Unity\Positions\Interfaces\PositionFactoryInterface;
-use Unity\Groups\Interfaces\GroupFactoryInterface;
+use Unity\Members\Interfaces\MemberRepository;
+use Unity\Positions\Interfaces\PositionFactory;
+use Unity\Groups\Interfaces\GroupFactory;
 
 use WP_Query;
 
@@ -26,21 +26,21 @@ use function is_admin;
  */
 class MemberAdmin
 {
-    private PositionFactoryInterface $positionFactory;
-    private MemberRepositoryInterface $memberRepository;
-    private GroupFactoryInterface $groupFactory;
+    private PositionFactory $positionFactory;
+    private MemberRepository $memberRepository;
+    private GroupFactory $groupFactory;
 
     /**
      * Initialize the admin table customizations
      *
-     * @param PositionFactoryInterface $positionFactory
-     * @param MemberRepositoryInterface $memberRepository
-     * @param GroupFactoryInterface $groupFactory
+     * @param PositionFactory $positionFactory
+     * @param MemberRepository $memberRepository
+     * @param GroupFactory $groupFactory
      */
     public function __construct(
-        PositionFactoryInterface $positionFactory,
-        MemberRepositoryInterface $memberRepository,
-        GroupFactoryInterface $groupFactory
+        PositionFactory $positionFactory,
+        MemberRepository $memberRepository,
+        GroupFactory $groupFactory
     ) {
         $this->positionFactory = $positionFactory;
         $this->memberRepository = $memberRepository;
