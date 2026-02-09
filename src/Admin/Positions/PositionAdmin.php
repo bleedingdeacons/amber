@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Positions;
 
-use Unity\Members\MemberConstants;
+use TsmlForUnity\TsmlMemberFields;
+use TsmlForUnity\TsmlPositionFields;
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
 use Unity\Positions\Interfaces\PositionViewInterface;
-use Unity\Positions\PositionFields;
+
 use WP_Post;
 use WP_Query;
 use function add_action;
@@ -48,12 +49,12 @@ class PositionAdmin
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository = $positionRepository;
 
-        add_filter('manage_' . PositionFields::POSITION_POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
-        add_action('manage_' . PositionFields::POSITION_POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
-        add_filter('manage_edit-' . PositionFields::POSITION_POST_TYPE . '_sortable_columns', [$this, 'makeColumnsSortable']);
+        add_filter('manage_' . TsmlPositionFields::POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
+        add_action('manage_' . TsmlPositionFields::POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
+        add_filter('manage_edit-' . TsmlPositionFields::POST_TYPE . '_sortable_columns', [$this, 'makeColumnsSortable']);
         add_filter('pre_get_posts', [$this, 'handleCustomColumnSorting']);
-        add_action('save_post_' . PositionFields::POSITION_POST_TYPE, [$this, 'updatePositionMetadataOnSave'], 10, 3);
-        add_action('save_post_' . MemberConstants::MEMBER_POST_TYPE, [$this, 'updateMemberPositionMetadata'], 10, 3);
+        add_action('save_post_' . TsmlPositionFields::POST_TYPE, [$this, 'updatePositionMetadataOnSave'], 10, 3);
+        add_action('save_post_' . TsmlMemberFields::POST_TYPE, [$this, 'updateMemberPositionMetadata'], 10, 3);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
     }
     
@@ -175,7 +176,8 @@ class PositionAdmin
         }
         
         $memberId = $member->getId();
-        $displayName = $member->getPrivateName();
+//        $displayName = $member->getPrivateName();
+        $displayName = $member->getAnonymousName();
         $editLink = get_edit_post_link($memberId);
         
         if ($editLink) {
@@ -329,7 +331,7 @@ class PositionAdmin
      */
     public function handleCustomColumnSorting(WP_Query $query): WP_Query
     {
-        if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== PositionFields::POSITION_POST_TYPE) {
+        if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== TsmlPositionFields::POST_TYPE) {
             return $query;
         }
         
@@ -410,7 +412,7 @@ class PositionAdmin
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (defined('DOING_AJAX') && DOING_AJAX) return;
         
-        $positionId = get_field(MemberConstants::FIELD_INTERGROUP_POSITION, $postId);
+        $positionId = get_field(TsmlMemberFields::FIELD_INTERGROUP_POSITION, $postId);
         
         if ($positionId) {
             if (is_string($positionId) && strpos($positionId, 'a:') === 0) {

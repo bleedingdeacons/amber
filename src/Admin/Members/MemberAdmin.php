@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Members;
 
+use TsmlForUnity\TsmlMemberFields;
 use Unity\Members\Interfaces\MemberRepositoryInterface;
-use Unity\Members\MemberConstants;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Groups\Interfaces\GroupFactoryInterface;
 use WP_Query;
@@ -43,9 +43,9 @@ class MemberAdmin
         $this->memberRepository = $memberRepository;
         $this->groupFactory = $groupFactory;
 
-        add_filter('manage_' . MemberConstants::MEMBER_POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
-        add_action('manage_' . MemberConstants::MEMBER_POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
-        add_filter('manage_edit-' . MemberConstants::MEMBER_POST_TYPE . '_sortable_columns', [$this, 'makeSortableColumns']);
+        add_filter('manage_' . TsmlMemberFields::POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
+        add_action('manage_' . TsmlMemberFields::POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
+        add_filter('manage_edit-' . TsmlMemberFields::POST_TYPE . '_sortable_columns', [$this, 'makeSortableColumns']);
         add_action('pre_get_posts', [$this, 'handleCustomSorting']);
     }
 
@@ -154,7 +154,7 @@ class MemberAdmin
         }
 
         $screen = get_current_screen();
-        if (!$screen || $screen->post_type !== MemberConstants::MEMBER_POST_TYPE) {
+        if (!$screen || $screen->post_type !== TsmlMemberFields::POST_TYPE) {
             return;
         }
 
@@ -162,22 +162,22 @@ class MemberAdmin
 
         switch ($orderby) {
             case 'anonymous_name':
-                $query->set('meta_key', MemberConstants::FIELD_ANONYMOUS_NAME);
+                $query->set('meta_key', TsmlMemberFields::FIELD_ANONYMOUS_NAME);
                 $query->set('orderby', 'meta_value');
                 break;
 
             case 'gsr_status':
-                $query->set('meta_key', MemberConstants::FIELD_HOMEGROUP_GSR);
+                $query->set('meta_key', TsmlMemberFields::FIELD_HOMEGROUP_GSR);
                 $query->set('orderby', 'meta_value_num');
                 break;
 
             case 'service_position':
-                $query->set('meta_key', MemberConstants::FIELD_INTERGROUP_POSITION);
+                $query->set('meta_key', TsmlMemberFields::FIELD_INTERGROUP_POSITION);
                 $query->set('orderby', 'meta_value_num');
                 break;
 
             case 'homegroup':
-                $query->set('meta_key', MemberConstants::FIELD_HOME_GROUP);
+                $query->set('meta_key', TsmlMemberFields::FIELD_HOME_GROUP);
                 $query->set('orderby', 'meta_value_num');
                 break;
         }
