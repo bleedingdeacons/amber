@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Amber\Managers;
 
 use Amber\Common\Functions;
+use TsmlForUnity\TsmlMemberFields;
+use TsmlForUnity\TsmlPositionFields;
 use Unity\Configuration\UnityConfiguration;
-use Unity\Configuration\UnityFields;
 use Unity\Members\Interfaces\MemberInterface;
-use Unity\Members\MemberConstants;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
 use Exception;
 use function add_action;
@@ -72,7 +72,7 @@ class IntergroupManager
             }
 
             $postTitle = $post->post_title;
-            $anonymousName = get_field(MemberConstants::FIELD_ANONYMOUS_NAME, $postId);
+            $anonymousName = get_field(TsmlMemberFields::FIELD_ANONYMOUS_NAME, $postId);
 
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 error_log('onMemberBeforeSave: Post title is "' . $postTitle . '", Anonymous name is "' . $anonymousName . '"');
@@ -116,7 +116,7 @@ class IntergroupManager
     public function updatePositionMeta(): void
     {
         try {
-            if (get_post_type() == UnityConfiguration::POSITION_CUSTOM_TYPE) {
+            if (get_post_type() === TsmlPositionFields::POST_TYPE) {
                 $positionId = get_the_ID();
 
                 if (!$positionId) {
