@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Amber\Managers;
 
 use Amber\Common\Functions;
-use TsmlForUnity\TsmlMemberFields;
-use TsmlForUnity\TsmlPositionFields;
-use Unity\Configuration\UnityConfiguration;
+use TsmlForUnity\Members\TsmlMemberFields;
+use TsmlForUnity\Positions\TsmlPositionFields;
 use Unity\Members\Interfaces\MemberInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
 use Exception;

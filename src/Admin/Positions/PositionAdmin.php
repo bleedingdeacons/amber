@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Positions;
 
-use TsmlForUnity\TsmlMemberFields;
-use TsmlForUnity\TsmlPositionFields;
+use TsmlForUnity\Members\TsmlMemberFields;
+use TsmlForUnity\Positions\TsmlPositionFields;
+
 use Unity\Positions\Interfaces\PositionRepositoryInterface;
 use Unity\Positions\Interfaces\PositionViewFactoryInterface;
 use Unity\Positions\Interfaces\PositionViewInterface;

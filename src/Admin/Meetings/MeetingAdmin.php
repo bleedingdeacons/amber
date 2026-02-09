@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Meetings;
 
-use TsmlForUnity\TsmlMeetingFields;
+use TsmlForUnity\Meetings\TsmlMeetingFields;
+
 use Unity\Groups\Interfaces\GroupRepositoryInterface;
+
 use WP_Query;
+
 use function add_action;
 use function add_filter;
 use function esc_html;

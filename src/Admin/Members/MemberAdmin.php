@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Members;
 
-use TsmlForUnity\TsmlMemberFields;
+use TsmlForUnity\Members\TsmlMemberFields;
+
 use Unity\Members\Interfaces\MemberRepositoryInterface;
 use Unity\Positions\Interfaces\PositionFactoryInterface;
 use Unity\Groups\Interfaces\GroupFactoryInterface;
+
 use WP_Query;
+
 use function add_action;
 use function add_filter;
 use function esc_html;
