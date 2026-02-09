@@ -164,7 +164,8 @@ class PositionDashboard
         }
         
         $memberId = $member->getId();
-        $displayName = $member->getPrivateName();
+//        $displayName = $member->getPrivateName();
+        $displayName = $member->getAnonymousName();
         $editLink = get_edit_post_link($memberId);
         
         if ($editLink) {
