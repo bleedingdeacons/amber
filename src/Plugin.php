@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Amber;
 
 use Amber\Admin\Meetings\MeetingAdmin;
+use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
@@ -12,6 +13,7 @@ use Amber\Managers\IntergroupManager;
 use Unity\Core\DependencyContainer;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Meetings\Interfaces\MeetingRepository;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
@@ -65,6 +67,7 @@ class Plugin
             self::$container->get(MemberAdmin::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
+            self::$container->get(MeetingDashboard::class);
         }
     }
 
@@ -159,6 +162,14 @@ class Plugin
         // Register Meeting Admin
         $container->register(MeetingAdmin::class, function (DependencyContainer $c) {
             return new MeetingAdmin(
+                $c->get(GroupRepository::class)
+            );
+        });
+
+        // Register Meeting Dashboard
+        $container->register(MeetingDashboard::class, function (DependencyContainer $c) {
+            return new MeetingDashboard(
+                $c->get(MeetingRepository::class),
                 $c->get(GroupRepository::class)
             );
         });
