@@ -14,6 +14,7 @@ use function esc_html;
 use function esc_url;
 use function get_current_screen;
 use function get_edit_post_link;
+use function get_option;
 use function wp_add_dashboard_widget;
 
 /**
@@ -65,8 +66,8 @@ class MeetingDashboard
     public function registerDashboardWidget(): void
     {
         wp_add_dashboard_widget(
-            'meeting_schedule_dashboard',
-            'Groups & Meetings Schedule',
+            'groups_meetings_dashboard',
+            'Groups & Meetings',
             [$this, 'renderDashboardWidget'],
             null,
             null,
@@ -103,10 +104,11 @@ class MeetingDashboard
             ];
         }
 
-        // Sort by day of week, then by start time
-        usort($meetingRows, function (array $a, array $b) {
-            $dayA = $a['meeting']->getDay();
-            $dayB = $b['meeting']->getDay();
+        // Sort by day of week (relative to WordPress start_of_week), then by start time
+        $startOfWeek = (int) get_option('start_of_week', 0);
+        usort($meetingRows, function (array $a, array $b) use ($startOfWeek) {
+            $dayA = ($a['meeting']->getDay() - $startOfWeek + 7) % 7;
+            $dayB = ($b['meeting']->getDay() - $startOfWeek + 7) % 7;
 
             if ($dayA !== $dayB) {
                 return $dayA - $dayB;
@@ -124,6 +126,7 @@ class MeetingDashboard
         echo '<th>Meeting</th>';
         echo '<th>Time</th>';
         echo '<th>Location</th>';
+        echo '<th>Contacts</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
@@ -252,6 +255,11 @@ class MeetingDashboard
         $this->renderLocation($meeting);
         echo '</td>';
 
+        // Contacts column — prefer group contacts, fall back to meeting contacts
+        echo '<td class="meeting-contacts">';
+        $this->renderContacts($meeting, $group);
+        echo '</td>';
+
         echo '</tr>';
     }
 
@@ -317,7 +325,64 @@ class MeetingDashboard
             return;
         }
 
-        echo esc_html($location->getName());
+        echo '<strong>' . esc_html($location->getName()) . '</strong>';
+
+        $address = $location->getFormattedAddress();
+        if (!empty($address)) {
+            echo '<br><span class="meeting-location-address">' . esc_html($address) . '</span>';
+        }
+    }
+
+    /**
+     * Render the contacts cell content
+     *
+     * Prefers group contacts over meeting contacts. Displays up to 3 contacts
+     * showing name and phone number.
+     *
+     * @param Meeting $meeting Meeting object
+     * @param Group|null $group Group object or null
+     */
+    private function renderContacts(Meeting $meeting, ?Group $group): void
+    {
+        $contacts = [];
+
+        // Prefer group contacts if available
+        if ($group !== null) {
+            $contacts = $group->getContacts();
+        }
+
+        // Fall back to meeting contacts if group has none
+        if (empty($contacts)) {
+            $contacts = $meeting->getContacts();
+        }
+
+        if (empty($contacts)) {
+            echo '<span class="no-contacts">—</span>';
+            return;
+        }
+
+        // Display up to 3 contacts
+        $contacts = array_slice($contacts, 0, 3);
+
+        foreach ($contacts as $index => $contact) {
+            if ($index > 0) {
+                echo '<br>';
+            }
+
+            $name = $contact->getName();
+            $phone = $contact->getPhone();
+
+            if (!empty($name)) {
+                echo '<span class="contact-name">' . esc_html($name) . '</span>';
+            }
+
+            if (!empty($phone)) {
+                if (!empty($name)) {
+                    echo ' ';
+                }
+                echo '<span class="contact-phone">' . esc_html($phone) . '</span>';
+            }
+        }
     }
 
     /**
@@ -354,24 +419,28 @@ class MeetingDashboard
             }
 
             .meeting-schedule-table .meeting-day {
-                width: 12%;
+                width: 10%;
                 white-space: nowrap;
             }
 
             .meeting-schedule-table .meeting-group {
-                width: 22%;
+                width: 18%;
             }
 
             .meeting-schedule-table .meeting-name {
-                width: 26%;
+                width: 20%;
             }
 
             .meeting-schedule-table .meeting-time {
-                width: 20%;
+                width: 14%;
                 white-space: nowrap;
             }
 
             .meeting-schedule-table .meeting-location {
+                width: 18%;
+            }
+
+            .meeting-schedule-table .meeting-contacts {
                 width: 20%;
             }
 
@@ -398,13 +467,28 @@ class MeetingDashboard
 
             .no-group,
             .no-time,
-            .no-location {
+            .no-location,
+            .no-contacts {
                 color: #ccc;
+            }
+
+            .contact-name {
+                font-weight: 500;
+            }
+
+            .contact-phone {
+                font-size: 12px;
+                color: #666;
             }
 
             .meeting-online-label {
                 color: #2271b1;
                 font-style: italic;
+            }
+
+            .meeting-location-address {
+                font-size: 12px;
+                color: #666;
             }
 
             .meeting-schedule-table tr:hover {
