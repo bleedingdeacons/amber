@@ -215,7 +215,7 @@ class MeetingDashboard
         echo '</td>';
 
         // Group name column
-        echo '<td class="meeting-group">';
+        echo '<td class="meeting-group copyable">';
         if ($group !== null) {
             $groupEditLink = get_edit_post_link($group->getId());
             if ($groupEditLink) {
@@ -231,7 +231,7 @@ class MeetingDashboard
         echo '</td>';
 
         // Meeting name column
-        echo '<td class="meeting-name">';
+        echo '<td class="meeting-name copyable">';
         $meetingEditLink = get_edit_post_link($meeting->getId());
         if ($meetingEditLink) {
             echo '<a href="' . esc_url($meetingEditLink) . '">';
@@ -251,7 +251,7 @@ class MeetingDashboard
         echo '</td>';
 
         // Location column
-        echo '<td class="meeting-location">';
+        echo '<td class="meeting-location copyable">';
         $this->renderLocation($meeting);
         echo '</td>';
 
@@ -329,7 +329,7 @@ class MeetingDashboard
 
         $address = $location->getFormattedAddress();
         if (!empty($address)) {
-            echo '<br><span class="meeting-location-address">' . esc_html($address) . '</span>';
+            echo '<br><span class="meeting-location-address copyable">' . esc_html($address) . '</span>';
         }
     }
 
@@ -373,14 +373,14 @@ class MeetingDashboard
             $phone = $contact->getPhone();
 
             if (!empty($name)) {
-                echo '<span class="contact-name">' . esc_html($name) . '</span>';
+                echo '<span class="contact-name copyable">' . esc_html($name) . '</span>';
             }
 
             if (!empty($phone)) {
                 if (!empty($name)) {
                     echo ' ';
                 }
-                echo '<span class="contact-phone">' . esc_html($phone) . '</span>';
+                echo '<span class="contact-phone copyable">' . esc_html($phone) . '</span>';
             }
         }
     }

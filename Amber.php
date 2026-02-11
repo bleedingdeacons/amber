@@ -62,7 +62,7 @@ function amber(): \Unity\Core\DependencyContainer {
 }
 
 // Initialize the plugin after Unity is loaded
-add_action('unity_loaded', function($unityContainer) {
+add_action('unity/loaded', function($unityContainer) {
     try {
         // Check if Scrutiny is active - Amber requires Scrutiny for GDPR compliance
         if (!function_exists('scrutiny')) {
@@ -75,7 +75,7 @@ add_action('unity_loaded', function($unityContainer) {
 
         \Amber\Plugin::init($unityContainer);
 
-        do_action('amber_loaded', \Amber\Plugin::getContainer());
+        do_action('amber/loaded', \Amber\Plugin::getContainer());
 
     } catch (\Exception $e) {
         error_log('Amber Plugin Initialization Error: ' . $e->getMessage());
@@ -109,7 +109,7 @@ add_action('unity_loaded', function($unityContainer) {
 
 // Show admin notice if Unity plugin is not active
 add_action('admin_notices', function() {
-    if (!function_exists('unity') && !did_action('unity_loaded')) {
+    if (!function_exists('unity') && !did_action('unity/loaded')) {
         echo '<div class="notice notice-warning is-dismissible"><p><strong>Amber:</strong> This plugin requires the Unity plugin to be installed and activated.</p></div>';
     } elseif (!function_exists('scrutiny') && function_exists('unity')) {
         echo '<div class="notice notice-error is-dismissible"><p><strong>Amber:</strong> This plugin requires the Scrutiny plugin to be installed and activated for GDPR compliance.</p></div>';

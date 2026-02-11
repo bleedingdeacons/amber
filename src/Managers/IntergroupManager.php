@@ -38,7 +38,7 @@ class IntergroupManager
         $this->positionViewFactory = $positionViewFactory;
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
-        add_action('member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
+        add_action('amber/member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
 
         add_shortcode('position_state', [$this, 'getPositionState']);
         add_shortcode('position_highlight', [$this, 'generatePositionState']);
@@ -48,7 +48,7 @@ class IntergroupManager
     }
 
     /**
-     * Handle member_before_save hook to always sync post title with anonymous name
+     * Handle amber/member_before_save hook to always sync post title with anonymous name
      *
      * @param int $postId The post ID being saved
      * @param Member|null $originalMember The original member before changes (may be null for new posts)
@@ -58,7 +58,7 @@ class IntergroupManager
     {
         try {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('member_before_save hook fired for post ID: ' . $postId);
+                error_log('amber/member_before_save hook fired for post ID: ' . $postId);
             }
 
             $post = get_post($postId);

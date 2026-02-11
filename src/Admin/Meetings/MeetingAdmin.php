@@ -36,7 +36,7 @@ class MeetingAdmin
     {
         $this->groupRepository = $groupRepository;
 
-        // Register hooks immediately - unity_loaded fires during plugins_loaded,
+        // Register hooks immediately - unity/loaded fires during plugins_loaded,
         // which is before admin_init when the list table columns are set up
         $this->registerHooks();
     }
