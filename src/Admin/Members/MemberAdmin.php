@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Members;
 
-use TsmlForUnity\Members\TsmlMemberFields;
-
+use Unity\Core\Interfaces\Configuration;
+use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -29,6 +29,7 @@ class MemberAdmin
     private PositionFactory $positionFactory;
     private MemberRepository $memberRepository;
     private GroupFactory $groupFactory;
+    private readonly array $member_config;
 
     /**
      * Initialize the admin table customizations
@@ -38,6 +39,7 @@ class MemberAdmin
      * @param GroupFactory $groupFactory
      */
     public function __construct(
+        Configuration $configuration,
         PositionFactory $positionFactory,
         MemberRepository $memberRepository,
         GroupFactory $groupFactory
@@ -46,9 +48,11 @@ class MemberAdmin
         $this->memberRepository = $memberRepository;
         $this->groupFactory = $groupFactory;
 
-        add_filter('manage_' . TsmlMemberFields::POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
-        add_action('manage_' . TsmlMemberFields::POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
-        add_filter('manage_edit-' . TsmlMemberFields::POST_TYPE . '_sortable_columns', [$this, 'makeSortableColumns']);
+        $this->member_config = $configuration->getConfig(Member::class);
+
+        add_filter('manage_' . $this->member_config['POST_TYPE'] . '_posts_columns', [$this, 'addCustomColumns']);
+        add_action('manage_' . $this->member_config['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
+        add_filter('manage_edit-' . $this->member_config['POST_TYPE'] . '_sortable_columns', [$this, 'makeSortableColumns']);
         add_action('pre_get_posts', [$this, 'handleCustomSorting']);
     }
 
@@ -102,7 +106,6 @@ class MemberAdmin
                 break;
 
             case 'service_position':
-//                $positionId = get_field(MemberConstants::FIELD_INTERGROUP_POSITION, $postId);
                 $positionId = $member->getIntergroupPosition();
 
                 $position = $this->positionFactory->createFromSource($positionId);
@@ -157,7 +160,7 @@ class MemberAdmin
         }
 
         $screen = get_current_screen();
-        if (!$screen || $screen->post_type !== TsmlMemberFields::POST_TYPE) {
+        if (!$screen || $screen->post_type !== $this->member_config['POST_TYPE']) {
             return;
         }
 
@@ -165,22 +168,22 @@ class MemberAdmin
 
         switch ($orderby) {
             case 'anonymous_name':
-                $query->set('meta_key', TsmlMemberFields::FIELD_ANONYMOUS_NAME);
+                $query->set('meta_key', $this->member_config['FIELD_ANONYMOUS_NAME']);
                 $query->set('orderby', 'meta_value');
                 break;
 
             case 'gsr_status':
-                $query->set('meta_key', TsmlMemberFields::FIELD_HOMEGROUP_GSR);
+                $query->set('meta_key', $this->member_config['FIELD_HOMEGROUP_GSR']);
                 $query->set('orderby', 'meta_value_num');
                 break;
 
             case 'service_position':
-                $query->set('meta_key', TsmlMemberFields::FIELD_INTERGROUP_POSITION);
+                $query->set('meta_key', $this->member_config['FIELD_INTERGROUP_POSITION']);
                 $query->set('orderby', 'meta_value_num');
                 break;
 
             case 'homegroup':
-                $query->set('meta_key', TsmlMemberFields::FIELD_HOME_GROUP);
+                $query->set('meta_key', $this->member_config['FIELD_HOME_GROUP']);
                 $query->set('orderby', 'meta_value_num');
                 break;
         }

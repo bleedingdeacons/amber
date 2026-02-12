@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
  * Version: 1.4.0
  * Requires at least: 6.0
- * Requires PHP: 8.0
+ * Requires PHP: 8.5
  * Requires Plugins: scrutiny
  * Author: The Bleeding Deacons
  * Author URI: thebleedingdeacons@gmail.com

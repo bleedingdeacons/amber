@@ -6,9 +6,9 @@ namespace Amber\Managers;
 
 use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
-use TsmlForUnity\Members\TsmlMemberFields;
-use TsmlForUnity\Positions\TsmlPositionFields;
+use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
+use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionViewFactory;
 use Exception;
 use function add_action;
@@ -34,9 +34,15 @@ class IntergroupManager
 {
     private PositionViewFactory $positionViewFactory;
     private $get_the_ID;
+    private readonly array $member_config;
+    private readonly array $position_config;
 
-    public function __construct(PositionViewFactory $positionViewFactory)
+    public function __construct(Configuration $configuration, PositionViewFactory $positionViewFactory)
     {
+        $this->member_config = $configuration->getConfig(Member::class);
+
+        $this->position_config = $configuration->getConfig(Position::class);
+
         $this->positionViewFactory = $positionViewFactory;
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
@@ -73,7 +79,8 @@ class IntergroupManager
             }
 
             $postTitle = $post->post_title;
-            $anonymousName = get_field(TsmlMemberFields::FIELD_ANONYMOUS_NAME, $postId);
+
+            $anonymousName = get_field($this->member_config['FIELD_ANONYMOUS_NAME'], $postId);
 
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 error_log('onMemberBeforeSave: Post title is "' . $postTitle . '", Anonymous name is "' . $anonymousName . '"');
@@ -117,7 +124,7 @@ class IntergroupManager
     public function updatePositionMeta(): void
     {
         try {
-            if (get_post_type() === TsmlPositionFields::POST_TYPE) {
+            if (get_post_type() === $this->position_config['POST_TYPE']) {
                 $positionId = get_the_ID();
 
                 if (!$positionId) {
@@ -180,7 +187,7 @@ class IntergroupManager
             if (!$positionId) {
                 throw new Exception("Invalid position ID in insert_position_summary.");
             }
-            $positionSummary = get_field(TsmlPositionFields::SUMMARY, $positionId, true);
+            $positionSummary = get_field($this->position_config['SUMMARY'], $positionId, true);
             return '<div>' . wp_kses_post($positionSummary) . '</div>';
         } catch (Exception $ex) {
             error_log('Error in insert_position_summary: ' . $ex->getMessage());
@@ -239,7 +246,7 @@ class IntergroupManager
                 return 'Rotation Due Now';
             } elseif ($months === 1) {
                 return 'Rotation Next Month';
-            } elseif ($months <= (int) UnityConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
+            } elseif ($months <= (int) AmberConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
                 return 'Rotates in ' . $months . ($months == 1 ? ' Month' : ' Months');
             } else {
                 return '';

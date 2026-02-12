@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Meetings;
 
-use TsmlForUnity\Meetings\TsmlMeetingFields;
-
+use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\GroupRepository;
+
+use Unity\Meetings\Interfaces\Meeting;
 
 use WP_Query;
 
@@ -26,19 +27,24 @@ use function is_admin;
 class MeetingAdmin
 {
     private GroupRepository $groupRepository;
+    private readonly array $meeting_config;
 
     /**
      * Initialize the admin table customizations
      *
      * @param GroupRepository $groupRepository
      */
-    public function __construct(GroupRepository $groupRepository)
+    public function __construct(Configuration $configuration, GroupRepository $groupRepository)
     {
+        $this->meeting_config = $configuration->getConfig(Meeting::class);
+
         $this->groupRepository = $groupRepository;
 
         // Register hooks immediately - unity/loaded fires during plugins_loaded,
         // which is before admin_init when the list table columns are set up
         $this->registerHooks();
+
+
     }
 
     /**
@@ -47,9 +53,9 @@ class MeetingAdmin
     public function registerHooks(): void
     {
         // TSML uses manage_edit-tsml_meeting_columns filter (not manage_tsml_meeting_posts_columns)
-        add_filter('manage_edit-' . TsmlMeetingFields::POST_TYPE . '_columns', [$this, 'addCustomColumns'], 99);
-        add_action('manage_' . TsmlMeetingFields::POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
-        add_filter('manage_edit-' . TsmlMeetingFields::POST_TYPE . '_sortable_columns', [$this, 'makeSortableColumns']);
+        add_filter('manage_edit-' . $this->meeting_config['POST_TYPE'] . '_columns', [$this, 'addCustomColumns'], 99);
+        add_action('manage_' . $this->meeting_config['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
+        add_filter('manage_edit-' . $this->meeting_config['POST_TYPE'] . '_sortable_columns', [$this, 'makeSortableColumns']);
         add_action('pre_get_posts', [$this, 'handleCustomSorting']);
 
         // Ensure the group column is visible by default
@@ -70,7 +76,7 @@ class MeetingAdmin
      */
     public function setDefaultHiddenColumns(array $hidden, \WP_Screen $screen): array
     {
-        if ($screen->id === 'edit-' . TsmlMeetingFields::POST_TYPE) {
+        if ($screen->id === 'edit-' . $this->meeting_config['POST_TYPE']) {
             // Remove 'group' from hidden columns if present
             $hidden = array_diff($hidden, ['group']);
         }
@@ -112,7 +118,7 @@ class MeetingAdmin
             return;
         }
 
-        $groupId = get_post_meta($postId, TsmlMeetingFields::GROUP_META_KEY, true);
+        $groupId = get_post_meta($postId, $this->meeting_config['GROUP_META_KEY'], true);
 
         if (empty($groupId)) {
             echo '<span style="color: gray;">N/A</span>';
@@ -176,7 +182,7 @@ class MeetingAdmin
         }
 
         $screen = get_current_screen();
-        if (!$screen || $screen->post_type !== TsmlMeetingFields::POST_TYPE) {
+        if (!$screen || $screen->post_type !== $this->meeting_config['POST_TYPE']) {
             return;
         }
 
@@ -187,11 +193,11 @@ class MeetingAdmin
             $query->set('meta_query', [
                 'relation' => 'OR',
                 [
-                    'key' => TsmlMeetingFields::GROUP_META_KEY,
+                    'key' => $this->meeting_config['GROUP_META_KEY'],
                     'compare' => 'EXISTS',
                 ],
                 [
-                    'key' => TsmlMeetingFields::GROUP_META_KEY,
+                    'key' => $this->meeting_config['GROUP_META_KEY'],
                     'compare' => 'NOT EXISTS',
                 ],
             ]);
@@ -212,7 +218,7 @@ class MeetingAdmin
         }
 
         $screen = get_current_screen();
-        return $screen && $screen->post_type === TsmlMeetingFields::POST_TYPE;
+        return $screen && $screen->post_type === $this->meeting_config['POST_TYPE'];
     }
 
     /**

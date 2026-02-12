@@ -11,6 +11,8 @@ use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
 use Unity\Core\DependencyContainer;
+use Unity\Core\Interfaces\Configuration;
+use Unity\Core\Interfaces\UnityConfiguration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Meetings\Interfaces\MeetingRepository;
@@ -130,6 +132,7 @@ class Plugin
         // Register Intergroup Manager
         $container->register(IntergroupManager::class, function (DependencyContainer $c) {
             return new IntergroupManager(
+                $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class)
             );
         });
@@ -137,6 +140,7 @@ class Plugin
         // Register Member Admin
         $container->register(MemberAdmin::class, function (DependencyContainer $c) {
             return new MemberAdmin(
+                $c->get(Configuration::class),
                 $c->get(PositionFactory::class),
                 $c->get(MemberRepository::class),
                 $c->get(GroupFactory::class)
@@ -146,6 +150,7 @@ class Plugin
         // Register Position Admin
         $container->register(PositionAdmin::class, function (DependencyContainer $c) {
             return new PositionAdmin(
+                $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class),
                 $c->get(PositionRepository::class)
             );
@@ -162,6 +167,7 @@ class Plugin
         // Register Meeting Admin
         $container->register(MeetingAdmin::class, function (DependencyContainer $c) {
             return new MeetingAdmin(
+                $c->get(Configuration::class),
                 $c->get(GroupRepository::class)
             );
         });
