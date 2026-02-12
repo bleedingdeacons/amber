@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Managers;
 
+use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
 use TsmlForUnity\Members\TsmlMemberFields;
 use TsmlForUnity\Positions\TsmlPositionFields;
@@ -32,6 +33,7 @@ use function wp_update_post;
 class IntergroupManager
 {
     private PositionViewFactory $positionViewFactory;
+    private $get_the_ID;
 
     public function __construct(PositionViewFactory $positionViewFactory)
     {
@@ -133,7 +135,7 @@ class IntergroupManager
                     $rotationDate = $view->getRotationDate();
                     if (!empty($rotationDate)) {
                         $months = $view->getMonthsUntilRotation();
-                        if ($months <= UnityConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
+                        if ($months <= AmberConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
                             $showHighlight = 'yes';
                         }
                     } else {
@@ -172,12 +174,13 @@ class IntergroupManager
 
     public function renderPositionSummary(): string
     {
+        $this->get_the_ID = get_the_ID();
         try {
-            $positionId = get_the_ID();
+            $positionId = $this->get_the_ID;
             if (!$positionId) {
                 throw new Exception("Invalid position ID in insert_position_summary.");
             }
-            $positionSummary = get_field(UnityFields::POSITION_SUMMARY, $positionId, true);
+            $positionSummary = get_field(TsmlPositionFields::SUMMARY, $positionId, true);
             return '<div>' . wp_kses_post($positionSummary) . '</div>';
         } catch (Exception $ex) {
             error_log('Error in insert_position_summary: ' . $ex->getMessage());
@@ -258,7 +261,7 @@ class IntergroupManager
             $view = $this->positionViewFactory->createFrom($positionId);
             $output = '';
 
-            if (!$view->isVacant()) {
+            if ($view->isVacant()) {
                 $output .= '<h1>Vacant!</h1>';
             } else {
                 $rotationDate = $view->getRotationDate();

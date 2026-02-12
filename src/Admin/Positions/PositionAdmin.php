@@ -175,9 +175,8 @@ class PositionAdmin
             echo '-';
             return;
         }
-        
+
         $memberId = $member->getId();
-//        $displayName = $member->getPrivateName();
         $displayName = $member->getAnonymousName();
         $editLink = get_edit_post_link($memberId);
         
@@ -464,7 +463,6 @@ class PositionAdmin
             return;
         }
         
-//        $memberName = $member->getPrivateName();
         $memberName = $member->getAnonymousName();
         update_post_meta($positionId, '_position_member_name', strtolower($memberName));
         update_post_meta($positionId, '_position_member_id', $member->getId());
