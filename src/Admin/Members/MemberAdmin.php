@@ -15,7 +15,9 @@ use WP_Query;
 use function add_action;
 use function add_filter;
 use function esc_html;
+use function esc_url;
 use function get_current_screen;
+use function get_edit_post_link;
 use function is_admin;
 
 /**
@@ -111,7 +113,12 @@ class MemberAdmin
                 $position = $this->positionFactory->createFromSource($positionId);
 
                 if ($position) {
-                    echo esc_html($position->getLongName());
+                    $positionEditLink = get_edit_post_link($positionId);
+                    if ($positionEditLink) {
+                        echo '<a href="' . esc_url($positionEditLink) . '">' . esc_html($position->getLongName()) . '</a>';
+                    } else {
+                        echo esc_html($position->getLongName());
+                    }
                 } else {
                     echo '<span style="color: gray;">N/A</span>';
                 }
