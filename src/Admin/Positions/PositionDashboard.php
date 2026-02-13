@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Positions;
 
+use Unity\Core\Interfaces\Configuration;
+use Unity\Members\Interfaces\Member;
 use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\PositionViewFactory;
 use Unity\Positions\Interfaces\PositionView;
 use function add_action;
+use function admin_url;
 use function esc_attr;
 use function esc_html;
 use function esc_url;
@@ -24,19 +27,23 @@ class PositionDashboard
 {
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
+    private readonly array $member_config;
 
     /**
      * Constructor
      * 
      * @param PositionViewFactory $positionViewFactory Position view factory
      * @param PositionRepository $positionRepository Position repository
+     * @param Configuration $configuration Amber configuration
      */
     public function __construct(
+        Configuration $configuration,
         PositionViewFactory $positionViewFactory,
         PositionRepository $positionRepository
     ) {
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository = $positionRepository;
+        $this->member_config = $configuration->getConfig(Member::class);
 
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);
@@ -160,6 +167,8 @@ class PositionDashboard
         
         if ($positionView->isVacant() || !$member) {
             echo '<span class="vacant-indicator">Vacant</span>';
+            $membersUrl = admin_url('edit.php?post_type=' . $this->member_config['POST_TYPE']);
+            echo ' <a href="' . esc_url($membersUrl) . '" class="vacant-action-btn" title="View Members">..</a>';
             return;
         }
         
@@ -173,14 +182,19 @@ class PositionDashboard
             echo esc_html($displayName);
         }
         
-        // Show private email if available
-        $privateEmail = $positionView->getPrivateEmail();
-        if (!empty($privateEmail)) {
-            echo '<br><small>';
-            echo '<a href="mailto:' . esc_attr($privateEmail) . '" class="member-email">';
-            echo esc_html($privateEmail);
-            echo '</a>';
-            echo '</small>';
+        // Show months until rotation
+        $months = $positionView->getMonthsUntilRotation();
+        if ($months !== null) {
+            if ($months < 0) {
+                $overdueMonths = abs($months);
+                echo '<br><small class="member-rotation rotation-overdue">';
+                echo 'Overdue ' . $overdueMonths . ' month' . ($overdueMonths !== 1 ? 's' : '');
+                echo '</small>';
+            } else {
+                echo '<br><small class="member-rotation">';
+                echo $months . ' month' . ($months !== 1 ? 's' : '') . ' until rotation';
+                echo '</small>';
+            }
         }
     }
 
@@ -236,7 +250,7 @@ class PositionDashboard
             echo '<span class="status-badge status-soon" title="' . $months . ' month(s) until rotation">Soon (' . $months . 'm)</span>';
         } else {
             $formattedDate = $rotationDate->format('M Y');
-            echo '<span class="status-badge status-normal" title="Rotation date: ' . $formattedDate . '">Active</span>';
+            echo '<span class="status-badge status-normal" title="Rotation date: ' . $formattedDate . '">Filled</span>';
         }
     }
 
@@ -290,19 +304,41 @@ class PositionDashboard
                 text-align: center;
             }
             
-            .position-members-table .member-email {
+            .position-members-table .member-rotation {
                 color: #666;
-                text-decoration: none;
             }
             
-            .position-members-table .member-email:hover {
-                color: #2271b1;
-                text-decoration: underline;
+            .position-members-table .rotation-overdue {
+                color: #dc3232;
+                font-weight: 600;
             }
             
             .vacant-indicator {
                 color: #999;
                 font-style: italic;
+            }
+            
+            .vacant-action-btn {
+                display: inline-block;
+                margin-left: 4px;
+                padding: 0 6px;
+                background: #f0f0f1;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                color: #666;
+                text-decoration: none;
+                font-weight: bold;
+                font-size: 12px;
+                line-height: 20px;
+                vertical-align: middle;
+                cursor: pointer;
+                letter-spacing: 1px;
+            }
+            
+            .vacant-action-btn:hover {
+                background: #e0e0e0;
+                border-color: #999;
+                color: #333;
             }
             
             .no-email {

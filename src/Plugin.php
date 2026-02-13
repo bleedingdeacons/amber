@@ -159,6 +159,7 @@ class Plugin
         // Register Position Dashboard
         $container->register(PositionDashboard::class, function (DependencyContainer $c) {
             return new PositionDashboard(
+                $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class),
                 $c->get(PositionRepository::class)
             );

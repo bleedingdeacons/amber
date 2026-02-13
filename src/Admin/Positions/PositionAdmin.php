@@ -98,10 +98,8 @@ class PositionAdmin
             $newColumns[$key] = $value;
             
             if ($key === 'title') {
-                $newColumns['position_member'] = 'Current Member';
                 $newColumns['position_email'] = 'Position Email';
-                $newColumns['private_email'] = 'Private Email';
-                $newColumns['private_contact'] = 'Mobile Number';
+                $newColumns['position_member'] = 'Current Member';
                 $newColumns['rotation_status'] = 'Status';
                 $newColumns['rotation_date'] = 'Rotation Date';
             }
@@ -132,15 +130,7 @@ class PositionAdmin
             case 'position_email':
                 $this->displayPositionEmail($positionView);
                 break;
-                
-            case 'private_email':
-                $this->displayPrivateEmail($positionView);
-                break;
-                
-            case 'private_contact':
-                $this->displayPrivateContact($positionView);
-                break;
-                
+
             case 'rotation_date':
                 $this->displayRotationDate($positionView);
                 break;

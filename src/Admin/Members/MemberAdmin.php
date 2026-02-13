@@ -73,8 +73,8 @@ class MemberAdmin
 
             if ($key === 'title') {
                 $newColumns['anonymous_name'] = 'Anonymous Name';
-                $newColumns['gsr_status'] = 'GSR Status';
                 $newColumns['service_position'] = 'Service Position';
+                $newColumns['gsr_status'] = 'Is GSR?';
                 $newColumns['homegroup'] = 'Homegroup';
             }
         }
