@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber;
 
+use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
+use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
@@ -15,6 +17,8 @@ use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\UnityConfiguration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingFactory;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Meetings\Interfaces\MeetingRepository;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -68,8 +72,10 @@ class Plugin
             self::$container->get(PositionAdmin::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(MeetingAdmin::class);
+            self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
+            self::$container->get(IntergroupMeetingDashboard::class);
         }
     }
 
@@ -114,6 +120,15 @@ class Plugin
             'Groups / Meetings',
             self::MENU_CAPABILITY,
             'edit.php?post_type=tsml_meeting'
+        );
+
+        // Add Intergroup Meetings sub-menu
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Intergroup Meetings',
+            'Intergroup Meetings',
+            self::MENU_CAPABILITY,
+            'edit.php?post_type=intergroup-meeting'
         );
 
         // Remove the default Intergroup submenu item
@@ -178,6 +193,25 @@ class Plugin
             return new MeetingDashboard(
                 $c->get(MeetingRepository::class),
                 $c->get(GroupRepository::class)
+            );
+        });
+
+        // Register Intergroup Meeting Admin
+        $container->register(IntergroupMeetingAdmin::class, function (DependencyContainer $c) {
+            return new IntergroupMeetingAdmin(
+                $c->get(IntergroupMeetingFactory::class),
+                $c->get(IntergroupMeetingRepository::class),
+                $c->get(GroupRepository::class),
+                $c->get(MemberRepository::class)
+            );
+        });
+
+        // Register Intergroup Meeting Dashboard
+        $container->register(IntergroupMeetingDashboard::class, function (DependencyContainer $c) {
+            return new IntergroupMeetingDashboard(
+                $c->get(IntergroupMeetingRepository::class),
+                $c->get(GroupRepository::class),
+                $c->get(MemberRepository::class)
             );
         });
     }
