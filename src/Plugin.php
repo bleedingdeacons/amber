@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Amber;
 
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
+use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
@@ -19,6 +20,7 @@ use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingAttendanceRepository;
 use Unity\Meetings\Interfaces\MeetingRepository;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -76,6 +78,7 @@ class Plugin
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
             self::$container->get(IntergroupMeetingDashboard::class);
+            self::$container->get(IntergroupMeetingAttendanceDashboard::class);
         }
     }
 
@@ -212,6 +215,14 @@ class Plugin
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(GroupRepository::class),
                 $c->get(MemberRepository::class)
+            );
+        });
+
+        // Register Intergroup Meeting Attendance Dashboard
+        $container->register(IntergroupMeetingAttendanceDashboard::class, function (DependencyContainer $c) {
+            return new IntergroupMeetingAttendanceDashboard(
+                $c->get(IntergroupMeetingRepository::class),
+                $c->get(IntergroupMeetingAttendanceRepository::class)
             );
         });
     }
