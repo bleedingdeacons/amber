@@ -202,10 +202,13 @@ class Plugin
         // Register Intergroup Meeting Admin
         $container->register(IntergroupMeetingAdmin::class, function (DependencyContainer $c) {
             return new IntergroupMeetingAdmin(
+                $c->get(Configuration::class),
                 $c->get(IntergroupMeetingFactory::class),
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(GroupRepository::class),
-                $c->get(MemberRepository::class)
+                $c->get(MemberRepository::class),
+                $c->get(PositionFactory::class),
+                $c->get(PositionRepository::class)
             );
         });
 

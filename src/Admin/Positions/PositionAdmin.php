@@ -407,8 +407,8 @@ class PositionAdmin
     {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (defined('DOING_AJAX') && DOING_AJAX) return;
-        
-        $positionId = get_field(TsmlMemberFields::FIELD_INTERGROUP_POSITION, $postId);
+
+        $positionId = get_field($this->member_config['FIELD_INTERGROUP_POSITION'], $postId);
         
         if ($positionId) {
             if (is_string($positionId) && strpos($positionId, 'a:') === 0) {

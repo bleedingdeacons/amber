@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace Amber\Admin\IntergroupMeetings;
 
+use Unity\Core\Interfaces\Configuration;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Positions\Interfaces\Position;
+use Unity\Positions\Interfaces\PositionFactory;
 
+use Unity\Positions\Interfaces\PositionRepository;
 use WP_Post;
 use WP_Query;
 use function add_action;
@@ -35,8 +40,11 @@ class IntergroupMeetingAdmin
     private IntergroupMeetingRepository $intergroupMeetingRepository;
     private GroupRepository $groupRepository;
     private MemberRepository $memberRepository;
-
-    private const POST_TYPE = 'intergroup-meeting';
+    private PositionFactory $positionFactory;
+    private PositionRepository $positionRepository;
+    private readonly array $intergroupMeeting_config;
+    private readonly array $position_config;
+    private readonly array $member_config;
 
     /**
      * Constructor
@@ -45,24 +53,64 @@ class IntergroupMeetingAdmin
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
      * @param GroupRepository $groupRepository Group repository
      * @param MemberRepository $memberRepository Member repository
+     * @param PositionFactory $positionFactory Position factory
+     * @param PositionRepository $positionRepository Member repository
      */
     public function __construct(
+        Configuration $configuration,
         IntergroupMeetingFactory $intergroupMeetingFactory,
         IntergroupMeetingRepository $intergroupMeetingRepository,
         GroupRepository $groupRepository,
-        MemberRepository $memberRepository
+        MemberRepository $memberRepository,
+        PositionFactory $positionFactory,
+        PositionRepository $positionRepository
     ) {
+        $this->intergroupMeeting_config = $configuration->getConfig(IntergroupMeeting::class);
+        $this->position_config = $configuration->getConfig(Position::class);
+        $this->member_config = $configuration->getConfig(Member::class);
+
         $this->intergroupMeetingFactory = $intergroupMeetingFactory;
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->groupRepository = $groupRepository;
         $this->memberRepository = $memberRepository;
+        $this->positionFactory = $positionFactory;
+        $this->positionRepository = $positionRepository;
 
-        add_filter('manage_' . self::POST_TYPE . '_posts_columns', [$this, 'addCustomColumns']);
-        add_action('manage_' . self::POST_TYPE . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
-        add_filter('manage_edit-' . self::POST_TYPE . '_sortable_columns', [$this, 'makeColumnsSortable']);
+        add_filter('manage_' . $this->intergroupMeeting_config['POST_TYPE'] . '_posts_columns', [$this, 'addCustomColumns']);
+        add_action('manage_' . $this->intergroupMeeting_config['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
+        add_filter('manage_edit-' . $this->intergroupMeeting_config['POST_TYPE'] . '_sortable_columns', [$this, 'makeColumnsSortable']);
         add_filter('pre_get_posts', [$this, 'handleCustomColumnSorting']);
-        add_action('save_post_' . self::POST_TYPE, [$this, 'updateIntergroupMeetingMetadataOnSave'], 10, 3);
+        add_action('save_post_' . $this->intergroupMeeting_config['POST_TYPE'], [$this, 'updateIntergroupMeetingMetadataOnSave'], 10, 3);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
+        add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
+    }
+
+
+    /**
+     * add name of position in relationship list.
+     *
+     * @return int Number of meetings updated
+     */
+    public function addPositionName($title, $post, $field, $post_id) {
+
+        if ($post->post_type !== $this->member_config['POST_TYPE']) {
+            return $title;
+        }
+
+        $member = $this->memberRepository->find($post->ID);
+
+        if ($member === null) {
+            return $title;
+        }
+
+        $intergroupPosition = $member->getIntergroupPosition();
+
+        if ($intergroupPosition === 0) { return $title; };
+
+        $position = $this->positionRepository->findById($intergroupPosition);
+
+        return $title . ' (' . $position->getLongName() . ')';
+
     }
 
     /**
@@ -229,11 +277,16 @@ class IntergroupMeetingAdmin
             $member = $this->memberRepository->find($id);
             if ($member) {
                 $displayName = $member->getAnonymousName();
+                $positionId = $member->getIntergroupPosition();
+                $position = $positionId ? $this->positionFactory->createFromSource($positionId) : null;
+                $label = $position
+                    ? $displayName . ' (' . $position->getLongName() . ')'
+                    : $displayName;
                 $editLink = get_edit_post_link($id);
                 if ($editLink) {
-                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
+                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($label) . '</a>';
                 } else {
-                    $names[] = esc_html($displayName);
+                    $names[] = esc_html($label);
                 }
             }
         }
@@ -275,7 +328,7 @@ class IntergroupMeetingAdmin
         }
 
         $screen = get_current_screen();
-        if (!$screen || $screen->post_type !== self::POST_TYPE) {
+        if (!$screen || $screen->post_type !== $this->intergroupMeeting_config['POST_TYPE']) {
             return $query;
         }
 
@@ -343,7 +396,7 @@ class IntergroupMeetingAdmin
     {
         $screen = get_current_screen();
 
-        if (!$screen || $screen->post_type !== self::POST_TYPE) {
+        if (!$screen || $screen->post_type !== $this->intergroupMeeting_config['POST_TYPE']) {
             return;
         }
 
