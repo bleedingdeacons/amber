@@ -289,7 +289,7 @@ class IntergroupMeetingAdmin
             echo '<span style="color: gray;">—</span>';
             return;
         }
-
+        // TODO: Add GSR Names
         $names = [];
         foreach ($attendeeIds as $id) {
             $group = $this->groupRepository->findById($id);
