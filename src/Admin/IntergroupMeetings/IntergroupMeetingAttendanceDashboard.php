@@ -6,7 +6,7 @@ namespace Amber\Admin\IntergroupMeetings;
 
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
-use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingAttendanceRepository;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 
 use function add_action;
 use function add_submenu_page;
@@ -21,10 +21,10 @@ use function get_current_screen;
  * intergroup meeting. Users pick a meeting from a dropdown and see
  * a table of group, GSR name, proxy flag, and proxy name.
  */
-class IntergroupMeetingAttendanceDashboard
+class IntergroupMeetingGroupAttendanceDashboard
 {
     private IntergroupMeetingRepository $intergroupMeetingRepository;
-    private IntergroupMeetingAttendanceRepository $attendanceRepository;
+    private IntergroupMeetingGroupAttendanceRepository $attendanceRepository;
 
     private const PAGE_SLUG = 'intergroup-attendance';
 
@@ -32,11 +32,11 @@ class IntergroupMeetingAttendanceDashboard
      * Constructor
      *
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
-     * @param IntergroupMeetingAttendanceRepository $attendanceRepository Attendance repository
+     * @param IntergroupMeetingGroupAttendanceRepository $attendanceRepository Attendance repository
      */
     public function __construct(
         IntergroupMeetingRepository $intergroupMeetingRepository,
-        IntergroupMeetingAttendanceRepository $attendanceRepository
+        IntergroupMeetingGroupAttendanceRepository $attendanceRepository
     ) {
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->attendanceRepository = $attendanceRepository;
