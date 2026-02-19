@@ -208,7 +208,8 @@ class Plugin
                 $c->get(GroupRepository::class),
                 $c->get(MemberRepository::class),
                 $c->get(PositionFactory::class),
-                $c->get(PositionRepository::class)
+                $c->get(PositionRepository::class),
+                $c->get(MeetingRepository::class)
             );
         });
 
