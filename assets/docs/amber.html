@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amber Plugin — User Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FAFAF8;
+            --surface: #FFFFFF;
+            --border: #E8E5E0;
+            --text: #1A1A18;
+            --text-secondary: #6B6860;
+            --accent: #D97706;
+            --accent-bg: #FEF3C7;
+            --accent-dark: #B45309;
+            --info: #1D4ED8;
+            --info-bg: #DBEAFE;
+            --danger: #DC2626;
+            --danger-bg: #FEE2E2;
+            --success: #16A34A;
+            --success-bg: #DCFCE7;
+            --code-bg: #F5F3EF;
+            --nav-width: 280px;
+            --header-height: 64px;
+            --radius: 10px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height) + 24px); }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Header ── */
+        .site-header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: var(--header-height);
+            background: rgba(250,250,248,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 24px;
+            gap: 16px;
+        }
+        .site-header .logo {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 700; font-size: 20px; color: var(--text);
+            text-decoration: none; letter-spacing: -0.3px;
+        }
+        .site-header .logo span { color: var(--accent); }
+        .site-header .version {
+            font-size: 12px; font-weight: 500; color: var(--text-secondary);
+            background: var(--code-bg); padding: 2px 8px; border-radius: 6px;
+        }
+        .hamburger {
+            display: none; background: none; border: none; cursor: pointer;
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 8px; align-items: center; justify-content: center;
+        }
+        .hamburger:hover { background: var(--code-bg); }
+        .hamburger svg { width: 22px; height: 22px; color: var(--text); }
+
+        /* ── Sidebar Nav ── */
+        .sidebar {
+            position: fixed; top: var(--header-height); left: 0; bottom: 0;
+            width: var(--nav-width); overflow-y: auto;
+            border-right: 1px solid var(--border);
+            background: var(--bg); padding: 24px 0;
+            z-index: 90;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .nav-section { padding: 0 20px; margin-bottom: 24px; }
+        .nav-section-title {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;
+            padding-left: 12px;
+        }
+        .nav-link {
+            display: block; padding: 6px 12px; border-radius: 8px;
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 14px; font-weight: 400; transition: all 0.15s;
+            line-height: 1.5;
+        }
+        .nav-link:hover { color: var(--text); background: var(--surface); }
+        .nav-link.active { color: var(--accent-dark); background: var(--accent-bg); font-weight: 500; }
+
+        /* ── Main Content ── */
+        .main {
+            margin-left: var(--nav-width);
+            padding: calc(var(--header-height) + 40px) 48px 80px;
+            max-width: 860px;
+        }
+
+        /* ── Typography ── */
+        h1 {
+            font-size: 36px; font-weight: 700; letter-spacing: -0.8px;
+            line-height: 1.2; margin-bottom: 12px; color: var(--text);
+        }
+        h1 .emoji { font-size: 32px; margin-right: 4px; }
+        .subtitle {
+            font-size: 18px; color: var(--text-secondary); font-weight: 400;
+            margin-bottom: 40px; line-height: 1.6;
+        }
+        h2 {
+            font-size: 24px; font-weight: 700; letter-spacing: -0.4px;
+            margin-top: 56px; margin-bottom: 16px; padding-top: 24px;
+            border-top: 1px solid var(--border); color: var(--text);
+        }
+        h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+        h3 {
+            font-size: 18px; font-weight: 600; margin-top: 32px; margin-bottom: 10px;
+            color: var(--text);
+        }
+        p { margin-bottom: 16px; }
+        ul, ol { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 6px; }
+
+        /* ── Cards / Callouts ── */
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+        .callout {
+            border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px;
+            font-size: 15px; display: flex; gap: 12px; align-items: flex-start;
+            line-height: 1.6;
+        }
+        .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .callout.info { background: var(--info-bg); border-left: 4px solid var(--info); }
+        .callout.warning { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+        .callout.danger { background: var(--danger-bg); border-left: 4px solid var(--danger); }
+        .callout.success { background: var(--success-bg); border-left: 4px solid var(--success); }
+
+        /* ── Code ── */
+        code {
+            font-family: 'JetBrains Mono', monospace; font-size: 13.5px;
+            background: var(--code-bg); padding: 2px 7px; border-radius: 5px;
+            color: var(--accent-dark);
+        }
+        pre {
+            background: #1E1E1C; color: #D4D0C8; border-radius: var(--radius);
+            padding: 20px 24px; margin-bottom: 24px; overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+        }
+        pre code { background: none; padding: 0; color: inherit; }
+
+        /* ── Status table ── */
+        .status-table {
+            width: 100%; border-collapse: collapse; margin-bottom: 24px;
+            font-size: 15px;
+        }
+        .status-table th {
+            text-align: left; padding: 10px 16px; font-weight: 600;
+            border-bottom: 2px solid var(--border); font-size: 13px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+        .status-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+        .status-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: 13px; font-weight: 600;
+        }
+        .badge-normal { background: var(--success-bg); color: var(--success); }
+        .badge-soon { background: var(--accent-bg); color: var(--accent-dark); }
+        .badge-due { background: var(--danger-bg); color: var(--danger); }
+        .badge-overdue { background: var(--danger-bg); color: var(--danger); }
+        .badge-vacant { background: var(--danger-bg); color: var(--danger); }
+        .badge-unknown { background: var(--code-bg); color: var(--text-secondary); }
+
+        /* ── Steps ── */
+        .steps { counter-reset: step; list-style: none; padding-left: 0; }
+        .steps li {
+            counter-increment: step; padding-left: 44px; position: relative;
+            margin-bottom: 20px; min-height: 32px;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute; left: 0; top: 0;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--accent); color: #fff;
+            font-weight: 700; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Overlay for mobile nav ── */
+        .overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.3); z-index: 80;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 860px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                box-shadow: var(--shadow-md);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .overlay.visible { display: block; }
+            .hamburger { display: flex; }
+            .main { margin-left: 0; padding: calc(var(--header-height) + 24px) 20px 60px; }
+            h1 { font-size: 28px; }
+            h2 { font-size: 20px; }
+            pre { padding: 16px; font-size: 12px; }
+            .status-table { font-size: 14px; }
+            .status-table th, .status-table td { padding: 8px 10px; }
+        }
+
+        /* ── Print ── */
+        @media print {
+            .site-header, .sidebar, .hamburger, .overlay { display: none !important; }
+            .main { margin-left: 0; padding: 20px; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+    <button class="hamburger" onclick="toggleNav()" aria-label="Toggle navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <a href="#" class="logo">
+        <span>🟠</span> Amber <span>Docs</span>
+    </a>
+    <span class="version">February 2026</span>
+</header>
+
+<!-- Overlay for mobile -->
+<div class="overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+    <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#requirements" class="nav-link">Requirements</a>
+        <a href="#installation" class="nav-link">Installation</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Positions</div>
+        <a href="#positions-overview" class="nav-link">Positions Overview</a>
+        <a href="#positions-admin" class="nav-link">Admin List &amp; Columns</a>
+        <a href="#rotation-statuses" class="nav-link">Rotation Statuses</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Members</div>
+        <a href="#members-overview" class="nav-link">Members Overview</a>
+        <a href="#members-admin" class="nav-link">Admin List &amp; Columns</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Meetings</div>
+        <a href="#meetings-groups" class="nav-link">Groups / Meetings</a>
+        <a href="#meetings-dashboard" class="nav-link">Meetings Dashboard</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Intergroup Meetings</div>
+        <a href="#ig-meetings" class="nav-link">Intergroup Meetings</a>
+        <a href="#ig-attendance" class="nav-link">Attendance Tracking</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Display</div>
+        <a href="#shortcodes" class="nav-link">Shortcodes</a>
+        <a href="#dashboards" class="nav-link">Dashboard Widgets</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Help</div>
+        <a href="#gdpr" class="nav-link">GDPR &amp; Scrutiny</a>
+        <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
+        <a href="#faq" class="nav-link">FAQ</a>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+    <!-- Overview -->
+    <section id="overview">
+        <h1><span class="emoji">🟠</span> Amber Plugin</h1>
+        <p class="subtitle">
+            Admin components for intergroup management. Manage service positions, members, meetings, and intergroup meeting attendance — all from your WordPress dashboard.
+        </p>
+
+        <div class="card">
+            <h3>What Amber Does</h3>
+            <p>Amber adds an <strong>Intergroup</strong> admin menu to WordPress with four sections: Positions, Members, Groups / Meetings, and Intergroup Meetings. It enriches each of these with custom columns, sortable lists, dashboard widgets, and front-end shortcodes for your public site.</p>
+            <p style="margin-bottom:0;">Amber is built for service organisations that need to track who holds which position, when rotations are due, which groups attend intergroup meetings, and how to contact officers — while respecting GDPR through its dependency on the Scrutiny plugin.</p>
+        </div>
+    </section>
+
+    <!-- Requirements -->
+    <section id="requirements">
+        <h2>Requirements</h2>
+        <ul>
+            <li><strong>WordPress</strong> 6.0 or later</li>
+            <li><strong>PHP</strong> 8.1 or later</li>
+            <li><strong>Unity plugin</strong> — must be installed and activated (provides the core data layer for positions, members, meetings, and groups)</li>
+            <li><strong>Scrutiny plugin</strong> — must be installed and activated (required for GDPR compliance)</li>
+            <li><strong>Advanced Custom Fields (ACF)</strong> — used for the custom field editor on all post types</li>
+        </ul>
+
+        <div class="callout danger">
+            <span class="callout-icon">🚨</span>
+            <div><strong>Amber will not activate without Scrutiny.</strong> If Scrutiny is deactivated while Amber is running, Amber will automatically deactivate itself and show a notice explaining why.</div>
+        </div>
+
+        <div class="callout warning">
+            <span class="callout-icon">⚠️</span>
+            <div>If Unity is not active, you'll see: <em>"This plugin requires the Unity plugin to be installed and activated."</em> Amber will not load until Unity is running.</div>
+        </div>
+    </section>
+
+    <!-- Installation -->
+    <section id="installation">
+        <h2>Installation</h2>
+        <ol class="steps">
+            <li>Make sure both the <strong>Unity</strong> and <strong>Scrutiny</strong> plugins are installed and activated.</li>
+            <li>Upload the <code>amber</code> folder to your <code>/wp-content/plugins/</code> directory, or install via the WordPress plugin uploader.</li>
+            <li>Go to <strong>Plugins → Installed Plugins</strong> and activate <strong>Amber</strong>.</li>
+            <li>You'll see a new <strong>Intergroup</strong> menu item in the admin sidebar with four sub-menus: Positions, Members, Groups / Meetings, and Intergroup Meetings.</li>
+        </ol>
+    </section>
+
+    <!-- Positions Overview -->
+    <section id="positions-overview">
+        <h2>Positions Overview</h2>
+        <p>Positions represent service roles within your intergroup — such as Chair, Secretary, Treasurer, or GSR Liaison. Each position can be assigned to a member and has properties like a position email, rotation date, minimum sobriety requirement, and term length.</p>
+        <p>Navigate to <strong>Intergroup → Positions</strong> to see all positions.</p>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div>Positions are a custom post type managed through Unity. Amber adds the admin columns, sorting, rotation tracking, and dashboard widget on top.</div>
+        </div>
+    </section>
+
+    <!-- Positions Admin -->
+    <section id="positions-admin">
+        <h2>Positions — Admin List &amp; Columns</h2>
+        <p>The positions admin list includes these custom columns:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Column</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><strong>Position Email</strong></td><td>The generic email address for this role (e.g. chair@example.org). Shown as a clickable mailto link.</td></tr>
+            <tr><td><strong>Current Member</strong></td><td>The member currently holding the position. Links to their member edit page. Shows "–" if vacant.</td></tr>
+            <tr><td><strong>Status</strong></td><td>Colour-coded rotation status (see <a href="#rotation-statuses">Rotation Statuses</a>).</td></tr>
+            <tr><td><strong>Rotation Date</strong></td><td>The date the current holder's term ends, in <code>dd/mm/yyyy</code> format. Shows "Not set" if missing.</td></tr>
+            </tbody>
+        </table>
+        <p>All columns are <strong>sortable</strong> — click any column header to sort the list.</p>
+    </section>
+
+    <!-- Rotation Statuses -->
+    <section id="rotation-statuses">
+        <h2>Rotation Statuses</h2>
+        <p>Each position displays a colour-coded rotation status in both the admin list and the dashboard widget:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+            <tbody>
+            <tr><td><span class="status-badge badge-normal">✓ X months remaining</span></td><td>More than 3 months until rotation. All is well.</td></tr>
+            <tr><td><span class="status-badge badge-soon">⚑ Due in X months</span></td><td>3 months or less until rotation. Time to start finding a replacement.</td></tr>
+            <tr><td><span class="status-badge badge-due">⏱ Due Now</span></td><td>The rotation month has arrived. The position needs to be handed over.</td></tr>
+            <tr><td><span class="status-badge badge-overdue">✗ Overdue by X months</span></td><td>The rotation date has passed. Immediate action needed.</td></tr>
+            <tr><td><span class="status-badge badge-vacant">⚠ Vacant Position</span></td><td>No member assigned. The position is empty.</td></tr>
+            <tr><td><span class="status-badge badge-unknown">? No Rotation Date</span></td><td>A member is assigned but no rotation date has been set.</td></tr>
+            </tbody>
+        </table>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div>On the public site, positions with 6 months or fewer until rotation (or vacant / missing rotation date) are highlighted to draw attention.</div>
+        </div>
+    </section>
+
+    <!-- Members Overview -->
+    <section id="members-overview">
+        <h2>Members Overview</h2>
+        <p>Members represent individuals serving in your intergroup. Each member record can hold an anonymous name (for privacy), a linked homegroup, a service position, and a flag indicating whether they serve as a GSR (General Service Representative).</p>
+        <p>Navigate to <strong>Intergroup → Members</strong> to see all members.</p>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div>When you save a member, Amber automatically syncs the WordPress post title with the member's <strong>Anonymous Name</strong> field, so the admin list always shows the correct display name.</div>
+        </div>
+    </section>
+
+    <!-- Members Admin -->
+    <section id="members-admin">
+        <h2>Members — Admin List &amp; Columns</h2>
+        <p>The members admin list includes these custom columns:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Column</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><strong>Anonymous Name</strong></td><td>The member's display name (e.g. "John D.").</td></tr>
+            <tr><td><strong>Service Position</strong></td><td>The intergroup position held by this member. Links to the position edit page.</td></tr>
+            <tr><td><strong>Is GSR?</strong></td><td>Whether the member is a General Service Representative. Shows ✓ Yes or ✗ No.</td></tr>
+            <tr><td><strong>Homegroup</strong></td><td>The member's home group name.</td></tr>
+            </tbody>
+        </table>
+        <p>All columns are <strong>sortable</strong>.</p>
+    </section>
+
+    <!-- Groups / Meetings -->
+    <section id="meetings-groups">
+        <h2>Groups / Meetings</h2>
+        <p>Navigate to <strong>Intergroup → Groups / Meetings</strong> to see all meetings. This view uses the TSML (12 Step Meeting List) post type and adds a <strong>Group</strong> column showing which group each meeting belongs to.</p>
+        <p>The Group column is sortable, and the search bar is extended so that searching for a group name will also return its meetings.</p>
+    </section>
+
+    <!-- Meetings Dashboard -->
+    <section id="meetings-dashboard">
+        <h2>Meetings Dashboard Widget</h2>
+        <p>A <strong>Groups &amp; Meetings</strong> widget appears on the WordPress Dashboard, showing a full weekly schedule. Meetings are sorted by day of the week (respecting your WordPress "Week Starts On" setting) and then by start time.</p>
+        <p>Each row shows:</p>
+        <ul>
+            <li><strong>Day</strong> — the day name (shown once per day as a header)</li>
+            <li><strong>Group</strong> — the parent group (links to the group editor)</li>
+            <li><strong>Meeting</strong> — the meeting name (links to the meeting editor), with an "Online" badge for virtual meetings</li>
+            <li><strong>Time</strong> — start and end time</li>
+            <li><strong>Location</strong> — venue name and address, or an online meeting link</li>
+            <li><strong>Contacts</strong> — up to 3 contacts (from the group or meeting), showing name and phone number</li>
+        </ul>
+    </section>
+
+    <!-- Intergroup Meetings -->
+    <section id="ig-meetings">
+        <h2>Intergroup Meetings</h2>
+        <p>Navigate to <strong>Intergroup → Intergroup Meetings</strong> to manage records of intergroup assembly meetings. Each intergroup meeting record captures the date, which groups sent representatives, and which officers attended.</p>
+
+        <h3>Admin List Columns</h3>
+        <table class="status-table">
+            <thead><tr><th>Column</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><strong>Meeting Date</strong></td><td>The date of the intergroup meeting, shown in a human-readable format.</td></tr>
+            <tr><td><strong>Group Attendees</strong></td><td>A list of groups whose GSRs attended (linked to their edit pages).</td></tr>
+            <tr><td><strong>Officers Attending</strong></td><td>A list of officers who attended, showing their anonymous name and position title.</td></tr>
+            <tr><td><strong>Total Attendees</strong></td><td>The combined count of groups and officers present.</td></tr>
+            </tbody>
+        </table>
+        <p>The <strong>Meeting Date</strong> and <strong>Total Attendees</strong> columns are sortable.</p>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div>When selecting officers in the attendance field, Amber shows each member's position name in brackets for easy identification. When selecting groups, the GSR name is appended.</div>
+        </div>
+    </section>
+
+    <!-- Attendance Tracking -->
+    <section id="ig-attendance">
+        <h2>Attendance Tracking</h2>
+        <p>When you save an intergroup meeting, Amber automatically creates and maintains attendance records behind the scenes. This means:</p>
+        <ul>
+            <li>Adding a group to the attendees list creates a group attendance record (with the group name and GSR name captured at that point in time)</li>
+            <li>Adding an officer creates an officer attendance record (with their position name captured)</li>
+            <li>Removing a group or officer deletes the corresponding attendance record</li>
+        </ul>
+        <p>These records are used by the Intergroup Meeting dashboards to show attendance history and trends over time.</p>
+    </section>
+
+    <!-- Shortcodes -->
+    <section id="shortcodes">
+        <h2>Shortcodes</h2>
+
+        <div class="card">
+            <h3>Directory List</h3>
+            <pre><code>[directory_list]</code></pre>
+            <p>Renders a table of all service positions showing the position description, the current holder's public display name, the position email, rotation status, and a link to the position's "About" page.</p>
+        </div>
+
+        <div class="card">
+            <h3>Position Header</h3>
+            <pre><code>[position_header]</code></pre>
+            <p>For use on individual position pages. Displays the position title, minimum sobriety requirement, term length, and an "Email Officer" link (if the position is filled).</p>
+        </div>
+
+        <div class="card">
+            <h3>Position State / Highlight</h3>
+            <pre><code>[position_state]</code></pre>
+            <pre><code>[position_highlight]</code></pre>
+            <p>For use on individual position pages. Shows a prominent status message — "Vacant!", "Rotation Overdue!", "Due in X Months", etc. — along with an email link to the current officer.</p>
+        </div>
+
+        <div class="card">
+            <h3>Position Summary</h3>
+            <pre><code>[position_summary]</code></pre>
+            <p style="margin-bottom:0;">For use on individual position pages. Renders the rich-text summary field of the current position.</p>
+        </div>
+    </section>
+
+    <!-- Dashboard Widgets -->
+    <section id="dashboards">
+        <h2>Dashboard Widgets</h2>
+        <p>Amber adds two widgets to the WordPress admin Dashboard:</p>
+
+        <div class="card">
+            <h3>Positions &amp; Members</h3>
+            <p>A table of all positions showing the position title, current holder, position email, rotation date, and colour-coded status. Vacant positions and approaching rotations are highlighted. Links go directly to edit pages.</p>
+        </div>
+
+        <div class="card">
+            <h3>Groups &amp; Meetings</h3>
+            <p style="margin-bottom:0;">A full weekly meeting schedule (see <a href="#meetings-dashboard">Meetings Dashboard Widget</a> above for details).</p>
+        </div>
+    </section>
+
+    <!-- GDPR -->
+    <section id="gdpr">
+        <h2>GDPR &amp; Scrutiny</h2>
+        <p>Amber requires the <strong>Scrutiny</strong> plugin for GDPR compliance. Scrutiny handles the data protection aspects of storing member information (names, contact details, etc.).</p>
+
+        <div class="callout danger">
+            <span class="callout-icon">🚨</span>
+            <div>If Scrutiny is deactivated or removed, <strong>Amber will automatically deactivate itself</strong> to prevent non-compliant handling of personal data. You'll see an admin notice explaining what happened. Reactivate Scrutiny first, then reactivate Amber.</div>
+        </div>
+
+        <p>Amber uses anonymous names rather than full names for public-facing displays, and contact information (private emails, phone numbers) is only visible in the admin area.</p>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+
+        <div class="card">
+            <h3>"Scrutiny plugin is required" error on activation</h3>
+            <p>Amber cannot be activated without Scrutiny. Go to <strong>Plugins → Installed Plugins</strong>, find Scrutiny, and activate it first. Then try activating Amber again.</p>
+        </div>
+
+        <div class="card">
+            <h3>Amber deactivated itself</h3>
+            <p>This happens when Scrutiny is deactivated while Amber is running. Amber enforces GDPR compliance by refusing to operate without Scrutiny. Reactivate Scrutiny, then reactivate Amber.</p>
+        </div>
+
+        <div class="card">
+            <h3>Positions show "Not set" for rotation dates</h3>
+            <p>Open the position, assign a member, and set a rotation date using the ACF date picker. Save the position — the status will update automatically.</p>
+        </div>
+
+        <div class="card">
+            <h3>Custom columns not appearing</h3>
+            <p>Click <strong>Screen Options</strong> at the top right of any admin list page and ensure the relevant columns are checked. Amber's columns should be visible by default, but Screen Options settings are stored per-user.</p>
+        </div>
+
+        <div class="card">
+            <h3>Meeting search not finding results by group name</h3>
+            <p>The extended search only works on the <strong>Groups / Meetings</strong> admin list page. Make sure you're searching from <strong>Intergroup → Groups / Meetings</strong>, not from the main WordPress search.</p>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+        <h2>FAQ</h2>
+
+        <div class="card">
+            <h3>What's the difference between "Meetings" and "Intergroup Meetings"?</h3>
+            <p><strong>Meetings</strong> (under Groups / Meetings) are regular recurring meetings — the weekly schedule of groups. <strong>Intergroup Meetings</strong> are specific assembly dates where group representatives and officers come together. Think of it as "regular group meetings" vs "the intergroup's own business meetings".</p>
+        </div>
+
+        <div class="card">
+            <h3>How does the rotation warning threshold work?</h3>
+            <p>Amber highlights positions where rotation is due within <strong>6 months</strong>. On the public site (via shortcodes), positions within this threshold show a warning. On the admin side, the status column gives a more granular breakdown: "Due in X months", "Due Now", or "Overdue by X months".</p>
+        </div>
+
+        <div class="card">
+            <h3>Who can access the Intergroup admin area?</h3>
+            <p>Any user with the <code>edit_posts</code> capability (typically Contributors and above) can view the Intergroup menu and its sub-pages.</p>
+        </div>
+
+        <div class="card">
+            <h3>Are member names visible to the public?</h3>
+            <p>Only the <strong>anonymous name</strong> and the <strong>position email</strong> are displayed on the public site through shortcodes. Private email addresses and phone numbers are only visible in the WordPress admin.</p>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <h3>Can I use Amber without the meetings features?</h3>
+            <p style="margin-bottom:0;">Yes. The Positions and Members sections work independently. If you don't use TSML or the meetings system, those admin pages will simply be empty — nothing will break.</p>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    // Mobile nav toggle
+    function toggleNav() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.querySelector('.overlay').classList.toggle('visible');
+    }
+
+    // Active nav link on scroll
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function updateActiveLink() {
+        let current = '';
+        const scrollY = window.scrollY + 100;
+
+        sections.forEach(section => {
+            if (section.offsetTop <= scrollY) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    window.addEventListener('scroll', updateActiveLink, { passive: true });
+
+    // Close mobile nav on link click
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 860) {
+                toggleNav();
+            }
+        });
+    });
+</script>
+</body>
+</html>
