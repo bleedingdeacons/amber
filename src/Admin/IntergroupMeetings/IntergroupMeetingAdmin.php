@@ -11,6 +11,10 @@ use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupViewFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingFactory;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceFactory;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceFactory;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Meetings\Interfaces\Meeting;
@@ -22,7 +26,6 @@ use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 
 use Unity\Positions\Interfaces\PositionRepository;
-use WP_Post;
 use WP_Query;
 use function add_action;
 use function add_filter;
@@ -30,6 +33,7 @@ use function esc_html;
 use function esc_url;
 use function get_current_screen;
 use function get_edit_post_link;
+use function get_post_type;
 use function is_admin;
 use function update_post_meta;
 use function delete_post_meta;
@@ -45,6 +49,10 @@ class IntergroupMeetingAdmin
 {
     private IntergroupMeetingFactory $intergroupMeetingFactory;
     private IntergroupMeetingRepository $intergroupMeetingRepository;
+    private IntergroupMeetingGroupAttendanceFactory $groupAttendanceFactory;
+    private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
+    private IntergroupMeetingOfficerAttendanceFactory $officerAttendanceFactory;
+    private IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository;
     private GroupRepository $groupRepository;
     private MemberRepository $memberRepository;
     private PositionFactory $positionFactory;
@@ -59,17 +67,27 @@ class IntergroupMeetingAdmin
     /**
      * Constructor
      *
+     * @param Configuration $configuration Configuration
      * @param IntergroupMeetingFactory $intergroupMeetingFactory Intergroup meeting factory
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
+     * @param IntergroupMeetingGroupAttendanceFactory $groupAttendanceFactory Group attendance factory
+     * @param IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository Group attendance repository
+     * @param IntergroupMeetingOfficerAttendanceFactory $officerAttendanceFactory Officer attendance factory
+     * @param IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository Officer attendance repository
      * @param GroupRepository $groupRepository Group repository
      * @param MemberRepository $memberRepository Member repository
      * @param PositionFactory $positionFactory Position factory
-     * @param PositionRepository $positionRepository Member repository
+     * @param PositionRepository $positionRepository Position repository
+     * @param MeetingRepository $meetingRepository Meeting repository
      */
     public function __construct(
         Configuration $configuration,
         IntergroupMeetingFactory $intergroupMeetingFactory,
         IntergroupMeetingRepository $intergroupMeetingRepository,
+        IntergroupMeetingGroupAttendanceFactory $groupAttendanceFactory,
+        IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository,
+        IntergroupMeetingOfficerAttendanceFactory $officerAttendanceFactory,
+        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository,
         GroupRepository $groupRepository,
         MemberRepository $memberRepository,
         PositionFactory $positionFactory,
@@ -84,6 +102,10 @@ class IntergroupMeetingAdmin
 
         $this->intergroupMeetingFactory = $intergroupMeetingFactory;
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
+        $this->groupAttendanceFactory = $groupAttendanceFactory;
+        $this->groupAttendanceRepository = $groupAttendanceRepository;
+        $this->officerAttendanceFactory = $officerAttendanceFactory;
+        $this->officerAttendanceRepository = $officerAttendanceRepository;
         $this->groupRepository = $groupRepository;
         $this->memberRepository = $memberRepository;
         $this->positionFactory = $positionFactory;
@@ -97,7 +119,7 @@ class IntergroupMeetingAdmin
         add_action('manage_' . $this->intergroupMeetingConfig['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
         add_filter('manage_edit-' . $this->intergroupMeetingConfig['POST_TYPE'] . '_sortable_columns', [$this, 'makeColumnsSortable']);
         add_filter('pre_get_posts', [$this, 'handleCustomColumnSorting']);
-        add_action('save_post_' . $this->intergroupMeetingConfig['POST_TYPE'], [$this, 'updateIntergroupMeetingMetadataOnSave'], 10, 3);
+        add_action('acf/save_post', [$this, 'updateIntergroupMeetingMetadataOnSave'], 20);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
         add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
         add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
@@ -403,14 +425,19 @@ class IntergroupMeetingAdmin
     }
 
     /**
-     * Update intergroup meeting metadata when saved
+     * Update intergroup meeting metadata when saved via ACF
+     *
+     * Hooked to acf/save_post at priority 20 so ACF fields are
+     * already persisted when we read them.
      *
      * @param int $postId The post ID
-     * @param WP_Post $post The post object
-     * @param bool $update Whether this is an update or a new post
      */
-    public function updateIntergroupMeetingMetadataOnSave(int $postId, WP_Post $post, bool $update): void
+    public function updateIntergroupMeetingMetadataOnSave(int $postId): void
     {
+        if (get_post_type($postId) !== $this->intergroupMeetingConfig['POST_TYPE']) {
+            return;
+        }
+
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (defined('DOING_AJAX') && DOING_AJAX) return;
 
@@ -440,6 +467,149 @@ class IntergroupMeetingAdmin
         // Update attendee count metadata for sorting
         $totalAttendees = count($meeting->getGroupAttendees()) + count($meeting->getOfficersAttending());
         update_post_meta($meetingId, '_intergroup_meeting_attendee_count', $totalAttendees);
+
+        // Sync attendance records with the current attendee lists
+        $this->syncGroupAttendance($meeting);
+        $this->syncOfficerAttendance($meeting);
+    }
+
+    /**
+     * Sync group attendance records with the current group attendees list.
+     *
+     * Creates attendance records for newly added groups and removes records
+     * for groups that are no longer in the attendees list.
+     *
+     * @param IntergroupMeeting $meeting The intergroup meeting
+     */
+    private function syncGroupAttendance(IntergroupMeeting $meeting): void
+    {
+        $meetingId = $meeting->getId();
+        $currentGroupIds = $meeting->getGroupAttendees();
+
+        // Get existing attendance records for this meeting
+        $existingRecords = $this->groupAttendanceRepository->findByIntergroupMeeting($meetingId);
+
+        // Build a map of existing memberId => attendance record
+        $existingByMemberId = [];
+        foreach ($existingRecords as $record) {
+            $existingByMemberId[$record->getMemberId()] = $record;
+        }
+
+        // Determine which groups were added and which were removed
+        $existingMemberIds = array_keys($existingByMemberId);
+        $addedGroupIds = array_diff($currentGroupIds, $existingMemberIds);
+        $removedGroupIds = array_diff($existingMemberIds, $currentGroupIds);
+
+        // Create attendance records for newly added groups
+        foreach ($addedGroupIds as $groupId) {
+            $group = $this->groupRepository->findById($groupId);
+            if (!$group) {
+                continue;
+            }
+
+            $groupTitle = $group->getTitle();
+            $gsrName = $this->resolveGsrNameForGroup($groupId);
+
+            $attendance = $this->groupAttendanceFactory->createNew(
+                $meetingId,
+                $groupId,
+                $groupTitle,
+                $gsrName
+            );
+
+            $this->groupAttendanceRepository->save($attendance);
+        }
+
+        // Remove attendance records for groups no longer attending
+        foreach ($removedGroupIds as $groupId) {
+            $this->groupAttendanceRepository->deleteByIntergroupMeetingAndMember($meetingId, $groupId);
+        }
+    }
+
+    /**
+     * Sync officer attendance records with the current officers attending list.
+     *
+     * Creates attendance records for newly added officers and removes records
+     * for officers that are no longer in the attendees list.
+     *
+     * @param IntergroupMeeting $meeting The intergroup meeting
+     */
+    private function syncOfficerAttendance(IntergroupMeeting $meeting): void
+    {
+        $meetingId = $meeting->getId();
+        $currentOfficerIds = $meeting->getOfficersAttending();
+
+        // Get existing officer attendance records for this meeting
+        $existingRecords = $this->officerAttendanceRepository->findByIntergroupMeeting($meetingId);
+
+        // Build a map of existing officerId => attendance record
+        $existingByOfficerId = [];
+        foreach ($existingRecords as $record) {
+            $existingByOfficerId[$record->getOfficerId()] = $record;
+        }
+
+        // Determine which officers were added and which were removed
+        $existingOfficerIds = array_keys($existingByOfficerId);
+        $addedOfficerIds = array_diff($currentOfficerIds, $existingOfficerIds);
+        $removedOfficerIds = array_diff($existingOfficerIds, $currentOfficerIds);
+
+        // Create attendance records for newly added officers
+        foreach ($addedOfficerIds as $officerId) {
+            $member = $this->memberRepository->find($officerId);
+            if (!$member) {
+                continue;
+            }
+
+            $officerName = $member->getAnonymousName();
+            $positionName = '';
+
+            $positionId = $member->getIntergroupPosition();
+            if ($positionId) {
+                $position = $this->positionRepository->findById($positionId);
+                if ($position) {
+                    $positionName = $position->getLongName();
+                }
+            }
+
+            $attendance = $this->officerAttendanceFactory->createNew(
+                $meetingId,
+                $officerId,
+                $positionName,
+                $officerName
+            );
+
+            $this->officerAttendanceRepository->save($attendance);
+        }
+
+        // Remove attendance records for officers no longer attending
+        foreach ($removedOfficerIds as $officerId) {
+            $this->officerAttendanceRepository->deleteByIntergroupMeetingAndOfficer($meetingId, $officerId);
+        }
+    }
+
+    /**
+     * Resolve the GSR name for a group.
+     *
+     * Looks up the group's members and returns the anonymous name of
+     * the first member marked as a GSR, or an empty string if none found.
+     *
+     * @param int $groupId The group ID
+     * @return string GSR anonymous name or empty string
+     */
+    private function resolveGsrNameForGroup(int $groupId): string
+    {
+        $groupView = $this->groupViewFactory->createFrom($groupId);
+        if (!$groupView) {
+            return '';
+        }
+
+        foreach ($groupView->getMembers() as $member) {
+            if ($member->isGSR()) {
+                return $member->getAnonymousName();
+            }
+        }
+
+        return '';
     }
 
     /**

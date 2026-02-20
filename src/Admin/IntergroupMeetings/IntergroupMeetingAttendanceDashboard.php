@@ -23,7 +23,7 @@ use function get_current_screen;
  * a dropdown and see two tables: one for group attendance (with GSR
  * and proxy info) and one for officer attendance (with position info).
  */
-class IntergroupMeetingGroupAttendanceDashboard
+class IntergroupMeetingAttendanceDashboard
 {
     private IntergroupMeetingRepository $intergroupMeetingRepository;
     private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
@@ -58,7 +58,7 @@ class IntergroupMeetingGroupAttendanceDashboard
     {
         add_submenu_page(
             'intergroup',
-            'Meeting Attendance',
+            'Intergroup Meeting Attendance',
             'Attendance',
             'edit_posts',
             self::PAGE_SLUG,
@@ -100,7 +100,7 @@ class IntergroupMeetingGroupAttendanceDashboard
         }
 
         echo '<div class="wrap">';
-        echo '<h1 class="wp-heading-inline">Meeting Attendance</h1>';
+        echo '<h1 class="wp-heading-inline">Intergroup Meeting Attendance</h1>';
 
         // Meeting selector form
         $this->renderMeetingSelector($meetings, $selectedMeetingId);
@@ -135,7 +135,19 @@ class IntergroupMeetingGroupAttendanceDashboard
         foreach ($meetings as $meeting) {
             $id = $meeting->getId();
             $date = $meeting->getDate();
-            $label = !empty($date) ? $this->formatDate($date) : 'No Date (ID: ' . $id . ')';
+            $title = $meeting->getTitle();
+
+            $formattedDate = !empty($date) ? $this->formatDate($date) : '';
+
+            if (!empty($title) && !empty($formattedDate)) {
+                $label = $title . ' — ' . $formattedDate;
+            } elseif (!empty($title)) {
+                $label = $title;
+            } elseif (!empty($formattedDate)) {
+                $label = $formattedDate;
+            } else {
+                $label = 'Meeting (ID: ' . $id . ')';
+            }
 
             $selected = $id === $selectedId ? ' selected' : '';
             echo '<option value="' . esc_attr((string) $id) . '"' . $selected . '>'
