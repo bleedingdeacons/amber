@@ -90,40 +90,31 @@ class IntergroupMeetingDashboard
         });
 
         echo '<div class="intergroup-meeting-dashboard-widget">';
-        echo '<table class="widefat striped intergroup-meeting-table">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Date</th>';
-        echo '<th>Groups Attending</th>';
-        echo '<th>Officers</th>';
-        echo '<th>Total</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
 
         foreach ($meetings as $meeting) {
-            $this->renderMeetingRow($meeting);
+            $this->renderMeetingCard($meeting);
         }
 
-        echo '</tbody>';
-        echo '</table>';
         echo '</div>';
     }
 
     /**
-     * Render a single intergroup meeting row
+     * Render a single intergroup meeting card
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
-    private function renderMeetingRow(IntergroupMeeting $meeting): void
+    private function renderMeetingCard(IntergroupMeeting $meeting): void
     {
         $meetingId = $meeting->getId();
         $editLink = get_edit_post_link($meetingId);
 
-        echo '<tr>';
+        echo '<div class="ig-meeting-card">';
 
-        // Date column
-        echo '<td class="ig-meeting-date">';
+        // Header with date and total count
+        echo '<div class="ig-meeting-header">';
+
+        // Date
+        echo '<div class="ig-meeting-date">';
         $date = $meeting->getDate();
         if (!empty($date)) {
             $timestamp = strtotime($date);
@@ -137,29 +128,44 @@ class IntergroupMeetingDashboard
         } else {
             echo '<span class="no-date">No Date</span>';
         }
-        echo '</td>';
+        echo '</div>';
 
-        // Groups attending column
-        echo '<td class="ig-meeting-groups">';
-        $this->renderGroupAttendees($meeting);
-        echo '</td>';
-
-        // Officers column
-        echo '<td class="ig-meeting-officers">';
-        $this->renderOfficers($meeting);
-        echo '</td>';
-
-        // Total attendees column
-        echo '<td class="ig-meeting-total">';
+        // Total count badge
         $groupCount = count($meeting->getGroupAttendees());
         $officerCount = count($meeting->getOfficersAttending());
         $total = $groupCount + $officerCount;
-        echo '<span class="attendee-count" title="' . esc_html($groupCount . ' groups, ' . $officerCount . ' officers') . '">';
-        echo esc_html((string)$total);
-        echo '</span>';
-        echo '</td>';
 
-        echo '</tr>';
+        echo '<div class="ig-meeting-total">';
+        echo '<span class="attendee-badge" title="' . esc_html($groupCount . ' groups, ' . $officerCount . ' officers') . '">';
+        echo '<span class="badge-number">' . esc_html((string)$total) . '</span>';
+        echo '<span class="badge-label">attendees</span>';
+        echo '</span>';
+        echo '</div>';
+
+        echo '</div>'; // .ig-meeting-header
+
+        // Content with groups and officers
+        echo '<div class="ig-meeting-content">';
+
+        // Groups attending
+        echo '<div class="ig-meeting-section">';
+        echo '<div class="ig-section-label">Groups</div>';
+        echo '<div class="ig-section-content">';
+        $this->renderGroupAttendees($meeting);
+        echo '</div>';
+        echo '</div>';
+
+        // Officers attending
+        echo '<div class="ig-meeting-section">';
+        echo '<div class="ig-section-label">Officers</div>';
+        echo '<div class="ig-section-content">';
+        $this->renderOfficers($meeting);
+        echo '</div>';
+        echo '</div>';
+
+        echo '</div>'; // .ig-meeting-content
+
+        echo '</div>'; // .ig-meeting-card
     }
 
     /**
@@ -172,7 +178,7 @@ class IntergroupMeetingDashboard
         $attendeeIds = $meeting->getGroupAttendees();
 
         if (empty($attendeeIds)) {
-            echo '<span class="no-attendees">—</span>';
+            echo '<span class="no-attendees">None</span>';
             return;
         }
 
@@ -190,18 +196,11 @@ class IntergroupMeetingDashboard
         }
 
         if (empty($names)) {
-            echo '<span class="no-attendees">—</span>';
+            echo '<span class="no-attendees">None</span>';
             return;
         }
 
-        // Show first 5, indicate if more
-        $displayNames = array_slice($names, 0, 5);
-        echo implode(', ', $displayNames);
-
-        $remaining = count($names) - 5;
-        if ($remaining > 0) {
-            echo '<br><small class="more-attendees">+' . $remaining . ' more</small>';
-        }
+        echo '<div class="attendee-list">' . implode(', ', $names) . '</div>';
     }
 
     /**
@@ -214,7 +213,7 @@ class IntergroupMeetingDashboard
         $officerIds = $meeting->getOfficersAttending();
 
         if (empty($officerIds)) {
-            echo '<span class="no-attendees">—</span>';
+            echo '<span class="no-attendees">None</span>';
             return;
         }
 
@@ -233,11 +232,11 @@ class IntergroupMeetingDashboard
         }
 
         if (empty($names)) {
-            echo '<span class="no-attendees">—</span>';
+            echo '<span class="no-attendees">None</span>';
             return;
         }
 
-        echo implode(', ', $names);
+        echo '<div class="attendee-list">' . implode(', ', $names) . '</div>';
     }
 
     /**
@@ -257,63 +256,127 @@ class IntergroupMeetingDashboard
                 margin: -12px -12px 0 -12px;
             }
             
-            .intergroup-meeting-table {
-                margin: 0;
-                border: none;
+            .ig-meeting-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                margin: 12px;
+                padding: 0;
+                transition: box-shadow 0.2s;
             }
             
-            .intergroup-meeting-table th {
+            .ig-meeting-card:hover {
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .ig-meeting-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 16px;
                 background: #f9f9f9;
-                font-weight: 600;
-                padding: 8px 10px;
+                border-bottom: 1px solid #e0e0e0;
+                border-radius: 4px 4px 0 0;
             }
             
-            .intergroup-meeting-table td {
-                padding: 8px 10px;
-                vertical-align: top;
+            .ig-meeting-date {
+                font-size: 14px;
             }
             
-            .intergroup-meeting-table .ig-meeting-date {
-                width: 15%;
-                white-space: nowrap;
+            .ig-meeting-date a {
+                text-decoration: none;
+                color: #2271b1;
             }
             
-            .intergroup-meeting-table .ig-meeting-groups {
-                width: 40%;
+            .ig-meeting-date a:hover {
+                color: #135e96;
             }
             
-            .intergroup-meeting-table .ig-meeting-officers {
-                width: 30%;
-            }
-            
-            .intergroup-meeting-table .ig-meeting-total {
-                width: 15%;
-                text-align: center;
-            }
-            
-            .intergroup-meeting-table .no-date {
+            .ig-meeting-date .no-date {
                 color: #999;
                 font-style: italic;
             }
             
-            .intergroup-meeting-table .no-attendees {
-                color: #ccc;
+            .ig-meeting-total {
+                flex-shrink: 0;
             }
             
-            .intergroup-meeting-table .more-attendees {
-                color: #666;
-            }
-            
-            .intergroup-meeting-table .attendee-count {
-                display: inline-block;
-                padding: 2px 8px;
-                background: #f0f0f1;
-                border-radius: 3px;
+            .attendee-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: #2271b1;
+                color: #fff;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
                 font-weight: 600;
+                cursor: help;
             }
             
-            .intergroup-meeting-table tr:hover {
-                background: #f9f9f9;
+            .badge-number {
+                font-size: 16px;
+            }
+            
+            .badge-label {
+                font-weight: 400;
+                opacity: 0.9;
+            }
+            
+            .ig-meeting-content {
+                padding: 16px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }
+            
+            @media (max-width: 600px) {
+                .ig-meeting-content {
+                    grid-template-columns: 1fr;
+                }
+            }
+            
+            .ig-meeting-section {
+                min-width: 0;
+            }
+            
+            .ig-section-label {
+                font-size: 11px;
+                text-transform: uppercase;
+                color: #666;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                margin-bottom: 8px;
+            }
+            
+            .ig-section-content {
+                font-size: 13px;
+                line-height: 1.6;
+                word-wrap: break-word;
+            }
+            
+            .attendee-list {
+                color: #333;
+            }
+            
+            .attendee-list a {
+                color: #2271b1;
+                text-decoration: none;
+            }
+            
+            .attendee-list a:hover {
+                color: #135e96;
+                text-decoration: underline;
+            }
+            
+            .no-attendees {
+                color: #999;
+                font-style: italic;
+            }
+            
+            /* First card special styling */
+            .ig-meeting-card:first-child {
+                margin-top: 0;
             }
         </style>';
     }

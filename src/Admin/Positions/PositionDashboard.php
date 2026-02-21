@@ -20,7 +20,7 @@ use function wp_add_dashboard_widget;
 
 /**
  * Position Dashboard Widget
- * 
+ *
  * Adds a dashboard panel listing all positions and members with their positions.
  */
 class PositionDashboard
@@ -31,7 +31,7 @@ class PositionDashboard
 
     /**
      * Constructor
-     * 
+     *
      * @param PositionViewFactory $positionViewFactory Position view factory
      * @param PositionRepository $positionRepository Position repository
      * @param Configuration $configuration Amber configuration
@@ -72,7 +72,7 @@ class PositionDashboard
     public function renderDashboardWidget(): void
     {
         $positions = $this->positionRepository->findAll();
-        
+
         if (empty($positions)) {
             echo '<p>No positions found.</p>';
             return;
@@ -93,42 +93,33 @@ class PositionDashboard
         });
 
         echo '<div class="position-dashboard-widget">';
-        echo '<table class="widefat striped position-members-table">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Position</th>';
-        echo '<th>Current Member</th>';
-        echo '<th>Position Email</th>';
-        echo '<th>Status</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
 
         foreach ($positionViews as $positionView) {
-            $this->renderPositionRow($positionView);
+            $this->renderPositionCard($positionView);
         }
 
-        echo '</tbody>';
-        echo '</table>';
         echo '</div>';
     }
 
     /**
-     * Render a single position row
-     * 
+     * Render a single position card
+     *
      * @param PositionView $positionView Position view object
      */
-    private function renderPositionRow(PositionView $positionView): void
+    private function renderPositionCard(PositionView $positionView): void
     {
         $position = $positionView->getPosition();
         $positionId = $position->getId();
         $positionTitle = $positionView->getTitle() ?: 'Untitled Position';
         $positionEditLink = get_edit_post_link($positionId);
-        
-        echo '<tr>';
-        
-        // Position title column
-        echo '<td class="position-title">';
+
+        echo '<div class="position-card">';
+
+        // Header with position title and status badge
+        echo '<div class="position-card-header">';
+
+        // Position title
+        echo '<div class="position-card-title">';
         if ($positionEditLink) {
             echo '<a href="' . esc_url($positionEditLink) . '">';
             echo '<strong>' . esc_html($positionTitle) . '</strong>';
@@ -136,52 +127,65 @@ class PositionDashboard
         } else {
             echo '<strong>' . esc_html($positionTitle) . '</strong>';
         }
-        echo '</td>';
-        
-        // Current member column
-        echo '<td class="position-member">';
-        $this->renderMemberCell($positionView);
-        echo '</td>';
-        
-        // Position email column
-        echo '<td class="position-email">';
-        $this->renderPositionEmail($positionView);
-        echo '</td>';
-        
-        // Status column
-        echo '<td class="position-status">';
+        echo '</div>';
+
+        // Status badge
+        echo '<div class="position-card-status">';
         $this->renderStatusBadge($positionView);
-        echo '</td>';
-        
-        echo '</tr>';
+        echo '</div>';
+
+        echo '</div>'; // .position-card-header
+
+        // Content area with grid layout
+        echo '<div class="position-card-content">';
+
+        // Member field
+        echo '<div class="position-card-field">';
+        echo '<div class="field-label">Current Member</div>';
+        echo '<div class="field-value">';
+        $this->renderMemberCell($positionView);
+        echo '</div>';
+        echo '</div>';
+
+        // Email field
+        echo '<div class="position-card-field">';
+        echo '<div class="field-label">Position Email</div>';
+        echo '<div class="field-value">';
+        $this->renderPositionEmail($positionView);
+        echo '</div>';
+        echo '</div>';
+
+        echo '</div>'; // .position-card-content
+
+        echo '</div>'; // .position-card
     }
 
     /**
      * Render the member cell content
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function renderMemberCell(PositionView $positionView): void
     {
         $member = $positionView->getMember();
-        
+
         if ($positionView->isVacant() || !$member) {
             echo '<span class="vacant-indicator">Vacant</span>';
             $membersUrl = admin_url('edit.php?post_type=' . $this->member_config['POST_TYPE']);
             echo ' <a href="' . esc_url($membersUrl) . '" class="vacant-action-btn" title="View Members">..</a>';
             return;
         }
-        
+
         $memberId = $member->getId();
         $displayName = $member->getAnonymousName();
         $editLink = get_edit_post_link($memberId);
-        
+
         if ($editLink) {
             echo '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
         } else {
             echo esc_html($displayName);
         }
-        
+
         // Show months until rotation
         $months = $positionView->getMonthsUntilRotation();
         if ($months !== null) {
@@ -200,25 +204,25 @@ class PositionDashboard
 
     /**
      * Render the position email
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function renderPositionEmail(PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
-        
+
         if (empty($positionEmail)) {
             echo '<span class="no-email">—</span>';
             return;
         }
-        
-        echo '<a href="mailto:' . esc_attr($positionEmail) . '">' . 
-             esc_html($positionEmail) . '</a>';
+
+        echo '<a href="mailto:' . esc_attr($positionEmail) . '">' .
+            esc_html($positionEmail) . '</a>';
     }
 
     /**
      * Render the status badge
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function renderStatusBadge(PositionView $positionView): void
@@ -227,20 +231,20 @@ class PositionDashboard
             echo '<span class="status-badge status-vacant">Vacant</span>';
             return;
         }
-        
+
         $rotationDate = $positionView->getRotationDate();
         if (!$rotationDate) {
             echo '<span class="status-badge status-unknown">No Rotation</span>';
             return;
         }
-        
+
         $months = $positionView->getMonthsUntilRotation();
-        
+
         if ($months === null) {
             echo '<span class="status-badge status-unknown">Unknown</span>';
             return;
         }
-        
+
         if ($months < 0) {
             $overdueDays = abs($positionView->getDaysUntilRotation() ?? 0);
             echo '<span class="status-badge status-overdue" title="Overdue by ' . $overdueDays . ' days">Overdue</span>';
@@ -260,55 +264,112 @@ class PositionDashboard
     public function addDashboardStyles(): void
     {
         $screen = get_current_screen();
-        
+
         // Only add styles on the dashboard page
         if (!$screen || $screen->id !== 'dashboard') {
             return;
         }
-        
+
         echo '<style>
             .position-dashboard-widget {
                 margin: -12px -12px 0 -12px;
             }
             
-            .position-members-table {
-                margin: 0;
-                border: none;
+            .position-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                margin: 0 0 12px 0;
+                transition: box-shadow 0.2s;
             }
             
-            .position-members-table th {
+            .position-card:hover {
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .position-card:last-child {
+                margin-bottom: 0;
+            }
+            
+            .position-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 16px;
                 background: #f9f9f9;
-                font-weight: 600;
-                padding: 8px 10px;
+                border-bottom: 1px solid #e0e0e0;
+                border-radius: 4px 4px 0 0;
+                gap: 12px;
             }
             
-            .position-members-table td {
-                padding: 10px;
-                vertical-align: top;
+            .position-card-title {
+                flex: 1;
+                min-width: 0;
+                font-size: 14px;
             }
             
-            .position-members-table .position-title {
-                width: 25%;
+            .position-card-title a {
+                text-decoration: none;
+                color: #2271b1;
             }
             
-            .position-members-table .position-member {
-                width: 30%;
+            .position-card-title a:hover {
+                color: #135e96;
             }
             
-            .position-members-table .position-email {
-                width: 25%;
+            .position-card-status {
+                flex-shrink: 0;
             }
             
-            .position-members-table .position-status {
-                width: 20%;
-                text-align: center;
+            .position-card-content {
+                padding: 12px 16px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
             }
             
-            .position-members-table .member-rotation {
+            @media (max-width: 600px) {
+                .position-card-content {
+                    grid-template-columns: 1fr;
+                }
+            }
+            
+            .position-card-field {
+                min-width: 0;
+            }
+            
+            .field-label {
+                font-size: 10px;
+                text-transform: uppercase;
                 color: #666;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
             }
             
-            .position-members-table .rotation-overdue {
+            .field-value {
+                font-size: 13px;
+                line-height: 1.5;
+                word-wrap: break-word;
+            }
+            
+            .field-value a {
+                color: #2271b1;
+                text-decoration: none;
+            }
+            
+            .field-value a:hover {
+                color: #135e96;
+                text-decoration: underline;
+            }
+            
+            .member-rotation {
+                color: #666;
+                display: block;
+                margin-top: 2px;
+            }
+            
+            .rotation-overdue {
                 color: #dc3232;
                 font-weight: 600;
             }
@@ -320,19 +381,19 @@ class PositionDashboard
             
             .vacant-action-btn {
                 display: inline-block;
-                margin-left: 4px;
-                padding: 0 6px;
+                margin-left: 6px;
+                padding: 2px 8px;
                 background: #f0f0f1;
                 border: 1px solid #ccc;
                 border-radius: 3px;
                 color: #666;
                 text-decoration: none;
-                font-weight: bold;
-                font-size: 12px;
-                line-height: 20px;
-                vertical-align: middle;
+                font-weight: 600;
+                font-size: 11px;
+                line-height: 18px;
                 cursor: pointer;
-                letter-spacing: 1px;
+                letter-spacing: 0.5px;
+                vertical-align: baseline;
             }
             
             .vacant-action-btn:hover {
@@ -342,17 +403,19 @@ class PositionDashboard
             }
             
             .no-email {
-                color: #ccc;
+                color: #999;
+                font-style: italic;
             }
             
             .status-badge {
                 display: inline-block;
                 padding: 4px 10px;
-                border-radius: 3px;
-                font-size: 12px;
+                border-radius: 12px;
+                font-size: 11px;
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                white-space: nowrap;
             }
             
             .status-badge.status-overdue {
@@ -384,10 +447,6 @@ class PositionDashboard
                 background: #f0f0f1;
                 color: #999;
                 border: 1px dashed #ccc;
-            }
-            
-            .position-members-table tr:hover {
-                background: #f9f9f9;
             }
         </style>';
     }

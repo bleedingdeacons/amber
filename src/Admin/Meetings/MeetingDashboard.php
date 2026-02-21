@@ -117,28 +117,22 @@ class MeetingDashboard
             return strcmp($a['meeting']->getTime(), $b['meeting']->getTime());
         });
 
-        echo '<div class="meeting-dashboard-widget">';
-        echo '<table class="widefat striped meeting-schedule-table">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Day</th>';
-        echo '<th>Group</th>';
-        echo '<th>Meeting</th>';
-        echo '<th>Time</th>';
-        echo '<th>Location</th>';
-        echo '<th>Contacts</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
-
-        $currentDay = -1;
+        // Group meetings by day
+        $meetingsByDay = [];
         foreach ($meetingRows as $row) {
-            $this->renderMeetingRow($row['meeting'], $row['group'], $currentDay);
-            $currentDay = $row['meeting']->getDay();
+            $day = $row['meeting']->getDay();
+            if (!isset($meetingsByDay[$day])) {
+                $meetingsByDay[$day] = [];
+            }
+            $meetingsByDay[$day][] = $row;
         }
 
-        echo '</tbody>';
-        echo '</table>';
+        echo '<div class="meeting-dashboard-widget">';
+
+        foreach ($meetingsByDay as $day => $rows) {
+            $this->renderDaySection($day, $rows);
+        }
+
         echo '</div>';
     }
 
@@ -168,6 +162,26 @@ class MeetingDashboard
     }
 
     /**
+     * Render a day section with all meetings for that day
+     *
+     * @param int $day Day of week (0-6)
+     * @param array $rows Array of meeting/group pairs
+     */
+    private function renderDaySection(int $day, array $rows): void
+    {
+        $dayName = self::DAY_NAMES[$day] ?? 'Unknown';
+
+        echo '<div class="meeting-day-section">';
+        echo '<div class="meeting-day-header">' . esc_html($dayName) . '</div>';
+
+        foreach ($rows as $row) {
+            $this->renderMeetingCard($row['meeting'], $row['group']);
+        }
+
+        echo '</div>';
+    }
+
+    /**
      * Get the group ID for a meeting from its meta data
      *
      * @param Meeting $meeting Meeting object
@@ -189,49 +203,20 @@ class MeetingDashboard
     }
 
     /**
-     * Render a single meeting row
+     * Render a single meeting card
      *
      * @param Meeting $meeting Meeting object
      * @param Group|null $group Group object or null
-     * @param int $previousDay The day value of the previous row (-1 for first row)
      */
-    private function renderMeetingRow(
-        Meeting $meeting,
-        ?Group $group,
-        int $previousDay
-    ): void {
-        $day = $meeting->getDay();
-        $isNewDay = ($day !== $previousDay);
+    private function renderMeetingCard(Meeting $meeting, ?Group $group): void
+    {
+        echo '<div class="meeting-card">';
 
-        $rowClass = $isNewDay ? ' class="meeting-day-start"' : '';
-        echo '<tr' . $rowClass . '>';
+        // Header with meeting name and time
+        echo '<div class="meeting-card-header">';
 
-        // Day column — show day name only on first occurrence
-        echo '<td class="meeting-day">';
-        if ($isNewDay) {
-            $dayName = self::DAY_NAMES[$day] ?? 'Unknown';
-            echo '<strong>' . esc_html($dayName) . '</strong>';
-        }
-        echo '</td>';
-
-        // Group name column
-        echo '<td class="meeting-group copyable">';
-        if ($group !== null) {
-            $groupEditLink = get_edit_post_link($group->getId());
-            if ($groupEditLink) {
-                echo '<a href="' . esc_url($groupEditLink) . '">';
-                echo esc_html($group->getTitle());
-                echo '</a>';
-            } else {
-                echo esc_html($group->getTitle());
-            }
-        } else {
-            echo '<span class="no-group">—</span>';
-        }
-        echo '</td>';
-
-        // Meeting name column
-        echo '<td class="meeting-name copyable">';
+        // Meeting name with online badge
+        echo '<div class="meeting-card-title">';
         $meetingEditLink = get_edit_post_link($meeting->getId());
         if ($meetingEditLink) {
             echo '<a href="' . esc_url($meetingEditLink) . '">';
@@ -243,24 +228,56 @@ class MeetingDashboard
         if ($meeting->isOnline()) {
             echo ' <span class="meeting-badge meeting-online">Online</span>';
         }
-        echo '</td>';
+        echo '</div>';
 
-        // Time column
-        echo '<td class="meeting-time">';
+        // Time
+        echo '<div class="meeting-card-time">';
         $this->renderTime($meeting);
-        echo '</td>';
+        echo '</div>';
 
-        // Location column
-        echo '<td class="meeting-location copyable">';
+        echo '</div>'; // .meeting-card-header
+
+        // Content area with grid layout
+        echo '<div class="meeting-card-content">';
+
+        // Group
+        echo '<div class="meeting-card-field">';
+        echo '<div class="field-label">Group</div>';
+        echo '<div class="field-value copyable">';
+        if ($group !== null) {
+            $groupEditLink = get_edit_post_link($group->getId());
+            if ($groupEditLink) {
+                echo '<a href="' . esc_url($groupEditLink) . '">';
+                echo esc_html($group->getTitle());
+                echo '</a>';
+            } else {
+                echo esc_html($group->getTitle());
+            }
+        } else {
+            echo '<span class="no-data">—</span>';
+        }
+        echo '</div>';
+        echo '</div>';
+
+        // Location
+        echo '<div class="meeting-card-field">';
+        echo '<div class="field-label">Location</div>';
+        echo '<div class="field-value copyable">';
         $this->renderLocation($meeting);
-        echo '</td>';
+        echo '</div>';
+        echo '</div>';
 
-        // Contacts column — prefer group contacts, fall back to meeting contacts
-        echo '<td class="meeting-contacts">';
+        // Contacts
+        echo '<div class="meeting-card-field meeting-card-field-full">';
+        echo '<div class="field-label">Contacts</div>';
+        echo '<div class="field-value">';
         $this->renderContacts($meeting, $group);
-        echo '</td>';
+        echo '</div>';
+        echo '</div>';
 
-        echo '</tr>';
+        echo '</div>'; // .meeting-card-content
+
+        echo '</div>'; // .meeting-card
     }
 
     /**
@@ -402,57 +419,121 @@ class MeetingDashboard
                 margin: -12px -12px 0 -12px;
             }
 
-            .meeting-schedule-table {
-                margin: 0;
-                border: none;
+            .meeting-day-section {
+                margin-bottom: 20px;
             }
 
-            .meeting-schedule-table th {
-                background: #f9f9f9;
+            .meeting-day-section:last-child {
+                margin-bottom: 0;
+            }
+
+            .meeting-day-header {
+                background: #2271b1;
+                color: white;
                 font-weight: 600;
-                padding: 8px 10px;
+                font-size: 13px;
+                padding: 8px 16px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0 0 8px 0;
+                border-radius: 3px;
             }
 
-            .meeting-schedule-table td {
-                padding: 8px 10px;
-                vertical-align: top;
+            .meeting-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                margin: 0 0 8px 0;
+                transition: box-shadow 0.2s;
             }
 
-            .meeting-schedule-table .meeting-day {
-                width: 10%;
+            .meeting-card:hover {
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .meeting-card:last-child {
+                margin-bottom: 0;
+            }
+
+            .meeting-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 16px;
+                background: #f9f9f9;
+                border-bottom: 1px solid #e0e0e0;
+                border-radius: 4px 4px 0 0;
+                gap: 12px;
+            }
+
+            .meeting-card-title {
+                flex: 1;
+                min-width: 0;
+                font-size: 14px;
+            }
+
+            .meeting-card-title a {
+                text-decoration: none;
+                color: #2271b1;
+            }
+
+            .meeting-card-title a:hover {
+                color: #135e96;
+            }
+
+            .meeting-card-time {
+                flex-shrink: 0;
+                font-size: 13px;
+                color: #333;
                 white-space: nowrap;
+                font-weight: 500;
             }
 
-            .meeting-schedule-table .meeting-group {
-                width: 18%;
+            .meeting-card-content {
+                padding: 12px 16px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
             }
 
-            .meeting-schedule-table .meeting-name {
-                width: 20%;
+            .meeting-card-field {
+                min-width: 0;
             }
 
-            .meeting-schedule-table .meeting-time {
-                width: 14%;
-                white-space: nowrap;
+            .meeting-card-field-full {
+                grid-column: 1 / -1;
             }
 
-            .meeting-schedule-table .meeting-location {
-                width: 18%;
+            .field-label {
+                font-size: 10px;
+                text-transform: uppercase;
+                color: #666;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
             }
 
-            .meeting-schedule-table .meeting-contacts {
-                width: 20%;
+            .field-value {
+                font-size: 13px;
+                line-height: 1.5;
+                word-wrap: break-word;
             }
 
-            .meeting-schedule-table tr.meeting-day-start td {
-                border-top: 2px solid #ddd;
+            .field-value a {
+                color: #2271b1;
+                text-decoration: none;
+            }
+
+            .field-value a:hover {
+                color: #135e96;
+                text-decoration: underline;
             }
 
             .meeting-badge {
                 display: inline-block;
-                padding: 1px 6px;
+                padding: 2px 6px;
                 border-radius: 3px;
-                font-size: 11px;
+                font-size: 10px;
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.3px;
@@ -465,11 +546,12 @@ class MeetingDashboard
                 color: white;
             }
 
-            .no-group,
+            .no-data,
             .no-time,
             .no-location,
             .no-contacts {
-                color: #ccc;
+                color: #999;
+                font-style: italic;
             }
 
             .contact-name {
@@ -489,10 +571,14 @@ class MeetingDashboard
             .meeting-location-address {
                 font-size: 12px;
                 color: #666;
+                display: block;
+                margin-top: 2px;
             }
 
-            .meeting-schedule-table tr:hover {
-                background: #f9f9f9;
+            @media (max-width: 600px) {
+                .meeting-card-content {
+                    grid-template-columns: 1fr;
+                }
             }
         </style>';
     }
