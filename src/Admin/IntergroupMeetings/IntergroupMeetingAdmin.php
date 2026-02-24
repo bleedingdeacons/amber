@@ -123,7 +123,7 @@ class IntergroupMeetingAdmin
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
         add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
         add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
-        
+
     }
 
 
@@ -186,8 +186,8 @@ class IntergroupMeetingAdmin
         }
 
 
-   }
-    
+    }
+
     /**
      * Set up metadata for all intergroup meetings
      *
@@ -489,16 +489,16 @@ class IntergroupMeetingAdmin
         // Get existing attendance records for this meeting
         $existingRecords = $this->groupAttendanceRepository->findByIntergroupMeeting($meetingId);
 
-        // Build a map of existing memberId => attendance record
-        $existingByMemberId = [];
+        // Build a map of existing groupId => attendance record
+        $existingByGroupId = [];
         foreach ($existingRecords as $record) {
-            $existingByMemberId[$record->getMemberId()] = $record;
+            $existingByGroupId[$record->getGroupId()] = $record;
         }
 
         // Determine which groups were added and which were removed
-        $existingMemberIds = array_keys($existingByMemberId);
-        $addedGroupIds = array_diff($currentGroupIds, $existingMemberIds);
-        $removedGroupIds = array_diff($existingMemberIds, $currentGroupIds);
+        $existingGroupIds = array_keys($existingByGroupId);
+        $addedGroupIds = array_diff($currentGroupIds, $existingGroupIds);
+        $removedGroupIds = array_diff($existingGroupIds, $currentGroupIds);
 
         // Create attendance records for newly added groups
         foreach ($addedGroupIds as $groupId) {
@@ -513,6 +513,7 @@ class IntergroupMeetingAdmin
             $attendance = $this->groupAttendanceFactory->createNew(
                 $meetingId,
                 $groupId,
+                0,           // member_id — not applicable when adding from admin
                 $groupTitle,
                 $gsrName
             );
@@ -522,7 +523,7 @@ class IntergroupMeetingAdmin
 
         // Remove attendance records for groups no longer attending
         foreach ($removedGroupIds as $groupId) {
-            $this->groupAttendanceRepository->deleteByIntergroupMeetingAndMember($meetingId, $groupId);
+            $this->groupAttendanceRepository->deleteByIntergroupMeetingAndGroup($meetingId, $groupId);
         }
     }
 
