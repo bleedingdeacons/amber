@@ -311,17 +311,33 @@ class IntergroupMeetingAdmin
             echo '<span style="color: gray;">—</span>';
             return;
         }
-        // TODO: Add GSR Names
+
         $names = [];
+
         foreach ($attendeeIds as $id) {
-            $group = $this->groupRepository->findById($id);
-            if ($group) {
+            $groupView = $this->groupViewFactory->createFrom($id);
+            if ($groupView) {
                 $editLink = get_edit_post_link($id);
-                if ($editLink) {
-                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($group->getTitle()) . '</a>';
-                } else {
-                    $names[] = esc_html($group->getTitle());
+                $groupName = $editLink
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupView->getTitle()) . '</a>'
+                    : esc_html($groupView->getTitle());
+
+                // Find GSR members for this group
+                $gsrNames = [];
+                foreach ($groupView->getMembers() as $member) {
+                    if ($member->isGSR()) {
+                        $memberEditLink = get_edit_post_link($member->getId());
+                        $gsrNames[] = $memberEditLink
+                            ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                            : esc_html($member->getAnonymousName());
+                    }
                 }
+
+                if (!empty($gsrNames)) {
+                    $groupName .= ' (' . implode(', ', $gsrNames) . ')';
+                }
+
+                $names[] = $groupName;
             }
         }
 
@@ -343,7 +359,7 @@ class IntergroupMeetingAdmin
         $officerIds = $meeting->getOfficersAttending();
 
         if (empty($officerIds)) {
-            echo '<span style="color: gray;">—</span>';
+            echo '—';
             return;
         }
 
@@ -354,20 +370,20 @@ class IntergroupMeetingAdmin
                 $displayName = $member->getAnonymousName();
                 $positionId = $member->getIntergroupPosition();
                 $position = $positionId ? $this->positionFactory->createFromSource($positionId) : null;
-                $label = $position
-                    ? $displayName . ' (' . $position->getLongName() . ')'
-                    : $displayName;
                 $editLink = get_edit_post_link($id);
-                if ($editLink) {
-                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($label) . '</a>';
-                } else {
-                    $names[] = esc_html($label);
-                }
+
+                $nameHtml = $editLink
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>'
+                    : esc_html($displayName);
+
+                $names[] = $position
+                    ? esc_html($position->getShortDescription()) . ' (' . $nameHtml . ')'
+                    : $nameHtml;
             }
         }
 
         if (empty($names)) {
-            echo '<span style="color: gray;">—</span>';
+            echo '—';
             return;
         }
 

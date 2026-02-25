@@ -178,11 +178,10 @@ class IntergroupMeetingDashboard
         $attendeeIds = $meeting->getGroupAttendees();
 
         if (empty($attendeeIds)) {
-            echo '<span class="no-attendees">None</span>';
+            echo '<span style="color: gray;">—</span>';
             return;
         }
 
-        $names = [];
         foreach ($attendeeIds as $id) {
             $group = $this->groupRepository->findById($id);
             if ($group) {
@@ -196,11 +195,11 @@ class IntergroupMeetingDashboard
         }
 
         if (empty($names)) {
-            echo '<span class="no-attendees">None</span>';
+            echo '<span style="color: gray;">—</span>';
             return;
         }
 
-        echo '<div class="attendee-list">' . implode(', ', $names) . '</div>';
+        echo implode(', ', $names);
     }
 
     /**
