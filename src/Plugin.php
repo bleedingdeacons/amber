@@ -13,7 +13,8 @@ use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
-use Unity\Core\DependencyContainer;
+use Psr\Container\ContainerInterface;
+use Unity\Core\Interfaces\Container;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\UnityConfiguration;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -43,7 +44,7 @@ use function remove_submenu_page;
  */
 class Plugin
 {
-    private static ?DependencyContainer $container = null;
+    private static ?ContainerInterface $container = null;
     private static bool $initialized = false;
 
     public const MENU_SLUG = 'intergroup';
@@ -52,9 +53,9 @@ class Plugin
     /**
      * Initialize the plugin
      *
-     * @param DependencyContainer $unityContainer The Unity dependency container
+     * @param Container $unityContainer The Unity dependency container
      */
-    public static function init(DependencyContainer $unityContainer): void
+    public static function init(Container $unityContainer): void
     {
         if (self::$initialized) {
             return;
@@ -144,14 +145,14 @@ class Plugin
     /**
      * Register all Amber services in Unity's container
      *
-     * @param DependencyContainer $container The Unity dependency container
+     * @param Container $container The Unity dependency container
      * @return void
      */
-    private static function registerServices(DependencyContainer $container): void
+    private static function registerServices(Container $container): void
     {
 
         // Register Intergroup Manager
-        $container->register(IntergroupManager::class, function (DependencyContainer $c) {
+        $container->register(IntergroupManager::class, function (ContainerInterface $c) {
             return new IntergroupManager(
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class)
@@ -159,7 +160,7 @@ class Plugin
         });
 
         // Register Member Admin
-        $container->register(MemberAdmin::class, function (DependencyContainer $c) {
+        $container->register(MemberAdmin::class, function (ContainerInterface $c) {
             return new MemberAdmin(
                 $c->get(Configuration::class),
                 $c->get(PositionFactory::class),
@@ -169,7 +170,7 @@ class Plugin
         });
 
         // Register Position Admin
-        $container->register(PositionAdmin::class, function (DependencyContainer $c) {
+        $container->register(PositionAdmin::class, function (ContainerInterface $c) {
             return new PositionAdmin(
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class),
@@ -178,7 +179,7 @@ class Plugin
         });
 
         // Register Position Dashboard
-        $container->register(PositionDashboard::class, function (DependencyContainer $c) {
+        $container->register(PositionDashboard::class, function (ContainerInterface $c) {
             return new PositionDashboard(
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class),
@@ -187,7 +188,7 @@ class Plugin
         });
 
         // Register Meeting Admin
-        $container->register(MeetingAdmin::class, function (DependencyContainer $c) {
+        $container->register(MeetingAdmin::class, function (ContainerInterface $c) {
             return new MeetingAdmin(
                 $c->get(Configuration::class),
                 $c->get(GroupRepository::class)
@@ -195,7 +196,7 @@ class Plugin
         });
 
         // Register Meeting Dashboard
-        $container->register(MeetingDashboard::class, function (DependencyContainer $c) {
+        $container->register(MeetingDashboard::class, function (ContainerInterface $c) {
             return new MeetingDashboard(
                 $c->get(MeetingRepository::class),
                 $c->get(GroupRepository::class)
@@ -203,7 +204,7 @@ class Plugin
         });
 
         // Register Intergroup Meeting Admin
-        $container->register(IntergroupMeetingAdmin::class, function (DependencyContainer $c) {
+        $container->register(IntergroupMeetingAdmin::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAdmin(
                 $c->get(Configuration::class),
                 $c->get(IntergroupMeetingFactory::class),
@@ -221,7 +222,7 @@ class Plugin
         });
 
         // Register Intergroup Meeting Dashboard
-        $container->register(IntergroupMeetingDashboard::class, function (DependencyContainer $c) {
+        $container->register(IntergroupMeetingDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingDashboard(
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(GroupRepository::class),
@@ -230,7 +231,7 @@ class Plugin
         });
 
         // Register Intergroup Meeting Attendance Dashboard
-        $container->register(IntergroupMeetingAttendanceDashboard::class, function (DependencyContainer $c) {
+        $container->register(IntergroupMeetingAttendanceDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAttendanceDashboard(
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(IntergroupMeetingGroupAttendanceRepository::class),
@@ -242,10 +243,10 @@ class Plugin
     /**
      * Get the dependency container
      *
-     * @return DependencyContainer
+     * @return ContainerInterface
      * @throws RuntimeException If plugin is not initialized
      */
-    public static function getContainer(): DependencyContainer
+    public static function getContainer(): ContainerInterface
     {
         if (self::$container === null) {
             throw new RuntimeException('Amber Plugin not initialized');
