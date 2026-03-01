@@ -26,6 +26,7 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceReposito
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 use Unity\Meetings\Interfaces\MeetingRepository;
+use Unity\Members\Interfaces\MemberChangeTracker;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
@@ -50,6 +51,8 @@ class Plugin
     public const MENU_SLUG = 'intergroup';
     public const MENU_CAPABILITY = 'edit_posts';
 
+    private static ?MemberChangeTracker $memberChangeTracker = null;
+
     /**
      * Initialize the plugin
      *
@@ -63,13 +66,12 @@ class Plugin
 
         self::$container = $unityContainer;
 
-        // Register Amber services with Unity's container
         self::registerServices($unityContainer);
 
         self::$initialized = true;
 
         // Initialize IntergroupManager (always needed for shortcodes)
-        self::$container->get(IntergroupManager::class);
+        $memberChangeTracker = self::$container->get(IntergroupManager::class);
 
         // Initialize admin services
         if (is_admin()) {
