@@ -39,6 +39,7 @@ use function update_post_meta;
 use function delete_post_meta;
 use const DOING_AJAX;
 use const DOING_AUTOSAVE;
+use const WP_DEBUG;
 
 /**
  * Intergroup Meeting Admin
@@ -123,6 +124,7 @@ class IntergroupMeetingAdmin
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
         add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
         add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
+        add_action('amber/member_changing', [$this, 'onMemberPositionChanged'], 10, 2);
 
     }
 
@@ -186,6 +188,127 @@ class IntergroupMeetingAdmin
         }
 
 
+    }
+
+    /**
+     * Handle amber/member_changing hook to update officer attendance records
+     * when a member's service position or name changes on the day of an
+     * intergroup meeting.
+     *
+     * Only the attendance record for today's intergroup meeting is updated.
+     * Historical attendance records are left unchanged.
+     *
+     * @param Member $updatedMember  The member after changes
+     * @param Member $originalMember The member before changes
+     * @return void
+     */
+    public function onMemberPositionChanged(Member $updatedMember, Member $originalMember): void
+    {
+        $positionChanged = $updatedMember->getIntergroupPosition() !== $originalMember->getIntergroupPosition();
+        $nameChanged = $updatedMember->getAnonymousName() !== $originalMember->getAnonymousName();
+
+        if (!$positionChanged && !$nameChanged) {
+            return;
+        }
+
+        $officerId = $updatedMember->getId();
+
+        // Find all officer attendance records for this member, then filter
+        // to today's meeting. This avoids relying on _intergroup_meeting_date_sortable
+        // meta which may not exist or may be in a different date format.
+        $attendanceRecords = $this->officerAttendanceRepository->findAll([
+            'officer_id' => $officerId,
+        ]);
+
+        if (empty($attendanceRecords)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('No officer attendance records found for member ID: ' . $officerId . ' — skipping update');
+            }
+            return;
+        }
+
+        $todayDate = date('Y-m-d');
+        $todaysMeetingId = null;
+
+        foreach ($attendanceRecords as $record) {
+            $meeting = $this->intergroupMeetingRepository->find($record->getIntergroupMeetingId());
+
+            if (!$meeting) {
+                continue;
+            }
+
+            $meetingDate = $meeting->getDate();
+
+            if (empty($meetingDate)) {
+                continue;
+            }
+
+            $meetingTimestamp = strtotime($meetingDate);
+
+            if ($meetingTimestamp !== false && date('Y-m-d', $meetingTimestamp) === $todayDate) {
+                $todaysMeetingId = $meeting->getId();
+                break;
+            }
+        }
+
+        if (!$todaysMeetingId) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('No intergroup meeting found for today — skipping attendance update for member ID: ' . $officerId);
+            }
+            return;
+        }
+
+        $officerName = $updatedMember->getAnonymousName();
+        $positionName = '';
+
+        $positionId = $updatedMember->getIntergroupPosition();
+        if ($positionId) {
+            $position = $this->positionRepository->findById($positionId);
+            if ($position) {
+                $positionName = $position->getLongName();
+            }
+        }
+
+        $rowsUpdated = $this->officerAttendanceRepository->updateByMeetingAndOfficer(
+            $todaysMeetingId,
+            $officerId,
+            $positionName,
+            $officerName
+        );
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log(
+                'Officer attendance updated for member ID: ' . $officerId
+                . ' at meeting ID: ' . $todaysMeetingId
+                . ' — ' . $rowsUpdated . ' record(s) updated'
+                . ' — new position: "' . $positionName . '"'
+                . ($positionChanged ? ' [position changed]' : '')
+                . ($nameChanged ? ' [name changed]' : '')
+            );
+        }
+    }
+
+    /**
+     * Find the intergroup meeting scheduled for today.
+     *
+     * Queries published intergroup meetings whose date matches today's date.
+     *
+     * @return IntergroupMeeting|null The today's meeting, or null if none found
+     */
+    private function findTodaysIntergroupMeeting(): ?IntergroupMeeting
+    {
+        $today = date('Y-m-d');
+
+        $meetings = $this->intergroupMeetingRepository->findAll([
+            'meta_key'   => '_intergroup_meeting_date_sortable',
+            'meta_value' => $today,
+        ]);
+
+        if (empty($meetings)) {
+            return null;
+        }
+
+        return $meetings[0];
     }
 
     /**
