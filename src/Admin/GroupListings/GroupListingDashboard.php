@@ -34,7 +34,7 @@ class GroupListingDashboard
      * These are either shown in the card header or are internal.
      */
     private const HEADER_FIELDS = [
-        'id', 'ID', 'slug', 'url', 'link', 'name', 'title', 'group', 'group_name', 'intergroup',
+        'id', 'groupName', 'intergroupId', 'intergroupName',
     ];
 
     /**
@@ -128,7 +128,7 @@ class GroupListingDashboard
         // --- Header ---
         echo '<div class="gl-card-header">';
         echo '<div class="gl-card-title">';
-        echo '<strong>' . esc_html($name ?: ((string) ($raw['group'] ?? 'Group Name'))) . '</strong>';
+        echo '<strong>' . esc_html($name ?: ((string) ($raw['groupName'] ?? 'Unknown Group'))) . '</strong>';
         echo '</div>';
         echo '</div>';
 
@@ -164,7 +164,7 @@ class GroupListingDashboard
      */
     private function resolveName(array $raw): string
     {
-        return (string) ($raw['name'] ?? $raw['title'] ?? $raw['group_name'] ?? $raw['group'] ?? '');
+        return (string) ($raw['groupName'] ?? $raw['name'] ?? $raw['title'] ?? '');
     }
 
     /**
