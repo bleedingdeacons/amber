@@ -78,7 +78,7 @@ class GroupListingDashboard
      */
     public function renderDashboardWidget(): void
     {
-        $response = $this->apiCache->getGroups(['intergroup' => 1]);
+        $response = $this->apiCache->getGroups();
 
         if (is_wp_error($response)) {
             echo '<div class="gl-error">';
@@ -90,10 +90,19 @@ class GroupListingDashboard
 
         $groups = GroupListing::collectionFromResponse($response);
 
+        // Filter to intergroup ID 1
+        $groups = array_values(array_filter(
+            $groups,
+            static fn(GroupListing $g) => $g->getIntergroupId() === 1
+        ));
+
         if (empty($groups)) {
             echo '<p class="gl-empty">No groups found from the AAGBDB API.</p>';
             return;
         }
+
+        // Sort by day, then time, then name
+        GroupListing::sort($groups, 'day,time,name');
 
         echo '<div class="gl-dashboard-widget">';
 
