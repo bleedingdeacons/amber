@@ -14,6 +14,7 @@ use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
+use Amber\Managers\MeetingReconciler;
 use Psr\Container\ContainerInterface;
 use Unity\Core\Interfaces\Container;
 use Unity\Core\Interfaces\Configuration;
@@ -255,6 +256,14 @@ class Plugin
         $container->register(GroupListingDashboard::class, function (ContainerInterface $c) {
             // Resolve ApiCache from Concordance's own container
             return new GroupListingDashboard(
+                concordance()->get(\Concordance\Api\ApiCache::class)
+            );
+        });
+
+        // Register Meeting Reconciler (bridges Unity meetings with national AAGBDB data via Concordance)
+        $container->register(MeetingReconciler::class, function (ContainerInterface $c) {
+            return new MeetingReconciler(
+                $c->get(MeetingRepository::class),
                 concordance()->get(\Concordance\Api\ApiCache::class)
             );
         });
