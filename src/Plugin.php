@@ -7,7 +7,6 @@ namespace Amber;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
-use Amber\Admin\GroupListings\GroupListingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
@@ -87,15 +86,6 @@ class Plugin
             self::$container->get(MeetingDashboard::class);
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupMeetingAttendanceDashboard::class);
-
-            // Initialize Group Listing Dashboard (only if Concordance is active)
-            if (function_exists('concordance')) {
-                try {
-                    self::$container->get(GroupListingDashboard::class);
-                } catch (\Throwable $e) {
-                    error_log('Amber: Failed to initialize GroupListingDashboard: ' . $e->getMessage());
-                }
-            }
         }
     }
 
@@ -249,14 +239,6 @@ class Plugin
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(IntergroupMeetingGroupAttendanceRepository::class),
                 $c->get(IntergroupMeetingOfficerAttendanceRepository::class)
-            );
-        });
-
-        // Register Group Listing Dashboard (Concordance integration)
-        $container->register(GroupListingDashboard::class, function (ContainerInterface $c) {
-            // Resolve ApiCache from Concordance's own container
-            return new GroupListingDashboard(
-                concordance()->get(\Concordance\Api\ApiCache::class)
             );
         });
 
