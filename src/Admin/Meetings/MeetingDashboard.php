@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Meetings;
 
+use Amber\Managers\MeetingReconciler;
+use Amber\Models\ReconciliationResult;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;
 
 use function add_action;
+use function esc_attr;
 use function esc_html;
 use function esc_url;
 use function get_current_screen;
@@ -21,12 +24,15 @@ use function wp_add_dashboard_widget;
  * Meeting Dashboard Widget
  *
  * Adds a dashboard panel listing all meetings with their groups,
- * sorted by day of week and start time.
+ * sorted by day of week and start time. Each meeting card displays
+ * a reconciliation status badge indicating whether the meeting was
+ * found in the national AAGBDB listing (via MeetingReconciler).
  */
 class MeetingDashboard
 {
     private MeetingRepository $meetingRepository;
     private GroupRepository $groupRepository;
+    private ?MeetingReconciler $meetingReconciler;
 
     /**
      * Day order mapping: Sunday (0) through Saturday (6)
@@ -45,15 +51,18 @@ class MeetingDashboard
     /**
      * Constructor
      *
-     * @param MeetingRepository $meetingRepository Meeting repository
-     * @param GroupRepository $groupRepository Group repository
+     * @param MeetingRepository   $meetingRepository  Meeting repository
+     * @param GroupRepository     $groupRepository    Group repository
+     * @param MeetingReconciler|null $meetingReconciler  Reconciler (nullable if Concordance is unavailable)
      */
     public function __construct(
         MeetingRepository $meetingRepository,
-        GroupRepository $groupRepository
+        GroupRepository $groupRepository,
+        ?MeetingReconciler $meetingReconciler = null
     ) {
-        $this->meetingRepository = $meetingRepository;
-        $this->groupRepository = $groupRepository;
+        $this->meetingRepository   = $meetingRepository;
+        $this->groupRepository     = $groupRepository;
+        $this->meetingReconciler   = $meetingReconciler;
 
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);
@@ -90,6 +99,9 @@ class MeetingDashboard
             echo '<p>No meetings found.</p>';
             return;
         }
+
+        // Run reconciliation to build a per-meeting status lookup
+        $reconLookup = $this->buildReconciliationLookup();
 
         // Build a group cache keyed by group ID to avoid repeated lookups
         $groupCache = [];
@@ -130,7 +142,7 @@ class MeetingDashboard
         echo '<div class="meeting-dashboard-widget">';
 
         foreach ($meetingsByDay as $day => $rows) {
-            $this->renderDaySection($day, $rows);
+            $this->renderDaySection($day, $rows, $reconLookup);
         }
 
         echo '</div>';
@@ -164,21 +176,30 @@ class MeetingDashboard
     /**
      * Render a day section with all meetings for that day
      *
-     * @param int $day Day of week (0-6)
-     * @param array $rows Array of meeting/group pairs
+     * @param int   $day         Day of week (0-6)
+     * @param array $rows        Array of meeting/group pairs
+     * @param array $reconLookup Reconciliation status keyed by meeting ID
      */
-    private function renderDaySection(int $day, array $rows): void
+    private function renderDaySection(int $day, array $rows, array $reconLookup): void
     {
         $dayName = self::DAY_NAMES[$day] ?? 'Unknown';
+        $count = count($rows);
 
-        echo '<div class="meeting-day-section">';
-        echo '<div class="meeting-day-header">' . esc_html($dayName) . '</div>';
+        echo '<details class="meeting-day-section" open>';
+        echo '<summary class="meeting-day-header">';
+        echo '<span class="meeting-day-header-title">' . esc_html($dayName) . '</span>';
+        echo '<span class="meeting-day-header-count">' . $count . '</span>';
+        echo '</summary>';
 
+        echo '<div class="meeting-day-body">';
         foreach ($rows as $row) {
-            $this->renderMeetingCard($row['meeting'], $row['group']);
+            $meetingId = $row['meeting']->getId();
+            $reconStatus = $reconLookup[$meetingId] ?? null;
+            $this->renderMeetingCard($row['meeting'], $row['group'], $reconStatus);
         }
-
         echo '</div>';
+
+        echo '</details>';
     }
 
     /**
@@ -205,14 +226,15 @@ class MeetingDashboard
     /**
      * Render a single meeting card
      *
-     * @param Meeting $meeting Meeting object
-     * @param Group|null $group Group object or null
+     * @param Meeting    $meeting     Meeting object
+     * @param Group|null $group       Group object or null
+     * @param array|null $reconStatus Reconciliation status for this meeting, or null if unavailable
      */
-    private function renderMeetingCard(Meeting $meeting, ?Group $group): void
+    private function renderMeetingCard(Meeting $meeting, ?Group $group, ?array $reconStatus): void
     {
         echo '<div class="meeting-card">';
 
-        // Header with meeting name and time
+        // Header with meeting name, time, and reconciliation status
         echo '<div class="meeting-card-header">';
 
         // Meeting name with online badge
@@ -234,6 +256,9 @@ class MeetingDashboard
         echo '<div class="meeting-card-time">';
         $this->renderTime($meeting);
         echo '</div>';
+
+        // Reconciliation status badge
+        $this->renderReconciliationBadge($reconStatus);
 
         echo '</div>'; // .meeting-card-header
 
@@ -267,8 +292,16 @@ class MeetingDashboard
         echo '</div>';
         echo '</div>';
 
+        // National Listing (show matched national name when available)
+        echo '<div class="meeting-card-field">';
+        echo '<div class="field-label">National Listing</div>';
+        echo '<div class="field-value">';
+        $this->renderNationalMatch($reconStatus);
+        echo '</div>';
+        echo '</div>';
+
         // Contacts
-        echo '<div class="meeting-card-field meeting-card-field-full">';
+        echo '<div class="meeting-card-field">';
         echo '<div class="field-label">Contacts</div>';
         echo '<div class="field-value">';
         $this->renderContacts($meeting, $group);
@@ -278,6 +311,167 @@ class MeetingDashboard
         echo '</div>'; // .meeting-card-content
 
         echo '</div>'; // .meeting-card
+    }
+
+    /**
+     * Build a per-meeting reconciliation status lookup.
+     *
+     * Returns an associative array keyed by local meeting ID with a status
+     * entry for each meeting. If the reconciler is unavailable (Concordance
+     * not active) or the API call fails, returns an empty array so the
+     * dashboard degrades gracefully.
+     *
+     * Status array shape:
+     *   'type'           => 'matched' | 'possible' | 'local_only'
+     *   'national_name'  => string|null
+     *   'national_id'    => int|null
+     *   'score'          => float|null   (name similarity, matched only)
+     *   'notes'          => string[]     (e.g. "Weak name match", "End time mismatch")
+     *
+     * @return array<int, array>
+     */
+    private function buildReconciliationLookup(): array
+    {
+        if ($this->meetingReconciler === null) {
+            return [];
+        }
+
+        try {
+            $result = $this->meetingReconciler->reconcile();
+        } catch (\Throwable $e) {
+            error_log('MeetingDashboard: Reconciliation failed — ' . $e->getMessage());
+            return [];
+        }
+
+        $lookup = [];
+
+        // Confident matches
+        foreach ($result->getMatches() as $match) {
+            $lookup[$match['local_id']] = [
+                'type'          => 'matched',
+                'national_name' => $match['national_name'],
+                'national_id'   => $match['national_id'],
+                'score'         => $match['score'],
+                'notes'         => $match['notes'],
+            ];
+        }
+
+        // Possible matches (day + time only, name diverges)
+        foreach ($result->getPossibles() as $possible) {
+            // A meeting can appear in multiple possible rows; keep the first
+            if (!isset($lookup[$possible['local_id']])) {
+                $lookup[$possible['local_id']] = [
+                    'type'          => 'possible',
+                    'national_name' => $possible['national_name'],
+                    'national_id'   => $possible['national_id'],
+                    'score'         => null,
+                    'notes'         => [],
+                ];
+            }
+        }
+
+        // Local-only (unmatched)
+        foreach ($result->getLocalOnly() as $local) {
+            if (!isset($lookup[$local['id']])) {
+                $lookup[$local['id']] = [
+                    'type'          => 'local_only',
+                    'national_name' => null,
+                    'national_id'   => null,
+                    'score'         => null,
+                    'notes'         => [$local['reason']],
+                ];
+            }
+        }
+
+        return $lookup;
+    }
+
+    /**
+     * Render a small reconciliation status badge next to the meeting name.
+     *
+     * @param array|null $reconStatus Status entry from the lookup, or null
+     */
+    private function renderReconciliationBadge(?array $reconStatus): void
+    {
+        if ($reconStatus === null) {
+            return;
+        }
+
+        $type = $reconStatus['type'];
+        $notes = $reconStatus['notes'] ?? [];
+        $tooltip = '';
+
+        switch ($type) {
+            case 'matched':
+                $label = 'AAGBDB';
+                $class = 'recon-matched';
+                if (!empty($notes)) {
+                    $label = 'AAGBDB ~';
+                    $class = 'recon-partial';
+                    $tooltip = implode('; ', $notes);
+                }
+                break;
+
+            case 'possible':
+                $label = 'AAGBDB ?';
+                $class = 'recon-possible';
+                $tooltip = 'Day & time match only — name differs';
+                break;
+
+            case 'local_only':
+                $label = 'Not Listed';
+                $class = 'recon-missing';
+                $tooltip = implode('; ', $notes);
+                break;
+
+            default:
+                return;
+        }
+
+        echo ' <span class="meeting-badge ' . esc_attr($class) . '"';
+        if ($tooltip !== '') {
+            echo ' title="' . esc_attr($tooltip) . '"';
+        }
+        echo '>' . esc_html($label) . '</span>';
+    }
+
+    /**
+     * Render the national listing field value inside a meeting card.
+     *
+     * @param array|null $reconStatus Status entry from the lookup, or null
+     */
+    private function renderNationalMatch(?array $reconStatus): void
+    {
+        if ($reconStatus === null) {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        $type = $reconStatus['type'];
+        $nationalName = $reconStatus['national_name'] ?? null;
+
+        switch ($type) {
+            case 'matched':
+                echo esc_html($nationalName ?? 'Unknown');
+                $notes = $reconStatus['notes'] ?? [];
+                if (!empty($notes)) {
+                    echo '<br><span class="recon-note">' . esc_html(implode('; ', $notes)) . '</span>';
+                }
+                break;
+
+            case 'possible':
+                echo '<span class="recon-note-possible">' . esc_html($nationalName ?? 'Unknown') . '</span>';
+                echo '<br><span class="recon-note">Possible match — name differs</span>';
+                break;
+
+            case 'local_only':
+                $reason = $reconStatus['notes'][0] ?? 'Not found';
+                echo '<span class="recon-note-missing">' . esc_html($reason) . '</span>';
+                break;
+
+            default:
+                echo '<span class="no-data">—</span>';
+        }
     }
 
     /**
@@ -437,6 +631,50 @@ class MeetingDashboard
                 letter-spacing: 0.5px;
                 margin: 0 0 8px 0;
                 border-radius: 3px;
+                cursor: pointer;
+                list-style: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                user-select: none;
+            }
+
+            .meeting-day-header::-webkit-details-marker {
+                display: none;
+            }
+
+            .meeting-day-header::before {
+                content: "▾";
+                margin-right: 8px;
+                font-size: 12px;
+                transition: transform 0.2s;
+                flex-shrink: 0;
+            }
+
+            .meeting-day-section:not([open]) > .meeting-day-header::before {
+                transform: rotate(-90deg);
+            }
+
+            .meeting-day-header:hover {
+                background: #135e96;
+            }
+
+            .meeting-day-header-title {
+                flex: 1;
+            }
+
+            .meeting-day-header-count {
+                background: rgba(255, 255, 255, 0.25);
+                padding: 1px 8px;
+                border-radius: 10px;
+                font-size: 11px;
+                font-weight: 700;
+                margin-left: 8px;
+                flex-shrink: 0;
+            }
+
+            .meeting-day-body {
+                padding-top: 0;
             }
 
             .meeting-card {
@@ -566,6 +804,42 @@ class MeetingDashboard
             .meeting-online-label {
                 color: #2271b1;
                 font-style: italic;
+            }
+
+            /* Reconciliation badges */
+            .meeting-badge.recon-matched {
+                background: #00a32a;
+                color: white;
+            }
+
+            .meeting-badge.recon-partial {
+                background: #dba617;
+                color: white;
+            }
+
+            .meeting-badge.recon-possible {
+                background: #72aee6;
+                color: white;
+            }
+
+            .meeting-badge.recon-missing {
+                background: #d63638;
+                color: white;
+            }
+
+            .recon-note {
+                font-size: 11px;
+                color: #996800;
+                font-style: italic;
+            }
+
+            .recon-note-possible {
+                font-style: italic;
+            }
+
+            .recon-note-missing {
+                color: #d63638;
+                font-size: 12px;
             }
 
             .meeting-location-address {

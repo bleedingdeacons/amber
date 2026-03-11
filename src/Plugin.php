@@ -200,9 +200,19 @@ class Plugin
 
         // Register Meeting Dashboard
         $container->register(MeetingDashboard::class, function (ContainerInterface $c) {
+            $reconciler = null;
+            if (function_exists('concordance')) {
+                try {
+                    $reconciler = $c->get(MeetingReconciler::class);
+                } catch (\Throwable $e) {
+                    error_log('Amber: MeetingReconciler unavailable — ' . $e->getMessage());
+                }
+            }
+
             return new MeetingDashboard(
                 $c->get(MeetingRepository::class),
-                $c->get(GroupRepository::class)
+                $c->get(GroupRepository::class),
+                $reconciler
             );
         });
 
