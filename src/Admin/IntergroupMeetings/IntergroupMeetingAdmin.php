@@ -124,7 +124,7 @@ class IntergroupMeetingAdmin
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
         add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
         add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
-        add_action('amber/member_changing', [$this, 'onMemberPositionChanged'], 10, 2);
+        add_action('unity/member_changing', [$this, 'onMemberPositionChanged'], 10, 2);
 
     }
 
@@ -191,7 +191,7 @@ class IntergroupMeetingAdmin
     }
 
     /**
-     * Handle amber/member_changing hook to update officer attendance records
+     * Handle unity/member_changing hook to update officer attendance records
      * when a member's service position or name changes on the day of an
      * intergroup meeting.
      *
