@@ -10,6 +10,7 @@ use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
+use Amber\Admin\Members\MemberAnonymousNameValidator;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Managers\IntergroupManager;
@@ -80,6 +81,7 @@ class Plugin
 
             self::$container->get(PositionAdmin::class);
             self::$container->get(MemberAdmin::class);
+            self::$container->get(MemberAnonymousNameValidator::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
@@ -169,6 +171,13 @@ class Plugin
                 $c->get(PositionFactory::class),
                 $c->get(MemberRepository::class),
                 $c->get(GroupFactory::class)
+            );
+        });
+
+        // Register Anonymous Name Uniqueness Validator
+        $container->register(MemberAnonymousNameValidator::class, function (ContainerInterface $c) {
+            return new MemberAnonymousNameValidator(
+                $c->get(Configuration::class)
             );
         });
 
