@@ -237,10 +237,10 @@ class MeetingAdmin
         global $wpdb;
 
         // Join to get the group_id from postmeta
-        $join .= " LEFT JOIN {$wpdb->postmeta} AS group_meta ON ({$wpdb->posts}.ID = group_meta.post_id AND group_meta.meta_key = '" . self::GROUP_META_KEY . "')";
+        $join .= " LEFT JOIN {$wpdb->postmeta} AS group_meta ON ({$wpdb->posts}.ID = group_meta.post_id AND group_meta.meta_key = '" . $this->meeting_config['GROUP_META_KEY'] . "')";
 
-        // Join to get the group post (tsml_group) to search its title
-        $join .= " LEFT JOIN {$wpdb->posts} AS group_post ON (group_meta.meta_value = group_post.ID AND group_post.post_type = 'tsml_group')";
+        // Join to get the group post to search its title
+        $join .= " LEFT JOIN {$wpdb->posts} AS group_post ON (group_meta.meta_value = group_post.ID AND group_post.post_type = '" . $this->meeting_config['GROUP_POST_TYPE'] . "')";
 
         return $join;
     }
