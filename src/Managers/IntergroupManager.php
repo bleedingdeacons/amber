@@ -21,6 +21,8 @@ use function get_field;
 use function get_post;
 use function get_post_type;
 use function get_the_ID;
+use function intval;
+use function sanitize_text_field;
 use function update_post_meta;
 use function wp_kses_post;
 use function wp_update_post;
@@ -47,6 +49,7 @@ class IntergroupManager
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
         add_action('amber/member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
+        add_action('amber/position_before_save', [$this, 'onPositionBeforeSave'], 10, 2);
 
         add_shortcode('position_state', [$this, 'getPositionState']);
         add_shortcode('position_highlight', [$this, 'generatePositionState']);
@@ -115,6 +118,69 @@ class IntergroupManager
             }
         } catch (Exception $e) {
             error_log('Error in onMemberBeforeSave: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle amber/position_before_save hook to always sync post title with position-long-name
+     *
+     * @param int $postId The post ID being saved
+     * @param Position|null $originalPosition The original position before changes (may be null for new posts)
+     * @return void
+     */
+    public function onPositionBeforeSave(int $postId, ?Position $originalPosition): void
+    {
+        try {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('amber/position_before_save hook fired for post ID: ' . $postId);
+            }
+
+            $post = get_post($postId);
+
+            if (!$post) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onPositionBeforeSave: Could not get post for ID: ' . $postId);
+                }
+                return;
+            }
+
+            $postTitle = $post->post_title;
+
+            $positionLongName = get_field('position-long-name', $postId);
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('onPositionBeforeSave: Post title is "' . $postTitle . '", Position name is "' . $positionLongName . '"');
+            }
+
+            // Always sync the post title with the position long name if they differ
+            if (!empty($positionLongName) && $postTitle !== $positionLongName) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onPositionBeforeSave: Updating post title to "' . $positionLongName . '"');
+                }
+
+                $result = wp_update_post([
+                    'ID'         => $postId,
+                    'post_title' => $positionLongName,
+                ]);
+
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    if (is_wp_error($result)) {
+                        error_log('onPositionBeforeSave: wp_update_post failed: ' . $result->get_error_message());
+                    } else {
+                        error_log('onPositionBeforeSave: wp_update_post succeeded, returned: ' . $result);
+                    }
+                }
+            } elseif (empty($positionLongName)) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onPositionBeforeSave: Position long name is empty, not updating');
+                }
+            } else {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('onPositionBeforeSave: Post title already matches position name, skipping update');
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Error in onPositionBeforeSave: ' . $e->getMessage());
         }
     }
 
