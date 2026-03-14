@@ -48,8 +48,8 @@ class IntergroupManager
         $this->positionViewFactory = $positionViewFactory;
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
-        add_action('amber/member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
-        add_action('amber/position_before_save', [$this, 'onPositionBeforeSave'], 10, 2);
+        add_action('unity/member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
+        add_action('unity/position_before_save', [$this, 'onPositionBeforeSave'], 10, 2);
 
         add_shortcode('position_state', [$this, 'getPositionState']);
         add_shortcode('position_highlight', [$this, 'generatePositionState']);
@@ -59,7 +59,7 @@ class IntergroupManager
     }
 
     /**
-     * Handle amber/member_before_save hook to always sync post title with anonymous name
+     * Handle unity/member_before_save hook to always sync post title with anonymous name
      *
      * @param int $postId The post ID being saved
      * @param Member|null $originalMember The original member before changes (may be null for new posts)
@@ -69,7 +69,7 @@ class IntergroupManager
     {
         try {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('amber/member_before_save hook fired for post ID: ' . $postId);
+                error_log('unity/member_before_save hook fired for post ID: ' . $postId);
             }
 
             $post = get_post($postId);
@@ -122,7 +122,7 @@ class IntergroupManager
     }
 
     /**
-     * Handle amber/position_before_save hook to always sync post title with position-long-name
+     * Handle unity/position_before_save hook to always sync post title with position-short-description
      *
      * @param int $postId The post ID being saved
      * @param Position|null $originalPosition The original position before changes (may be null for new posts)
@@ -132,7 +132,7 @@ class IntergroupManager
     {
         try {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('amber/position_before_save hook fired for post ID: ' . $postId);
+                error_log('unity/position_before_save hook fired for post ID: ' . $postId);
             }
 
             $post = get_post($postId);
@@ -146,21 +146,21 @@ class IntergroupManager
 
             $postTitle = $post->post_title;
 
-            $positionLongName = get_field('position-long-name', $postId);
+            $shortDescription = get_field($this->position_config['SHORT_DESCRIPTION'], $postId);
 
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('onPositionBeforeSave: Post title is "' . $postTitle . '", Position name is "' . $positionLongName . '"');
+                error_log('onPositionBeforeSave: Post title is "' . $postTitle . '", Short description is "' . $shortDescription . '"');
             }
 
-            // Always sync the post title with the position long name if they differ
-            if (!empty($positionLongName) && $postTitle !== $positionLongName) {
+            // Always sync the post title with the short description if they differ
+            if (!empty($shortDescription) && $postTitle !== $shortDescription) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('onPositionBeforeSave: Updating post title to "' . $positionLongName . '"');
+                    error_log('onPositionBeforeSave: Updating post title to "' . $shortDescription . '"');
                 }
 
                 $result = wp_update_post([
                     'ID'         => $postId,
-                    'post_title' => $positionLongName,
+                    'post_title' => $shortDescription,
                 ]);
 
                 if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -170,13 +170,13 @@ class IntergroupManager
                         error_log('onPositionBeforeSave: wp_update_post succeeded, returned: ' . $result);
                     }
                 }
-            } elseif (empty($positionLongName)) {
+            } elseif (empty($shortDescription)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('onPositionBeforeSave: Position long name is empty, not updating');
+                    error_log('onPositionBeforeSave: Short description is empty, not updating');
                 }
             } else {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('onPositionBeforeSave: Post title already matches position name, skipping update');
+                    error_log('onPositionBeforeSave: Post title already matches short description, skipping update');
                 }
             }
         } catch (Exception $e) {
