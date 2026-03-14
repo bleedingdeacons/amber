@@ -30,7 +30,7 @@ use function wp_send_json_success;
  *  1. A real-time AJAX endpoint for live feedback while editing.
  *  2. Server-side ACF validation on save as a safety net.
  */
-class MemberAnonymousNameValidator
+class AnonymousNameValidator
 {
     private readonly array $memberConfig;
 
@@ -73,17 +73,23 @@ class MemberAnonymousNameValidator
         }
 
         wp_enqueue_script(
-            'amber-anon-name-validator',
-            plugin_dir_url(dirname(__DIR__, 2) . '/Amber.php') . 'assets/js/member-anonymous-name-validator.js',
+            'amber-unique-field-validator',
+            plugin_dir_url(dirname(__DIR__, 2) . '/Amber.php') . 'assets/js/unique-field-validator.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true
         );
 
-        wp_localize_script('amber-anon-name-validator', 'amberAnonName', [
+        wp_localize_script('amber-unique-field-validator', 'amberUniqueFields', [
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('amber_anon_name'),
             'post_id' => (string) (get_the_ID() ?: 0),
+            'fields'  => [
+                [
+                    'field_name' => 'anonymous-name',
+                    'action'     => 'amber_validate_anonymous_name',
+                    'nonce'      => wp_create_nonce('amber_anon_name'),
+                ],
+            ],
         ]);
     }
 
@@ -145,8 +151,9 @@ class MemberAnonymousNameValidator
 
         if ($duplicate) {
             return sprintf(
-                'The anonymous name "%s" is already in use by another member.',
-                esc_html($value)
+                'The anonymous name "%s" is already in use by another member (Post #%d).',
+                esc_html($value),
+                $duplicate
             );
         }
 

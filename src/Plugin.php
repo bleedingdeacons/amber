@@ -10,9 +10,10 @@ use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
-use Amber\Admin\Members\MemberAnonymousNameValidator;
+use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
+use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\MeetingReconciler;
 use Psr\Container\ContainerInterface;
@@ -80,8 +81,9 @@ class Plugin
             add_action('admin_menu', [self::class, 'registerMenus']);
 
             self::$container->get(PositionAdmin::class);
+            self::$container->get(PositionNameValidator::class);
             self::$container->get(MemberAdmin::class);
-            self::$container->get(MemberAnonymousNameValidator::class);
+            self::$container->get(AnonymousNameValidator::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
@@ -175,8 +177,8 @@ class Plugin
         });
 
         // Register Anonymous Name Uniqueness Validator
-        $container->register(MemberAnonymousNameValidator::class, function (ContainerInterface $c) {
-            return new MemberAnonymousNameValidator(
+        $container->register(AnonymousNameValidator::class, function (ContainerInterface $c) {
+            return new AnonymousNameValidator(
                 $c->get(Configuration::class)
             );
         });
@@ -187,6 +189,13 @@ class Plugin
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class),
                 $c->get(PositionRepository::class)
+            );
+        });
+
+        // Register Position Name Uniqueness Validator
+        $container->register(PositionNameValidator::class, function (ContainerInterface $c) {
+            return new PositionNameValidator(
+                $c->get(Configuration::class)
             );
         });
 
