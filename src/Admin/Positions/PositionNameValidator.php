@@ -46,7 +46,9 @@ class PositionNameValidator
         $this->positionConfig = $configuration->getConfig(Position::class);
 
         // Enqueue the validator script on position edit screens.
+        // Use both hooks: ACF-specific for classic editor, standard for block editor.
         add_action('acf/input/admin_enqueue_scripts', [$this, 'enqueueScripts']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueueScripts']);
 
         // AJAX handler (logged-in users only).
         add_action('wp_ajax_amber_validate_position_name', [$this, 'handleAjax']);
@@ -72,23 +74,17 @@ class PositionNameValidator
         }
 
         wp_enqueue_script(
-            'amber-unique-field-validator',
-            plugin_dir_url(dirname(__DIR__, 2) . '/Amber.php') . 'assets/js/unique-field-validator.js',
+            'amber-position-name-validator',
+            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/position-name-validator.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true
         );
 
-        wp_localize_script('amber-unique-field-validator', 'amberUniqueFields', [
+        wp_localize_script('amber-position-name-validator', 'amberPositionName', [
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'post_id' => (string) (get_the_ID() ?: 0),
-            'fields'  => [
-                [
-                    'field_name' => 'position-long-name',
-                    'action'     => 'amber_validate_position_name',
-                    'nonce'      => wp_create_nonce('amber_position_name'),
-                ],
-            ],
+            'post_id' => (string) (get_the_ID() ?: intval($_GET['post'] ?? 0)),
+            'nonce'   => wp_create_nonce('amber_position_name'),
         ]);
     }
 
@@ -150,9 +146,8 @@ class PositionNameValidator
 
         if ($duplicate) {
             return sprintf(
-                'The position name "%s" is already in use by another position (Post #%d).',
-                esc_html($value),
-                $duplicate
+                'The position name "%s" is already in use by another position.',
+                esc_html($value)
             );
         }
 

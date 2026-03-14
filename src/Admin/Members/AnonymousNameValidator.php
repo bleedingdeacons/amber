@@ -73,23 +73,17 @@ class AnonymousNameValidator
         }
 
         wp_enqueue_script(
-            'amber-unique-field-validator',
-            plugin_dir_url(dirname(__DIR__, 2) . '/Amber.php') . 'assets/js/unique-field-validator.js',
+            'amber-member-anon-name-validator',
+            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/anonymous-name-validator.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true
         );
 
-        wp_localize_script('amber-unique-field-validator', 'amberUniqueFields', [
+        wp_localize_script('amber-member-anon-name-validator', 'amberMemberAnonymousName', [
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'post_id' => (string) (get_the_ID() ?: 0),
-            'fields'  => [
-                [
-                    'field_name' => 'anonymous-name',
-                    'action'     => 'amber_validate_anonymous_name',
-                    'nonce'      => wp_create_nonce('amber_anon_name'),
-                ],
-            ],
+            'post_id' => (string) (get_the_ID() ?: intval($_GET['post'] ?? 0)),
+            'nonce'   => wp_create_nonce('amber_anon_name'),
         ]);
     }
 
@@ -151,9 +145,8 @@ class AnonymousNameValidator
 
         if ($duplicate) {
             return sprintf(
-                'The anonymous name "%s" is already in use by another member (Post #%d).',
-                esc_html($value),
-                $duplicate
+                'The anonymous name "%s" is already in use by another member.',
+                esc_html($value)
             );
         }
 
