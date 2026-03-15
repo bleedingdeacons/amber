@@ -13,6 +13,7 @@ use WP_Query;
 
 use function add_action;
 use function add_filter;
+use function esc_attr;
 use function esc_html;
 use function get_current_screen;
 use function get_post_meta;
@@ -78,7 +79,7 @@ class MeetingAdmin
     {
         if ($screen->id === 'edit-' . $this->meeting_config['POST_TYPE']) {
             // Remove 'group' from hidden columns if present
-            $hidden = array_diff($hidden, ['group']);
+            $hidden = array_diff($hidden, ['group', 'email']);
         }
 
         return $hidden;
@@ -100,6 +101,7 @@ class MeetingAdmin
             // Insert after 'time' column
             if ($key === 'time') {
                 $newColumns['group'] = __('Group', 'amber');
+                $newColumns['email'] = __('Email', 'amber');
             }
         }
 
@@ -114,18 +116,21 @@ class MeetingAdmin
      */
     public function populateCustomColumns(string $column, int $postId): void
     {
-        if ($column !== 'group') {
-            return;
+        if ($column === 'group') {
+            $this->displayGroupColumn($postId);
+        } elseif ($column === 'email') {
+            $this->displayEmailColumn($postId);
         }
+    }
 
-        $groupId = get_post_meta($postId, $this->meeting_config['GROUP_META_KEY'], true);
-
-        if (empty($groupId)) {
-            echo '<span style="color: gray;">N/A</span>';
-            return;
-        }
-
-        $group = $this->groupRepository->findById((int) $groupId);
+    /**
+     * Display the group name for a meeting
+     *
+     * @param int $postId Post ID
+     */
+    private function displayGroupColumn(int $postId): void
+    {
+        $group = $this->getGroupForMeeting($postId);
 
         if ($group === null) {
             echo '<span style="color: gray;">N/A</span>';
@@ -155,6 +160,47 @@ class MeetingAdmin
         } else {
             echo '<span style="color: gray;">N/A</span>';
         }
+    }
+
+    /**
+     * Display the group email as a mailto link
+     *
+     * @param int $postId Post ID
+     */
+    private function displayEmailColumn(int $postId): void
+    {
+        $group = $this->getGroupForMeeting($postId);
+
+        if ($group === null) {
+            echo '<span style="color: gray;">—</span>';
+            return;
+        }
+
+        $email = $group->getEmail();
+
+        if (empty($email)) {
+            echo '<span style="color: gray;">—</span>';
+            return;
+        }
+
+        echo '<a href="mailto:' . esc_attr($email) . '">' . esc_html($email) . '</a>';
+    }
+
+    /**
+     * Get the group associated with a meeting
+     *
+     * @param int $postId Meeting post ID
+     * @return mixed|null Group object or null
+     */
+    private function getGroupForMeeting(int $postId)
+    {
+        $groupId = get_post_meta($postId, $this->meeting_config['GROUP_META_KEY'], true);
+
+        if (empty($groupId)) {
+            return null;
+        }
+
+        return $this->groupRepository->findById((int) $groupId);
     }
 
     /**
