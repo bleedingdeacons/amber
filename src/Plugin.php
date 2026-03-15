@@ -16,6 +16,8 @@ use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\MeetingReconciler;
+use Amber\Managers\PositionShortcodeRenderer;
+use Amber\Managers\PostTitleSyncer;
 use Psr\Container\ContainerInterface;
 use Unity\Core\Interfaces\Container;
 use Unity\Core\Interfaces\Configuration;
@@ -73,8 +75,11 @@ class Plugin
 
         self::$initialized = true;
 
-        // Initialize IntergroupManager (always needed for shortcodes)
-        $memberChangeTracker = self::$container->get(IntergroupManager::class);
+        // Initialize IntergroupManager (hooks and meta updates)
+        self::$container->get(IntergroupManager::class);
+
+        // Initialize shortcode renderer (always needed for front-end shortcodes)
+        self::$container->get(PositionShortcodeRenderer::class);
 
         // Initialize admin services
         if (is_admin()) {
@@ -158,9 +163,23 @@ class Plugin
     private static function registerServices(Container $container): void
     {
 
+        // Register PostTitleSyncer
+        $container->register(PostTitleSyncer::class, function (ContainerInterface $c) {
+            return new PostTitleSyncer();
+        });
+
         // Register Intergroup Manager
         $container->register(IntergroupManager::class, function (ContainerInterface $c) {
             return new IntergroupManager(
+                $c->get(Configuration::class),
+                $c->get(PositionViewFactory::class),
+                $c->get(PostTitleSyncer::class)
+            );
+        });
+
+        // Register Position Shortcode Renderer
+        $container->register(PositionShortcodeRenderer::class, function (ContainerInterface $c) {
+            return new PositionShortcodeRenderer(
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class)
             );
