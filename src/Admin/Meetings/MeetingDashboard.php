@@ -308,6 +308,14 @@ class MeetingDashboard
         echo '</div>';
         echo '</div>';
 
+        // Group Email (full width)
+        echo '<div class="meeting-card-field meeting-card-field-full">';
+        echo '<div class="field-label">Group Email</div>';
+        echo '<div class="field-value copyable">';
+        $this->renderGroupEmail($group);
+        echo '</div>';
+        echo '</div>';
+
         echo '</div>'; // .meeting-card-content
 
         echo '</div>'; // .meeting-card
@@ -594,6 +602,28 @@ class MeetingDashboard
                 echo '<span class="contact-phone copyable">' . esc_html($phone) . '</span>';
             }
         }
+    }
+
+    /**
+     * Render the group email as a mailto link
+     *
+     * @param Group|null $group Group object or null
+     */
+    private function renderGroupEmail(?Group $group): void
+    {
+        if ($group === null) {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        $email = $group->getEmail();
+
+        if (empty($email)) {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        echo '<a href="mailto:' . esc_attr($email) . '">' . esc_html($email) . '</a>';
     }
 
     /**
