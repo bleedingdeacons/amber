@@ -93,6 +93,9 @@ class MeetingAdmin
      */
     public function addCustomColumns(array $columns): array
     {
+        // Remove the Data Source column added by TSML
+        unset($columns['data_source']);
+
         $newColumns = [];
 
         foreach ($columns as $key => $value) {
