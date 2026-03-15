@@ -314,7 +314,7 @@ class IntergroupMeetingAttendanceDashboard
     {
         $timestamp = strtotime($date);
         if ($timestamp !== false) {
-            return date('F j, Y', $timestamp);
+            return wp_date('F j, Y', $timestamp);
         }
         return $date;
     }

@@ -510,7 +510,7 @@ class MeetingDashboard
         if ($timestamp === false) {
             return $time;
         }
-        return date('g:i A', $timestamp);
+        return wp_date('g:i A', $timestamp);
     }
 
     /**

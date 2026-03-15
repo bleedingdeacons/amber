@@ -261,7 +261,7 @@ class PositionAdmin
             return;
         }
         
-        echo esc_html($rotationDate->format('d/m/Y'));
+        echo esc_html(wp_date('d/m/Y', $rotationDate->getTimestamp()));
     }
 
     /**

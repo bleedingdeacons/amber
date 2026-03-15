@@ -118,7 +118,7 @@ class IntergroupMeetingDashboard
         $date = $meeting->getDate();
         if (!empty($date)) {
             $timestamp = strtotime($date);
-            $formattedDate = $timestamp !== false ? date('M j, Y', $timestamp) : $date;
+            $formattedDate = $timestamp !== false ? wp_date('F j, Y', $timestamp) : $date;
 
             if ($editLink) {
                 echo '<a href="' . esc_url($editLink) . '"><strong>' . esc_html($formattedDate) . '</strong></a>';

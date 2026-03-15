@@ -227,7 +227,7 @@ class IntergroupMeetingAdmin
             return;
         }
 
-        $todayDate = date('Y-m-d');
+        $todayDate = wp_date('Y-m-d');
         $todaysMeetingId = null;
 
         foreach ($attendanceRecords as $record) {
@@ -245,7 +245,7 @@ class IntergroupMeetingAdmin
 
             $meetingTimestamp = strtotime($meetingDate);
 
-            if ($meetingTimestamp !== false && date('Y-m-d', $meetingTimestamp) === $todayDate) {
+            if ($meetingTimestamp !== false && wp_date('Y-m-d', $meetingTimestamp) === $todayDate) {
                 $todaysMeetingId = $meeting->getId();
                 break;
             }
@@ -297,7 +297,7 @@ class IntergroupMeetingAdmin
      */
     private function findTodaysIntergroupMeeting(): ?IntergroupMeeting
     {
-        $today = date('Y-m-d');
+        $today = wp_date('Y-m-d');
 
         $meetings = $this->intergroupMeetingRepository->findAll([
             'meta_key'   => '_intergroup_meeting_date_sortable',
@@ -415,7 +415,7 @@ class IntergroupMeetingAdmin
 
         $timestamp = strtotime($date);
         if ($timestamp !== false) {
-            echo esc_html(date('F j, Y', $timestamp));
+            echo esc_html(wp_date('F j, Y', $timestamp));
         } else {
             echo esc_html($date);
         }
