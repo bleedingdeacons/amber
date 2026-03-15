@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.9.8
+ * Version: 1.9.9
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Requires Plugins: scrutiny
@@ -20,10 +20,17 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!function_exists('get_plugin_data')) {
-    require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+    if (file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
+        require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+    }
 }
-$amber_plugin_data = get_plugin_data(__FILE__, false, false);
-define('AMBER_VERSION', $amber_plugin_data['Version']);
+
+if (function_exists('get_plugin_data')) {
+    $amber_plugin_data = get_plugin_data(__FILE__, false, false);
+    define('AMBER_VERSION', $amber_plugin_data['Version']);
+} else {
+    define('AMBER_VERSION', '1.9.8');
+}
 define('AMBER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AMBER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
