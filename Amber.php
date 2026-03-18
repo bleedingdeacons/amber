@@ -10,7 +10,8 @@ declare(strict_types=1);
  * Requires PHP: 8.1
  * Requires Plugins: scrutiny
  * Author: The Bleeding Deacons
- * Author URI: thebleedingdeacons@gmail.com
+ * Author URI: https://github.com/bleedingdeacons/amber
+ * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
 
@@ -98,7 +99,7 @@ add_action('unity/loaded', function($unityContainer) {
                     '<strong>Amber Plugin Error:</strong> %s',
                     esc_html($e->getMessage())
                 );
-                echo '<div class="notice notice-error is-dismissible"><p>' . $message . '</p></div>';
+                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($message) . '</p></div>';
             });
         }
 
