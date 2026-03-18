@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Meetings;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Amber\Managers\MeetingReconciler;
 use Amber\Models\ReconciliationResult;
 use Unity\Groups\Interfaces\Group;
@@ -347,6 +352,7 @@ class MeetingDashboard
         try {
             $result = $this->meetingReconciler->reconcile();
         } catch (\Throwable $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('MeetingDashboard: Reconciliation failed — ' . $e->getMessage());
             return [];
         }

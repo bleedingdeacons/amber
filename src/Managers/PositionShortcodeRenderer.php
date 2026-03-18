@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Managers;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
 use Unity\Core\Interfaces\Configuration;
@@ -82,6 +87,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Error in renderPositionState: ' . $ex->getMessage());
             return '<p>Error building position state.</p>';
         }
@@ -124,6 +130,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Error in renderPositionHeader: ' . $ex->getMessage());
             return '<p>Error building position header.</p>';
         }
@@ -176,6 +183,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Error in renderDirectoryTable: ' . $ex->getMessage());
             return '<p>Error generating directory list.</p>';
         }
@@ -198,6 +206,7 @@ class PositionShortcodeRenderer
 
             return '<div>' . wp_kses_post($positionSummary) . '</div>';
         } catch (Exception $ex) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Error in renderPositionSummary: ' . $ex->getMessage());
             return '<div>Error loading position summary.</div>';
         }

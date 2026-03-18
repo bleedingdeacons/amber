@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Models;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use JsonSerializable;
 
 /**

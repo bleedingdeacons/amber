@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
@@ -242,6 +247,7 @@ class Plugin
                 try {
                     $reconciler = $c->get(MeetingReconciler::class);
                 } catch (\Throwable $e) {
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
                     error_log('Amber: MeetingReconciler unavailable — ' . $e->getMessage());
                 }
             }

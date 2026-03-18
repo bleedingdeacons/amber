@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Managers;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
 use Unity\Core\Interfaces\Configuration;
@@ -124,6 +129,7 @@ class IntergroupManager
 
             $this->setPostMeta($positionId, '_show_highlight', $showHighlight);
         } catch (Exception $ex) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Error in updatePositionMeta: ' . $ex->getMessage());
         }
     }

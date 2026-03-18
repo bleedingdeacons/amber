@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Admin\Members;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Admin\IntergroupMeetings;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;

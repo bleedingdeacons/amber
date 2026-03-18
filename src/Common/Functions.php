@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Common;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use function esc_attr;
 use function esc_html;
 

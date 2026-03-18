@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.9.9
+ * Version: 1.9.10
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Requires Plugins: scrutiny
@@ -52,8 +52,10 @@ spl_autoload_register(function ($class) {
             require $file;
         }
     } catch (\Exception $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Autoloader Error: ' . $e->getMessage());
     } catch (\Throwable $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Autoloader Fatal Error: ' . $e->getMessage());
     }
 });
@@ -85,7 +87,9 @@ add_action('unity/loaded', function($unityContainer) {
         do_action('amber/loaded', \Amber\Plugin::getContainer());
 
     } catch (\Exception $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Plugin Initialization Error: ' . $e->getMessage());
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Plugin Stack Trace: ' . $e->getTraceAsString());
 
         if (is_admin()) {
@@ -101,7 +105,9 @@ add_action('unity/loaded', function($unityContainer) {
         return;
 
     } catch (\Throwable $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Plugin Fatal Error: ' . $e->getMessage());
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Amber Plugin Stack Trace: ' . $e->getTraceAsString());
 
         if (is_admin()) {

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Managers;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Amber\Models\ReconciliationResult;
 use Concordance\Api\ApiCache;
 use Concordance\Models\GroupListing;

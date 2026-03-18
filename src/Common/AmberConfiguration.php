@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Common;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Field Constants for Amber
  */

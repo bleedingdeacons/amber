@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Admin\IntergroupMeetings;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use TsmlForUnity\Groups\TsmlGroupViewFactory;
 use TsmlForUnity\Meetings\TsmlMeetingViewFactory;
 use Unity\Core\Interfaces\Configuration;

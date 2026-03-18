@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Managers;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Exception;
 use function get_field;
 use function get_post;
@@ -68,6 +73,7 @@ final class PostTitleSyncer
                 error_log("$context: wp_update_post failed for post ID $postId: " . $result->get_error_message());
             }
         } catch (Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log("Error in $context title sync: " . $e->getMessage());
         }
     }
