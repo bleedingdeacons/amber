@@ -155,8 +155,57 @@ class Plugin
             'edit.php?post_type=intergroup-meeting'
         );
 
+        // Add Help sub-menu
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Help',
+            'Help',
+            self::MENU_CAPABILITY,
+            'amber-help',
+            [self::class, 'renderHelpPage']
+        );
+
         // Remove the default Intergroup submenu item
         remove_submenu_page(self::MENU_SLUG, self::MENU_SLUG);
+
+        // Enqueue script to open Help in a reusable tab
+        add_action('admin_footer', [self::class, 'enqueueHelpTabScript']);
+    }
+
+    /**
+     * Render a minimal Help page. WordPress requires a callable for add_submenu_page;
+     * the actual navigation is handled by enqueueHelpTabScript().
+     */
+    public static function renderHelpPage(): void
+    {
+        $helpUrl = plugins_url('assets/docs/amber.html', dirname(__DIR__) . '/Amber.php');
+        echo '<div class="wrap"><h1>Help</h1>';
+        echo '<p>Opening help documentation&hellip; ';
+        echo '<a href="' . esc_url($helpUrl) . '" target="amber-help">Click here</a> if it did not open.</p>';
+        echo '<script>window.open(' . wp_json_encode($helpUrl) . ', "amber-help");</script>';
+        echo '</div>';
+    }
+
+    /**
+     * Inject a script that intercepts clicks on the Help submenu item and opens
+     * amber.html in a named tab ("amber-help"), reusing it if already open.
+     */
+    public static function enqueueHelpTabScript(): void
+    {
+        $helpUrl  = plugins_url('assets/docs/amber.html', dirname(__DIR__) . '/Amber.php');
+        $adminUrl = admin_url('admin.php?page=amber-help');
+        ?>
+        <script>
+        (function () {
+            var link = document.querySelector('a[href="<?php echo esc_js($adminUrl); ?>"]');
+            if (!link) return;
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.open('<?php echo esc_js($helpUrl); ?>', 'amber-help');
+            });
+        })();
+        </script>
+        <?php
     }
 
     /**
