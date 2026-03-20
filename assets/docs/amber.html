@@ -64,6 +64,15 @@
         .hamburger:hover { background: var(--code-bg); }
         .hamburger svg { width: 22px; height: 22px; color: var(--text); }
 
+        .site-header .back-link {
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 8px; text-decoration: none;
+            font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 700;
+            color: var(--text); letter-spacing: -0.3px;
+        }
+        .site-header .back-link:hover { background: var(--code-bg); }
+
         /* ── Sidebar ── */
         .sidebar {
             position: fixed; top: var(--header-height); left: 0; bottom: 0;
@@ -301,6 +310,7 @@
 <body>
 
 <header class="site-header">
+    <a href="#" class="back-link" title="Back to admin" onclick="event.preventDefault(); var params = new URLSearchParams(window.location.search); var backUrl = params.get('back'); if (backUrl) { window.open(backUrl, 'amber-admin'); }"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></a>
     <button class="hamburger" onclick="toggleNav()" aria-label="Toggle navigation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
