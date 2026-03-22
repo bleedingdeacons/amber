@@ -203,23 +203,63 @@ class MemberAdmin
 
         switch ($orderby) {
             case 'anonymous_name':
-                $query->set('meta_key', $this->member_config['FIELD_ANONYMOUS_NAME']);
-                $query->set('orderby', 'meta_value');
+                $query->set('meta_query', [
+                    'relation' => 'OR',
+                    '_anon_name_clause' => [
+                        'key' => $this->member_config['FIELD_ANONYMOUS_NAME'],
+                        'compare' => 'EXISTS',
+                    ],
+                    [
+                        'key' => $this->member_config['FIELD_ANONYMOUS_NAME'],
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ]);
+                $query->set('orderby', '_anon_name_clause');
                 break;
 
             case 'gsr_status':
-                $query->set('meta_key', $this->member_config['FIELD_HOMEGROUP_GSR']);
-                $query->set('orderby', 'meta_value_num');
+                $query->set('meta_query', [
+                    'relation' => 'OR',
+                    '_gsr_clause' => [
+                        'key' => $this->member_config['FIELD_HOMEGROUP_GSR'],
+                        'compare' => 'EXISTS',
+                    ],
+                    [
+                        'key' => $this->member_config['FIELD_HOMEGROUP_GSR'],
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ]);
+                $query->set('orderby', '_gsr_clause');
                 break;
 
             case 'service_position':
-                $query->set('meta_key', $this->member_config['FIELD_INTERGROUP_POSITION']);
-                $query->set('orderby', 'meta_value_num');
+                $query->set('meta_query', [
+                    'relation' => 'OR',
+                    '_position_clause' => [
+                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION'],
+                        'compare' => 'EXISTS',
+                    ],
+                    [
+                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION'],
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ]);
+                $query->set('orderby', '_position_clause');
                 break;
 
             case 'homegroup':
-                $query->set('meta_key', $this->member_config['FIELD_HOME_GROUP']);
-                $query->set('orderby', 'meta_value_num');
+                $query->set('meta_query', [
+                    'relation' => 'OR',
+                    '_homegroup_clause' => [
+                        'key' => $this->member_config['FIELD_HOME_GROUP'],
+                        'compare' => 'EXISTS',
+                    ],
+                    [
+                        'key' => $this->member_config['FIELD_HOME_GROUP'],
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ]);
+                $query->set('orderby', '_homegroup_clause');
                 break;
         }
     }
@@ -256,15 +296,15 @@ class MemberAdmin
 
         $like = '%' . $wpdb->esc_like($searchTerm) . '%';
 
-        // Find position post IDs whose title or meta values match the search term.
+        // Find position post IDs whose long name matches the search term.
+        // The column displays getLongName() which is stored in 'position-long-name' meta.
         $positionIds = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
-             LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = 'position-long-name'
              WHERE p.post_type = %s
                AND p.post_status = 'publish'
-               AND (p.post_title LIKE %s OR pm.meta_value LIKE %s)",
+               AND pm.meta_value LIKE %s",
             $this->position_config['POST_TYPE'],
-            $like,
             $like
         ));
 

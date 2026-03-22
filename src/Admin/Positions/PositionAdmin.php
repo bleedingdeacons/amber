@@ -65,6 +65,7 @@ class PositionAdmin
         add_action('manage_' . $this->position_config['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);
         add_filter('manage_edit-' . $this->position_config['POST_TYPE'] . '_sortable_columns', [$this, 'makeColumnsSortable']);
         add_filter('pre_get_posts', [$this, 'handleCustomColumnSorting']);
+        add_action('pre_get_posts', [$this, 'extendSearch']);
         add_action('save_post_' . $this->position_config['POST_TYPE'], [$this, 'updatePositionMetadataOnSave'], 10, 3);
         add_action('save_post_' . $this->member_config['POST_TYPE'], [$this, 'updateMemberPositionMetadata'], 10, 3);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
@@ -365,27 +366,78 @@ class PositionAdmin
                 break;
                 
             case 'rotation_status':
-                $meta_query = [
-                    'relation' => 'OR',
-                    'overdue' => ['key' => '_rotation_status', 'value' => 'overdue', 'compare' => '='],
-                    'due' => ['key' => '_rotation_status', 'value' => 'due', 'compare' => '='],
-                    'soon' => ['key' => '_rotation_status', 'value' => 'soon', 'compare' => '='],
-                    'normal' => ['key' => '_rotation_status', 'value' => 'normal', 'compare' => '='],
-                    'unknown' => ['key' => '_rotation_status', 'value' => 'unknown', 'compare' => '='],
-                    'vacant' => ['key' => '_rotation_status', 'value' => 'vacant', 'compare' => '='],
-                ];
-                
-                $query->set('meta_query', $meta_query);
-                $query->set('orderby', [
-                    'overdue' => 'DESC', 'due' => 'DESC', 'soon' => 'DESC',
-                    'normal' => 'DESC', 'unknown' => 'DESC', 'vacant' => 'DESC',
-                ]);
+                $query->set('meta_key', '_rotation_sort_key');
+                $query->set('orderby', 'meta_value_num');
+                $query->set('order', $query->get('order') ?: 'ASC');
                 break;
         }
         
         return $query;
     }
     
+    /**
+     * Extend search to include current member name
+     *
+     * When searching in the positions admin list, this also matches
+     * positions whose current member's name contains the search term
+     * (stored in _position_member_name meta).
+     *
+     * @param WP_Query $query WordPress query object
+     */
+    public function extendSearch(WP_Query $query): void
+    {
+        if (!is_admin() || !$query->is_main_query() || !$query->is_search()) {
+            return;
+        }
+
+        $screen = get_current_screen();
+        if (!$screen || $screen->post_type !== $this->position_config['POST_TYPE']) {
+            return;
+        }
+
+        $searchTerm = $query->get('s');
+        if (empty($searchTerm)) {
+            return;
+        }
+
+        global $wpdb;
+
+        $like = '%' . $wpdb->esc_like($searchTerm) . '%';
+
+        // Find position IDs where the current member name matches
+        $memberMatchIds = $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT post_id FROM {$wpdb->postmeta}
+             WHERE meta_key = '_position_member_name'
+               AND meta_value LIKE %s
+               AND meta_value != 'zzz_vacant'",
+            $like
+        ));
+
+        if (empty($memberMatchIds)) {
+            return;
+        }
+
+        // Also get positions matching by title (WordPress default)
+        $titleMatchIds = $wpdb->get_col($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts}
+             WHERE post_type = %s
+               AND post_status IN ('publish', 'draft', 'pending', 'private')
+               AND post_title LIKE %s",
+            $this->position_config['POST_TYPE'],
+            $like
+        ));
+
+        $allMatchIds = array_unique(array_merge(
+            array_map('intval', $titleMatchIds),
+            array_map('intval', $memberMatchIds)
+        ));
+
+        if (!empty($allMatchIds)) {
+            $query->set('s', '');
+            $query->set('post__in', $allMatchIds);
+        }
+    }
+
     /**
      * Update position metadata when a position is saved
      * 
@@ -441,6 +493,18 @@ class PositionAdmin
         if (!$positionView) {
             return;
         }
+
+        // Clear all computed sort keys first to prevent duplicate meta rows
+        delete_post_meta($positionId, '_position_member_name');
+        delete_post_meta($positionId, '_position_member_id');
+        delete_post_meta($positionId, '_position_email');
+        delete_post_meta($positionId, '_member_private_email');
+        delete_post_meta($positionId, '_member_private_contact');
+        delete_post_meta($positionId, '_rotation_status');
+        delete_post_meta($positionId, '_rotation_sort_key');
+        delete_post_meta($positionId, '_has_rotation_date');
+        delete_post_meta($positionId, '_rotation_date_sortable');
+        delete_post_meta($positionId, '_months_until_rotation');
         
         $this->updateMemberNameMetadata($positionId, $positionView);
         $this->updatePositionEmailMetadata($positionId, $positionView);
@@ -527,6 +591,7 @@ class PositionAdmin
     {
         if ($positionView->isVacant()) {
             update_post_meta($positionId, '_rotation_status', 'vacant');
+            update_post_meta($positionId, '_rotation_sort_key', 0);
             delete_post_meta($positionId, '_has_rotation_date');
             delete_post_meta($positionId, '_rotation_date_sortable');
             delete_post_meta($positionId, '_months_until_rotation');
@@ -536,6 +601,7 @@ class PositionAdmin
         $rotationDate = $positionView->getRotationDate();
         if (!$rotationDate) {
             update_post_meta($positionId, '_rotation_status', 'unknown');
+            update_post_meta($positionId, '_rotation_sort_key', 9999);
             delete_post_meta($positionId, '_has_rotation_date');
             delete_post_meta($positionId, '_rotation_date_sortable');
             delete_post_meta($positionId, '_months_until_rotation');
@@ -549,12 +615,19 @@ class PositionAdmin
         
         if ($months < 0) {
             update_post_meta($positionId, '_rotation_status', 'overdue');
+            // Overdue: sort by how overdue (more overdue = lower number = higher in list)
+            update_post_meta($positionId, '_rotation_sort_key', 1);
         } elseif ($months === 0) {
             update_post_meta($positionId, '_rotation_status', 'due');
+            update_post_meta($positionId, '_rotation_sort_key', 2);
         } elseif ($months <= 3) {
             update_post_meta($positionId, '_rotation_status', 'soon');
+            // Soon: 100 + months so 1 month = 101, 3 months = 103
+            update_post_meta($positionId, '_rotation_sort_key', 100 + $months);
         } else {
             update_post_meta($positionId, '_rotation_status', 'normal');
+            // Normal: 100 + months so 12 months = 112, 24 months = 124
+            update_post_meta($positionId, '_rotation_sort_key', 100 + $months);
         }
         
         update_post_meta($positionId, '_months_until_rotation', $months);

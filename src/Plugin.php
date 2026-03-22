@@ -108,9 +108,48 @@ class Plugin
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
+
+            // Run metadata migrations once per version upgrade
+            self::maybeRunMigrations();
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupMeetingAttendanceDashboard::class);
         }
+    }
+
+    /**
+     * Run one-off metadata migrations when the plugin version changes.
+     *
+     * Compares the stored version against AMBER_VERSION and, on mismatch,
+     * regenerates all position sort-key metadata so that column sorting
+     * works correctly without a manual WP-CLI step after deployment.
+     */
+    private static function maybeRunMigrations(): void
+    {
+        $optionKey      = 'amber_db_version';
+        $currentVersion = defined('AMBER_VERSION') ? AMBER_VERSION : '0.0.0';
+        $storedVersion  = get_option($optionKey, '');
+
+        if ($storedVersion === $currentVersion) {
+            return;
+        }
+
+        try {
+            /** @var PositionAdmin $positionAdmin */
+            $positionAdmin = self::$container->get(PositionAdmin::class);
+            $count = $positionAdmin->setupAllPositionsMetadata();
+
+            self::logInfo('Amber migration complete', [
+                'from'              => $storedVersion ?: '(none)',
+                'to'                => $currentVersion,
+                'positions_updated' => (string) $count,
+            ]);
+        } catch (\Throwable $e) {
+            self::logError('Amber migration failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        update_option($optionKey, $currentVersion);
     }
 
     /**
