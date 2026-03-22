@@ -55,6 +55,13 @@ use function remove_submenu_page;
  */
 class Plugin
 {
+    use \Amber\Logger\HasLogger;
+
+    protected static function logChannel(): string
+    {
+        return 'amber';
+    }
+
     private static ?ContainerInterface $container = null;
     private static bool $initialized = false;
 
@@ -1093,8 +1100,7 @@ class Plugin
                 try {
                     $reconciler = $c->get(MeetingReconciler::class);
                 } catch (\Throwable $e) {
-                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-                    error_log('Amber: MeetingReconciler unavailable — ' . $e->getMessage());
+                    \Amber\Plugin::logError('Amber: MeetingReconciler unavailable: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
                 }
             }
 

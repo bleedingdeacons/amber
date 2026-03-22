@@ -133,7 +133,6 @@ class IntergroupMeetingAdmin
 
     }
 
-
     /**
      * add name of position in relationship list.
      *
@@ -192,7 +191,6 @@ class IntergroupMeetingAdmin
             return $title;
         }
 
-
     }
 
     /**
@@ -227,7 +225,7 @@ class IntergroupMeetingAdmin
 
         if (empty($attendanceRecords)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('No officer attendance records found for member ID: ' . $officerId . ' — skipping update');
+                \Amber\Plugin::logError('No officer attendance records found for member ID: ' . $officerId . ' — skipping update');
             }
             return;
         }
@@ -258,7 +256,7 @@ class IntergroupMeetingAdmin
 
         if (!$todaysMeetingId) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('No intergroup meeting found for today — skipping attendance update for member ID: ' . $officerId);
+                \Amber\Plugin::logError('No intergroup meeting found for today — skipping attendance update for member ID: ' . $officerId);
             }
             return;
         }
@@ -282,14 +280,12 @@ class IntergroupMeetingAdmin
         );
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log(
-                'Officer attendance updated for member ID: ' . $officerId
+            \Amber\Plugin::logError('Officer attendance updated for member ID: ' . $officerId
                 . ' at meeting ID: ' . $todaysMeetingId
                 . ' — ' . $rowsUpdated . ' record(s) updated'
                 . ' — new position: "' . $positionName . '"'
                 . ($positionChanged ? ' [position changed]' : '')
-                . ($nameChanged ? ' [name changed]' : '')
-            );
+                . ($nameChanged ? ' [name changed]' : ''));
         }
     }
 

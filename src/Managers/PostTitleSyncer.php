@@ -70,11 +70,10 @@ final class PostTitleSyncer
             }
 
             if (is_wp_error($result)) {
-                error_log("$context: wp_update_post failed for post ID $postId: " . $result->get_error_message());
+                \Amber\Plugin::logError("$context: wp_update_post failed for post ID $postId: " . $result->get_error_message());
             }
         } catch (Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log("Error in $context title sync: " . $e->getMessage());
+            \Amber\Plugin::logError('Error in $context title sync: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         }
     }
 }

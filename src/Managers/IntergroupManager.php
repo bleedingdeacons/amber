@@ -120,7 +120,7 @@ class IntergroupManager
                 $genericEmailAddress = $view->getPositionEmail();
 
                 if (!$genericEmailAddress) {
-                    error_log("Generic email address not found for position ID: $positionId");
+                    \Amber\Plugin::logError("Generic email address not found for position ID: $positionId");
                 } else {
                     $officerEmailAddress = Functions::emailTo($genericEmailAddress, 'I have a Question');
                     $this->setPostMeta($positionId, '_email_officer_link', $officerEmailAddress);
@@ -129,8 +129,7 @@ class IntergroupManager
 
             $this->setPostMeta($positionId, '_show_highlight', $showHighlight);
         } catch (Exception $ex) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Error in updatePositionMeta: ' . $ex->getMessage());
+            \Amber\Plugin::logError('Error in updatePositionMeta: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
         }
     }
 
@@ -142,7 +141,7 @@ class IntergroupManager
     {
         if (!add_post_meta($postId, $metaName, $value, true)) {
             if (update_post_meta($postId, $metaName, $value) === false) {
-                error_log("Failed to update post meta '$metaName' for post ID $postId");
+                \Amber\Plugin::logError("Failed to update post meta '$metaName' for post ID $postId");
             }
         }
     }

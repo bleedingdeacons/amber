@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.9.11
+ * Version: 1.10.0
  * Requires at least: 6.0
  * Requires PHP: 8.1
- * Requires Plugins: scrutiny
+ * Requires Plugins: sentinel, scrutiny
  * Author: The Bleeding Deacons
  * Author URI: https://github.com/bleedingdeacons/amber
- * Contact: thebleedingdeacons@gmail.com
+ * Contact: thebleedingdeacons@gmail.com, scrutiny
  * License: MIT (Modified)
  */
 
@@ -53,11 +53,13 @@ spl_autoload_register(function ($class) {
             require $file;
         }
     } catch (\Exception $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Autoloader Error: ' . $e->getMessage());
+        function_exists('wp_log')
+            ? wp_log('amber')->error('Amber Autoloader Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Amber Autoloader Error: ' . $e->getMessage());
     } catch (\Throwable $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Autoloader Fatal Error: ' . $e->getMessage());
+        function_exists('wp_log')
+            ? wp_log('amber')->critical('Amber Autoloader Fatal Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Amber Autoloader Fatal Error: ' . $e->getMessage());
     }
 });
 
@@ -88,10 +90,9 @@ add_action('unity/loaded', function($unityContainer) {
         do_action('amber/loaded', \Amber\Plugin::getContainer());
 
     } catch (\Exception $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Plugin Initialization Error: ' . $e->getMessage());
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Plugin Stack Trace: ' . $e->getTraceAsString());
+        function_exists('wp_log')
+            ? wp_log('amber')->error('Amber Plugin Initialization Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Amber Plugin Initialization Error: ' . $e->getMessage());
 
         if (is_admin()) {
             add_action('admin_notices', function() use ($e) {
@@ -106,10 +107,9 @@ add_action('unity/loaded', function($unityContainer) {
         return;
 
     } catch (\Throwable $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Plugin Fatal Error: ' . $e->getMessage());
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Amber Plugin Stack Trace: ' . $e->getTraceAsString());
+        function_exists('wp_log')
+            ? wp_log('amber')->critical('Amber Plugin Fatal Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Amber Plugin Fatal Error: ' . $e->getMessage());
 
         if (is_admin()) {
             add_action('admin_notices', function() {

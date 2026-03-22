@@ -87,8 +87,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Error in renderPositionState: ' . $ex->getMessage());
+            \Amber\Plugin::logError('Error in renderPositionState: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
             return '<p>Error building position state.</p>';
         }
     }
@@ -130,8 +129,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Error in renderPositionHeader: ' . $ex->getMessage());
+            \Amber\Plugin::logError('Error in renderPositionHeader: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
             return '<p>Error building position header.</p>';
         }
     }
@@ -183,8 +181,7 @@ class PositionShortcodeRenderer
 
             return $output;
         } catch (Exception $ex) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Error in renderDirectoryTable: ' . $ex->getMessage());
+            \Amber\Plugin::logError('Error in renderDirectoryTable: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
             return '<p>Error generating directory list.</p>';
         }
     }
@@ -206,8 +203,7 @@ class PositionShortcodeRenderer
 
             return '<div>' . wp_kses_post($positionSummary) . '</div>';
         } catch (Exception $ex) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Error in renderPositionSummary: ' . $ex->getMessage());
+            \Amber\Plugin::logError('Error in renderPositionSummary: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
             return '<div>Error loading position summary.</div>';
         }
     }
