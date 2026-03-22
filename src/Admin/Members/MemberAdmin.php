@@ -17,6 +17,8 @@ use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Groups\Interfaces\GroupFactory;
 
+use Amber\Logger\HasLogger;
+
 use WP_Query;
 
 use function add_action;
@@ -37,6 +39,12 @@ use function wp_unslash;
  */
 class MemberAdmin
 {
+    use HasLogger;
+
+    protected static function logChannel(): string
+    {
+        return 'amber';
+    }
     private PositionFactory $positionFactory;
     private MemberRepository $memberRepository;
     private GroupFactory $groupFactory;
@@ -228,51 +236,27 @@ class MemberAdmin
      */
     public function extendSearch(WP_Query $query): void
     {
-        $logFile = ABSPATH . 'member-search-debug.log';
-        $log = function(string $msg) use ($logFile) {
-            file_put_contents($logFile, date('H:i:s') . ' ' . $msg . "\n", FILE_APPEND);
-        };
-
-        $log('extendSearch called');
-
-        if (!is_admin()) {
-            $log('bail: not admin');
-            return;
-        }
-
-        if (!$query->is_main_query()) {
-            return;
-        }
-
-        if (!$query->is_search()) {
-            $log('bail: not search');
+        if (!is_admin() || !$query->is_main_query() || !$query->is_search()) {
             return;
         }
 
         $screen = get_current_screen();
-        $log('screen=' . ($screen ? $screen->post_type : 'NULL') . ' expected=' . $this->member_config['POST_TYPE']);
-
         if (!$screen || $screen->post_type !== $this->member_config['POST_TYPE']) {
-            $log('bail: wrong screen');
             return;
         }
 
         $searchTerm = $query->get('s');
-        $log('searchTerm=' . var_export($searchTerm, true));
-
         if (empty($searchTerm)) {
-            $log('bail: empty search term');
             return;
         }
 
-        $log('search started for: ' . $searchTerm);
+        self::logDebug('extendSearch started', ['term' => $searchTerm]);
 
         global $wpdb;
 
         $like = '%' . $wpdb->esc_like($searchTerm) . '%';
 
         // Find position post IDs whose title or meta values match the search term.
-        // Position post_title holds the short description; meta values hold the long name.
         $positionIds = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT p.ID FROM {$wpdb->posts} p
              LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
@@ -284,7 +268,10 @@ class MemberAdmin
             $like
         ));
 
-        $log('Position POST_TYPE=' . $this->position_config['POST_TYPE'] . ' positionIds=' . wp_json_encode($positionIds));
+        self::logDebug('Matching positions', [
+            'POST_TYPE' => $this->position_config['POST_TYPE'],
+            'positionIds' => $positionIds,
+        ]);
 
         // Find group post IDs whose title matches the search term
         $groupIds = $wpdb->get_col($wpdb->prepare(
@@ -296,49 +283,69 @@ class MemberAdmin
             $like
         ));
 
-        $log('Group POST_TYPE=' . $this->group_config['POST_TYPE'] . ' groupIds=' . wp_json_encode($groupIds));
+        self::logDebug('Matching groups', [
+            'POST_TYPE' => $this->group_config['POST_TYPE'],
+            'groupIds' => $groupIds,
+        ]);
 
-        // Find member IDs linked to matching positions
+        // Find member IDs linked to matching positions.
+        // ACF stores some values as plain IDs and others as serialized arrays,
+        // so we check for both exact match and LIKE for serialized format.
         $memberIdsFromPositions = [];
         if (!empty($positionIds)) {
-            $placeholders = implode(',', array_fill(0, count($positionIds), '%s'));
+            $conditions = [];
+            $params = [$this->member_config['FIELD_INTERGROUP_POSITION']];
+            foreach ($positionIds as $pid) {
+                $conditions[] = 'meta_value = %s';
+                $params[] = $pid;
+                // Match serialized: s:3:"838"; (ACF serialized array format)
+                $conditions[] = 'meta_value LIKE %s';
+                $params[] = '%"' . $pid . '"%';
+            }
+            $conditionSql = implode(' OR ', $conditions);
             $memberIdsFromPositions = $wpdb->get_col($wpdb->prepare(
                 "SELECT DISTINCT post_id FROM {$wpdb->postmeta}
-                 WHERE meta_key = %s AND meta_value IN ($placeholders)",
-                array_merge(
-                    [$this->member_config['FIELD_INTERGROUP_POSITION']],
-                    $positionIds
-                )
+                 WHERE meta_key = %s AND ($conditionSql)",
+                $params
             ));
         }
 
-        $log('FIELD_INTERGROUP_POSITION=' . $this->member_config['FIELD_INTERGROUP_POSITION'] . ' memberIdsFromPositions=' . wp_json_encode($memberIdsFromPositions));
+        self::logDebug('Members from positions', [
+            'meta_key' => $this->member_config['FIELD_INTERGROUP_POSITION'],
+            'memberIds' => $memberIdsFromPositions,
+        ]);
 
-        // Find member IDs linked to matching groups
+        // Find member IDs linked to matching groups (same plain/serialized handling)
         $memberIdsFromGroups = [];
         if (!empty($groupIds)) {
-            $placeholders = implode(',', array_fill(0, count($groupIds), '%s'));
+            $conditions = [];
+            $params = [$this->member_config['FIELD_HOME_GROUP']];
+            foreach ($groupIds as $gid) {
+                $conditions[] = 'meta_value = %s';
+                $params[] = $gid;
+                $conditions[] = 'meta_value LIKE %s';
+                $params[] = '%"' . $gid . '"%';
+            }
+            $conditionSql = implode(' OR ', $conditions);
             $memberIdsFromGroups = $wpdb->get_col($wpdb->prepare(
                 "SELECT DISTINCT post_id FROM {$wpdb->postmeta}
-                 WHERE meta_key = %s AND meta_value IN ($placeholders)",
-                array_merge(
-                    [$this->member_config['FIELD_HOME_GROUP']],
-                    $groupIds
-                )
+                 WHERE meta_key = %s AND ($conditionSql)",
+                $params
             ));
         }
 
-        $log('FIELD_HOME_GROUP=' . $this->member_config['FIELD_HOME_GROUP'] . ' memberIdsFromGroups=' . wp_json_encode($memberIdsFromGroups));
+        self::logDebug('Members from groups', [
+            'meta_key' => $this->member_config['FIELD_HOME_GROUP'],
+            'memberIds' => $memberIdsFromGroups,
+        ]);
 
         $extraMemberIds = array_unique(array_merge(
             array_map('intval', $memberIdsFromPositions),
             array_map('intval', $memberIdsFromGroups)
         ));
 
-        $log('extraMemberIds=' . wp_json_encode($extraMemberIds));
-
         if (empty($extraMemberIds)) {
-            $log('No extra member IDs found, returning early');
+            self::logDebug('No extra member IDs found, returning early');
             return;
         }
 
@@ -352,20 +359,21 @@ class MemberAdmin
             $like
         ));
 
-        $log('titleMatchIds=' . wp_json_encode($titleMatchIds));
-
         $allMatchIds = array_unique(array_merge(
             array_map('intval', $titleMatchIds),
             $extraMemberIds
         ));
 
-        $log('allMatchIds=' . wp_json_encode($allMatchIds));
+        self::logDebug('Final results', [
+            'titleMatchIds' => $titleMatchIds,
+            'extraMemberIds' => $extraMemberIds,
+            'allMatchIds' => $allMatchIds,
+        ]);
 
         if (!empty($allMatchIds)) {
-            // Remove the default search and use post__in instead
             $query->set('s', '');
             $query->set('post__in', $allMatchIds);
-            $log('Query modified: cleared s, set post__in');
+            self::logDebug('Query modified: cleared s, set post__in');
         }
     }
 
