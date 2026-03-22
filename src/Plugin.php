@@ -109,8 +109,9 @@ class Plugin
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
 
-            // Run metadata migrations once per version upgrade
-            self::maybeRunMigrations();
+            // Run metadata migrations once per version upgrade (deferred to admin_init
+            // so that $wp_rewrite and other globals are available)
+            add_action('admin_init', [self::class, 'maybeRunMigrations']);
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupMeetingAttendanceDashboard::class);
         }
@@ -123,7 +124,7 @@ class Plugin
      * regenerates all position sort-key metadata so that column sorting
      * works correctly without a manual WP-CLI step after deployment.
      */
-    private static function maybeRunMigrations(): void
+    public static function maybeRunMigrations(): void
     {
         $optionKey      = 'amber_db_version';
         $currentVersion = defined('AMBER_VERSION') ? AMBER_VERSION : '0.0.0';

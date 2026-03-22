@@ -97,13 +97,14 @@ class MemberAdmin
         $newColumns = [];
 
         foreach ($columns as $key => $value) {
-            $newColumns[$key] = $value;
-
             if ($key === 'title') {
-                $newColumns['anonymous_name'] = 'Anonymous Name';
+                $newColumns[$key] = 'Anonymous Name';
                 $newColumns['service_position'] = 'Service Position';
+                $newColumns['rotation_date'] = 'Rotation Date';
                 $newColumns['gsr_status'] = 'Is GSR?';
                 $newColumns['homegroup'] = 'Homegroup';
+            } else {
+                $newColumns[$key] = $value;
             }
         }
 
@@ -126,10 +127,6 @@ class MemberAdmin
         }
 
         switch ($column) {
-            case 'anonymous_name':
-                echo esc_html($member->getAnonymousName() ?? '');
-                break;
-
             case 'gsr_status':
                 $isGSR = $member->isGsr();
                 echo $isGSR ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
@@ -151,6 +148,15 @@ class MemberAdmin
                     echo '<span style="color: gray;">N/A</span>';
                 }
 
+                break;
+
+            case 'rotation_date':
+                $rotation = $member->getIntergroupPositionRotation();
+                if (!empty($rotation)) {
+                    echo esc_html($rotation);
+                } else {
+                    echo '<span style="color: gray;">—</span>';
+                }
                 break;
 
             case 'homegroup':
@@ -175,9 +181,9 @@ class MemberAdmin
      */
     public function makeSortableColumns(array $columns): array
     {
-        $columns['anonymous_name'] = 'anonymous_name';
         $columns['gsr_status'] = 'gsr_status';
         $columns['service_position'] = 'service_position';
+        $columns['rotation_date'] = 'rotation_date';
         $columns['homegroup'] = 'homegroup';
 
         return $columns;
@@ -202,21 +208,6 @@ class MemberAdmin
         $orderby = $query->get('orderby');
 
         switch ($orderby) {
-            case 'anonymous_name':
-                $query->set('meta_query', [
-                    'relation' => 'OR',
-                    '_anon_name_clause' => [
-                        'key' => $this->member_config['FIELD_ANONYMOUS_NAME'],
-                        'compare' => 'EXISTS',
-                    ],
-                    [
-                        'key' => $this->member_config['FIELD_ANONYMOUS_NAME'],
-                        'compare' => 'NOT EXISTS',
-                    ],
-                ]);
-                $query->set('orderby', '_anon_name_clause');
-                break;
-
             case 'gsr_status':
                 $query->set('meta_query', [
                     'relation' => 'OR',
@@ -245,6 +236,21 @@ class MemberAdmin
                     ],
                 ]);
                 $query->set('orderby', '_position_clause');
+                break;
+
+            case 'rotation_date':
+                $query->set('meta_query', [
+                    'relation' => 'OR',
+                    '_rotation_clause' => [
+                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION_ROTATION'],
+                        'compare' => 'EXISTS',
+                    ],
+                    [
+                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION_ROTATION'],
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ]);
+                $query->set('orderby', '_rotation_clause');
                 break;
 
             case 'homegroup':
