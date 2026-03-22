@@ -87,6 +87,8 @@ class Plugin
 
         self::$initialized = true;
 
+        self::logInfo('Amber initialised', ['version' => defined('AMBER_VERSION') ? AMBER_VERSION : 'unknown']);
+
         // Initialize IntergroupManager (hooks and meta updates)
         self::$container->get(IntergroupManager::class);
 
