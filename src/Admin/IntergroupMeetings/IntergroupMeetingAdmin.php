@@ -9,8 +9,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use TsmlForUnity\Groups\TsmlGroupViewFactory;
-use TsmlForUnity\Meetings\TsmlMeetingViewFactory;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupViewFactory;
@@ -24,7 +22,6 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;
-use Unity\Meetings\Interfaces\MeetingViewFactory;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\Position;
@@ -69,7 +66,6 @@ class IntergroupMeetingAdmin
     private readonly array $groupConfig;
     private readonly array $memberConfig;
 
-    private MeetingViewFactory $meetingViewFactory;
     /**
      * Constructor
      *
@@ -85,6 +81,7 @@ class IntergroupMeetingAdmin
      * @param PositionFactory $positionFactory Position factory
      * @param PositionRepository $positionRepository Position repository
      * @param MeetingRepository $meetingRepository Meeting repository
+     * @param GroupViewFactory $groupViewFactory Group view factory
      */
     public function __construct(
         Configuration $configuration,
@@ -98,7 +95,8 @@ class IntergroupMeetingAdmin
         MemberRepository $memberRepository,
         PositionFactory $positionFactory,
         PositionRepository $positionRepository,
-        MeetingRepository $meetingRepository
+        MeetingRepository $meetingRepository,
+        GroupViewFactory $groupViewFactory
     ) {
 
         $this->intergroupMeetingConfig = $configuration->getConfig(IntergroupMeeting::class);
@@ -117,9 +115,7 @@ class IntergroupMeetingAdmin
         $this->positionFactory = $positionFactory;
         $this->positionRepository = $positionRepository;
         $this->meetingRepository = $meetingRepository;
-
-        // TODO Add to Container
-        $this->groupViewFactory = new TsmlGroupViewFactory($this->groupRepository, $this->meetingRepository, $this->memberRepository, $this->meetingRepository);
+        $this->groupViewFactory = $groupViewFactory;
 
         add_filter('manage_' . $this->intergroupMeetingConfig['POST_TYPE'] . '_posts_columns', [$this, 'addCustomColumns']);
         add_action('manage_' . $this->intergroupMeetingConfig['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);

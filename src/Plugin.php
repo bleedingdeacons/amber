@@ -29,6 +29,7 @@ use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\UnityConfiguration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Groups\Interfaces\GroupViewFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceFactory;
@@ -1167,7 +1168,8 @@ class Plugin
                 $c->get(MemberRepository::class),
                 $c->get(PositionFactory::class),
                 $c->get(PositionRepository::class),
-                $c->get(MeetingRepository::class)
+                $c->get(MeetingRepository::class),
+                $c->get(GroupViewFactory::class)
             );
         });
 
@@ -1176,7 +1178,9 @@ class Plugin
             return new IntergroupMeetingDashboard(
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(GroupRepository::class),
-                $c->get(MemberRepository::class)
+                $c->get(MemberRepository::class),
+                $c->get(PositionRepository::class),
+                $c->get(GroupViewFactory::class)
             );
         });
 

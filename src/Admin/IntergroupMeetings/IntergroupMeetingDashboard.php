@@ -12,7 +12,9 @@ if (!defined('ABSPATH')) {
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Groups\Interfaces\GroupViewFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Positions\Interfaces\PositionRepository;
 
 use function add_action;
 use function esc_html;
@@ -32,6 +34,8 @@ class IntergroupMeetingDashboard
     private IntergroupMeetingRepository $intergroupMeetingRepository;
     private GroupRepository $groupRepository;
     private MemberRepository $memberRepository;
+    private PositionRepository $positionRepository;
+    private GroupViewFactory $groupViewFactory;
 
     /**
      * Constructor
@@ -39,15 +43,21 @@ class IntergroupMeetingDashboard
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
      * @param GroupRepository $groupRepository Group repository
      * @param MemberRepository $memberRepository Member repository
+     * @param PositionRepository $positionRepository Position repository
+     * @param GroupViewFactory $groupViewFactory Group view factory
      */
     public function __construct(
         IntergroupMeetingRepository $intergroupMeetingRepository,
         GroupRepository $groupRepository,
-        MemberRepository $memberRepository
+        MemberRepository $memberRepository,
+        PositionRepository $positionRepository,
+        GroupViewFactory $groupViewFactory
     ) {
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->groupRepository = $groupRepository;
         $this->memberRepository = $memberRepository;
+        $this->positionRepository = $positionRepository;
+        $this->groupViewFactory = $groupViewFactory;
 
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);
@@ -187,15 +197,32 @@ class IntergroupMeetingDashboard
             return;
         }
 
+        $names = [];
+
         foreach ($attendeeIds as $id) {
-            $group = $this->groupRepository->findById($id);
-            if ($group) {
+            $groupView = $this->groupViewFactory->createFrom($id);
+            if ($groupView) {
                 $editLink = get_edit_post_link($id);
-                if ($editLink) {
-                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($group->getTitle()) . '</a>';
-                } else {
-                    $names[] = esc_html($group->getTitle());
+                $groupName = $editLink
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupView->getTitle()) . '</a>'
+                    : esc_html($groupView->getTitle());
+
+                // Find GSR members for this group
+                $gsrNames = [];
+                foreach ($groupView->getMembers() as $member) {
+                    if ($member->isGSR()) {
+                        $memberEditLink = get_edit_post_link($member->getId());
+                        $gsrNames[] = $memberEditLink
+                            ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                            : esc_html($member->getAnonymousName());
+                    }
                 }
+
+                if (!empty($gsrNames)) {
+                    $groupName .= ' (' . implode(', ', $gsrNames) . ')';
+                }
+
+                $names[] = $groupName;
             }
         }
 
@@ -226,12 +253,17 @@ class IntergroupMeetingDashboard
             $member = $this->memberRepository->find($id);
             if ($member) {
                 $displayName = $member->getAnonymousName();
+                $positionId = $member->getIntergroupPosition();
+                $position = $positionId ? $this->positionRepository->findById($positionId) : null;
                 $editLink = get_edit_post_link($id);
-                if ($editLink) {
-                    $names[] = '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
-                } else {
-                    $names[] = esc_html($displayName);
-                }
+
+                $nameHtml = $editLink
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>'
+                    : esc_html($displayName);
+
+                $names[] = $position
+                    ? esc_html($position->getShortDescription()) . ' (' . $nameHtml . ')'
+                    : $nameHtml;
             }
         }
 
@@ -257,30 +289,25 @@ class IntergroupMeetingDashboard
 
         echo '<style>
             .intergroup-meeting-dashboard-widget {
-                margin: -12px -12px 0 -12px;
+                margin: -6px -12px -12px -12px;
             }
             
             .ig-meeting-card {
-                background: #fff;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                margin: 12px;
+                border-bottom: 1px solid #e0e0e0;
                 padding: 0;
-                transition: box-shadow 0.2s;
             }
             
-            .ig-meeting-card:hover {
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            .ig-meeting-card:last-child {
+                border-bottom: none;
             }
             
             .ig-meeting-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 12px 16px;
+                padding: 10px 12px;
                 background: #f9f9f9;
                 border-bottom: 1px solid #e0e0e0;
-                border-radius: 4px 4px 0 0;
             }
             
             .ig-meeting-date {
@@ -328,10 +355,10 @@ class IntergroupMeetingDashboard
             }
             
             .ig-meeting-content {
-                padding: 16px;
+                padding: 12px;
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 16px;
+                gap: 12px;
             }
             
             @media (max-width: 600px) {
@@ -350,7 +377,7 @@ class IntergroupMeetingDashboard
                 color: #666;
                 font-weight: 600;
                 letter-spacing: 0.5px;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
             }
             
             .ig-section-content {
@@ -359,28 +386,23 @@ class IntergroupMeetingDashboard
                 word-wrap: break-word;
             }
             
-            .attendee-list {
-                color: #333;
-            }
-            
-            .attendee-list a {
+            .ig-section-content a {
                 color: #2271b1;
                 text-decoration: none;
             }
             
-            .attendee-list a:hover {
+            .ig-section-content a:hover {
                 color: #135e96;
                 text-decoration: underline;
+            }
+            
+            .attendee-list {
+                color: #333;
             }
             
             .no-attendees {
                 color: #999;
                 font-style: italic;
-            }
-            
-            /* First card special styling */
-            .ig-meeting-card:first-child {
-                margin-top: 0;
             }
         </style>';
     }
