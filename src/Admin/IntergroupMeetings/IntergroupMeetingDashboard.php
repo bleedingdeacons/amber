@@ -14,7 +14,7 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Groups\Interfaces\GroupViewFactory;
 use Unity\Members\Interfaces\MemberRepository;
-use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\PositionViewFactory;
 
 use function add_action;
 use function esc_html;
@@ -34,7 +34,7 @@ class IntergroupMeetingDashboard
     private IntergroupMeetingRepository $intergroupMeetingRepository;
     private GroupRepository $groupRepository;
     private MemberRepository $memberRepository;
-    private PositionRepository $positionRepository;
+    private PositionViewFactory $positionViewFactory;
     private GroupViewFactory $groupViewFactory;
 
     /**
@@ -43,20 +43,20 @@ class IntergroupMeetingDashboard
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
      * @param GroupRepository $groupRepository Group repository
      * @param MemberRepository $memberRepository Member repository
-     * @param PositionRepository $positionRepository Position repository
+     * @param PositionViewFactory $positionViewFactory Position view factory
      * @param GroupViewFactory $groupViewFactory Group view factory
      */
     public function __construct(
         IntergroupMeetingRepository $intergroupMeetingRepository,
         GroupRepository $groupRepository,
         MemberRepository $memberRepository,
-        PositionRepository $positionRepository,
+        PositionViewFactory $positionViewFactory,
         GroupViewFactory $groupViewFactory
     ) {
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->groupRepository = $groupRepository;
         $this->memberRepository = $memberRepository;
-        $this->positionRepository = $positionRepository;
+        $this->positionViewFactory = $positionViewFactory;
         $this->groupViewFactory = $groupViewFactory;
 
         // Register hooks
@@ -241,29 +241,33 @@ class IntergroupMeetingDashboard
      */
     private function renderOfficers(IntergroupMeeting $meeting): void
     {
-        $officerIds = $meeting->getOfficersAttending();
+        $positionIds = $meeting->getOfficersAttending();
 
-        if (empty($officerIds)) {
+        if (empty($positionIds)) {
             echo '<span class="no-attendees">None</span>';
             return;
         }
 
         $names = [];
-        foreach ($officerIds as $id) {
-            $member = $this->memberRepository->find($id);
-            if ($member) {
-                $displayName = $member->getAnonymousName();
-                $positionId = $member->getIntergroupPosition();
-                $position = $positionId ? $this->positionRepository->findById($positionId) : null;
-                $editLink = get_edit_post_link($id);
+        foreach ($positionIds as $positionId) {
+            $positionView = $this->positionViewFactory->createFrom($positionId);
+            if (!$positionView) {
+                continue;
+            }
 
+            $positionLabel = esc_html($positionView->getShortDescription());
+            $member = $positionView->getMember();
+
+            if ($member && !$positionView->isVacant()) {
+                $memberId = $member->getId();
+                $editLink = get_edit_post_link($memberId);
                 $nameHtml = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>'
-                    : esc_html($displayName);
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                    : esc_html($member->getAnonymousName());
 
-                $names[] = $position
-                    ? esc_html($position->getShortDescription()) . ' (' . $nameHtml . ')'
-                    : $nameHtml;
+                $names[] = $positionLabel . ' (' . $nameHtml . ')';
+            } else {
+                $names[] = $positionLabel;
             }
         }
 

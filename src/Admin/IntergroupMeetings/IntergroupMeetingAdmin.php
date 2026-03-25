@@ -26,8 +26,8 @@ use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
-
 use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\PositionViewFactory;
 use WP_Query;
 use function add_action;
 use function add_filter;
@@ -60,6 +60,7 @@ class IntergroupMeetingAdmin
     private MemberRepository $memberRepository;
     private PositionFactory $positionFactory;
     private PositionRepository $positionRepository;
+    private PositionViewFactory $positionViewFactory;
     private MeetingRepository $meetingRepository;
     private GroupViewFactory $groupViewFactory;
     private readonly array $intergroupMeetingConfig;
@@ -80,6 +81,7 @@ class IntergroupMeetingAdmin
      * @param MemberRepository $memberRepository Member repository
      * @param PositionFactory $positionFactory Position factory
      * @param PositionRepository $positionRepository Position repository
+     * @param PositionViewFactory $positionViewFactory Position view factory
      * @param MeetingRepository $meetingRepository Meeting repository
      * @param GroupViewFactory $groupViewFactory Group view factory
      */
@@ -95,6 +97,7 @@ class IntergroupMeetingAdmin
         MemberRepository $memberRepository,
         PositionFactory $positionFactory,
         PositionRepository $positionRepository,
+        PositionViewFactory $positionViewFactory,
         MeetingRepository $meetingRepository,
         GroupViewFactory $groupViewFactory
     ) {
@@ -114,6 +117,7 @@ class IntergroupMeetingAdmin
         $this->memberRepository = $memberRepository;
         $this->positionFactory = $positionFactory;
         $this->positionRepository = $positionRepository;
+        $this->positionViewFactory = $positionViewFactory;
         $this->meetingRepository = $meetingRepository;
         $this->groupViewFactory = $groupViewFactory;
 
@@ -124,6 +128,7 @@ class IntergroupMeetingAdmin
         add_action('acf/save_post', [$this, 'updateIntergroupMeetingMetadataOnSave'], 20);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
         add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
+        add_filter('acf/fields/relationship/result',[$this, 'addMemberNameToPosition'],10, 4);
         add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
         add_action('unity/member_changing', [$this, 'onMemberPositionChanged'], 10, 2);
 
@@ -132,7 +137,7 @@ class IntergroupMeetingAdmin
     /**
      * add name of position in relationship list.
      *
-     * @return int Number of meetings updated
+     * @return string Modified title
      */
     public function addPositionName($title, $post, $field, $post_id) {
 
@@ -155,6 +160,33 @@ class IntergroupMeetingAdmin
         if ($position === null) { return $title; }
 
         return $title . ' (' . $position->getLongName() . ')';
+
+    }
+
+    /**
+     * Add member name to intergroup-position relationship list items.
+     *
+     * @return string Modified title
+     */
+    public function addMemberNameToPosition($title, $post, $field, $post_id) {
+
+        if ($post->post_type !== 'intergroup-position') {
+            return $title;
+        }
+
+        $positionView = $this->positionViewFactory->createFrom($post->ID);
+
+        if ($positionView === null) {
+            return $title;
+        }
+
+        $member = $positionView->getMember();
+
+        if ($member === null || $positionView->isVacant()) {
+            return $title;
+        }
+
+        return $title . ' (' . $member->getAnonymousName() . ')';
 
     }
 
@@ -476,29 +508,33 @@ class IntergroupMeetingAdmin
      */
     private function displayOfficersAttending(IntergroupMeeting $meeting): void
     {
-        $officerIds = $meeting->getOfficersAttending();
+        $positionIds = $meeting->getOfficersAttending();
 
-        if (empty($officerIds)) {
+        if (empty($positionIds)) {
             echo '—';
             return;
         }
 
         $names = [];
-        foreach ($officerIds as $id) {
-            $member = $this->memberRepository->find($id);
-            if ($member) {
-                $displayName = $member->getAnonymousName();
-                $positionId = $member->getIntergroupPosition();
-                $position = $positionId ? $this->positionFactory->createFromSource($positionId) : null;
-                $editLink = get_edit_post_link($id);
+        foreach ($positionIds as $positionId) {
+            $positionView = $this->positionViewFactory->createFrom($positionId);
+            if (!$positionView) {
+                continue;
+            }
 
+            $positionLabel = esc_html($positionView->getShortDescription());
+            $member = $positionView->getMember();
+
+            if ($member && !$positionView->isVacant()) {
+                $memberId = $member->getId();
+                $editLink = get_edit_post_link($memberId);
                 $nameHtml = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>'
-                    : esc_html($displayName);
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                    : esc_html($member->getAnonymousName());
 
-                $names[] = $position
-                    ? esc_html($position->getShortDescription()) . ' (' . $nameHtml . ')'
-                    : $nameHtml;
+                $names[] = $positionLabel . ' (' . $nameHtml . ')';
+            } else {
+                $names[] = $positionLabel;
             }
         }
 
@@ -692,20 +728,17 @@ class IntergroupMeetingAdmin
 
         // Create attendance records for newly added officers
         foreach ($addedOfficerIds as $officerId) {
-            $member = $this->memberRepository->find($officerId);
-            if (!$member) {
+            $positionView = $this->positionViewFactory->createFrom($officerId);
+            if (!$positionView) {
                 continue;
             }
 
-            $officerName = $member->getAnonymousName();
-            $positionName = '';
+            $positionName = $positionView->getLongName();
+            $officerName = '';
 
-            $positionId = $member->getIntergroupPosition();
-            if ($positionId) {
-                $position = $this->positionRepository->findById($positionId);
-                if ($position) {
-                    $positionName = $position->getLongName();
-                }
+            $member = $positionView->getMember();
+            if ($member && !$positionView->isVacant()) {
+                $officerName = $member->getAnonymousName();
             }
 
             $attendance = $this->officerAttendanceFactory->createNew(

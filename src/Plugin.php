@@ -1168,6 +1168,7 @@ class Plugin
                 $c->get(MemberRepository::class),
                 $c->get(PositionFactory::class),
                 $c->get(PositionRepository::class),
+                $c->get(PositionViewFactory::class),
                 $c->get(MeetingRepository::class),
                 $c->get(GroupViewFactory::class)
             );
@@ -1179,7 +1180,7 @@ class Plugin
                 $c->get(IntergroupMeetingRepository::class),
                 $c->get(GroupRepository::class),
                 $c->get(MemberRepository::class),
-                $c->get(PositionRepository::class),
+                $c->get(PositionViewFactory::class),
                 $c->get(GroupViewFactory::class)
             );
         });
