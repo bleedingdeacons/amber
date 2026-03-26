@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
 use Unity\Core\Interfaces\Configuration;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\Members\Interfaces\Member;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionViewFactory;
@@ -35,20 +36,23 @@ class IntergroupManager
     private PostTitleSyncer $titleSyncer;
     private readonly array $member_config;
     private readonly array $position_config;
+    private readonly array $intergroup_meeting_config;
 
     public function __construct(
         Configuration $configuration,
         PositionViewFactory $positionViewFactory,
         PostTitleSyncer $titleSyncer
     ) {
-        $this->member_config       = $configuration->getConfig(Member::class);
-        $this->position_config     = $configuration->getConfig(Position::class);
-        $this->positionViewFactory = $positionViewFactory;
-        $this->titleSyncer         = $titleSyncer;
+        $this->member_config              = $configuration->getConfig(Member::class);
+        $this->position_config            = $configuration->getConfig(Position::class);
+        $this->intergroup_meeting_config  = $configuration->getConfig(IntergroupMeeting::class);
+        $this->positionViewFactory        = $positionViewFactory;
+        $this->titleSyncer                = $titleSyncer;
 
         add_action('template_redirect', [$this, 'updatePositionMeta']);
         add_action('unity/member_before_save', [$this, 'onMemberBeforeSave'], 10, 2);
         add_action('unity/position_before_save', [$this, 'onPositionBeforeSave'], 10, 2);
+        add_action('unity/intergroup_meeting_before_save', [$this, 'onIntergroupMeetingBeforeSave'], 10, 2);
     }
 
     /**
@@ -78,6 +82,21 @@ class IntergroupManager
             $postId,
             $this->position_config['SHORT_DESCRIPTION'],
             'Position'
+        );
+    }
+
+    /**
+     * Sync the intergroup meeting post title with the meeting-title ACF field.
+     *
+     * @param int                      $postId          The post ID being saved.
+     * @param IntergroupMeeting|null   $originalMeeting The meeting state before changes (null for new posts).
+     */
+    public function onIntergroupMeetingBeforeSave(int $postId, ?IntergroupMeeting $originalMeeting): void
+    {
+        $this->titleSyncer->sync(
+            $postId,
+            $this->intergroup_meeting_config['FIELD_MEETING_TITLE'],
+            'Intergroup Meeting'
         );
     }
 
