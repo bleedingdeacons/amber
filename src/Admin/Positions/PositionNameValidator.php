@@ -145,7 +145,16 @@ class PositionNameValidator
             return $valid;
         }
 
-        $postId = intval($_POST['post_id'] ?? 0);
+        // ACF stores the post ID in $_POST['_acf_post_id'] during
+        // server-side validation, NOT $_POST['post_id'] (which is
+        // only present in the custom AJAX handler). Fall back to
+        // $_POST['post_ID'] (WordPress's own field) as a safety net.
+        $postId = intval(
+            $_POST['_acf_post_id']
+            ?? $_POST['post_id']
+            ?? $_POST['post_ID']
+            ?? 0
+        );
 
         $duplicate = $this->findDuplicate($value, $postId);
 
