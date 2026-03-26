@@ -203,6 +203,10 @@ class IntergroupMeetingAdmin
 
         $group = $this->groupViewFactory->createFrom($post->ID);
 
+        if ($group === null) {
+            return $title;
+        }
+
         $gsrs = [];
 
         foreach ($group->getMembers() as $member) {
