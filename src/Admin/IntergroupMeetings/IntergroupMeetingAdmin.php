@@ -166,6 +166,10 @@ class IntergroupMeetingAdmin
     /**
      * Add member name to intergroup-position relationship list items.
      *
+     * Uses the same latest-rotation-date logic as syncOfficerAttendance:
+     * if multiple members share the latest rotation date all their names
+     * are shown.
+     *
      * @return string Modified title
      */
     public function addMemberNameToPosition($title, $post, $field, $post_id) {
@@ -174,24 +178,14 @@ class IntergroupMeetingAdmin
             return $title;
         }
 
-        $positionView = $this->positionViewFactory->createFrom($post->ID);
+        $allMembers = $this->memberRepository->findAll();
+        $officerName = $this->resolveOfficerNameForPosition($post->ID, $allMembers);
 
-        if ($positionView === null) {
+        if ($officerName === '') {
             return $title;
         }
 
-        $member = $positionView->getMember();
-
-        if ($member === null || $positionView->isVacant()) {
-            return $title;
-        }
-
-        $members = $positionView->getMembers();
-        $names = array_map(function ($m) {
-            return $m->getAnonymousName();
-        }, $members);
-
-        return $title . ' (' . implode(', ', $names) . ')';
+        return $title . ' (' . $officerName . ')';
 
     }
 
@@ -532,19 +526,16 @@ class IntergroupMeetingAdmin
             }
 
             $positionLabel = esc_html($positionView->getPosition()->getShortDescription());
-            $members = $positionView->getMembers();
+            $member = $positionView->getMember();
 
-            if (!empty($members) && !$positionView->isVacant()) {
-                $memberLinks = [];
-                foreach ($members as $member) {
-                    $memberId = $member->getId();
-                    $editLink = get_edit_post_link($memberId);
-                    $memberLinks[] = $editLink
-                        ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                        : esc_html($member->getAnonymousName());
-                }
+            if ($member && !$positionView->isVacant()) {
+                $memberId = $member->getId();
+                $editLink = get_edit_post_link($memberId);
+                $nameHtml = $editLink
+                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                    : esc_html($member->getAnonymousName());
 
-                $names[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
+                $names[] = $positionLabel . ' (' . $nameHtml . ')';
             } else {
                 $names[] = $positionLabel;
             }
@@ -738,6 +729,9 @@ class IntergroupMeetingAdmin
         $addedOfficerIds = array_diff($currentOfficerIds, $existingOfficerIds);
         $removedOfficerIds = array_diff($existingOfficerIds, $currentOfficerIds);
 
+        // Load all members once for resolving names across all added positions
+        $allMembers = $this->memberRepository->findAll();
+
         // Create attendance records for newly added officers
         foreach ($addedOfficerIds as $officerId) {
             $positionView = $this->positionViewFactory->createFrom($officerId);
@@ -746,15 +740,11 @@ class IntergroupMeetingAdmin
             }
 
             $positionName = $positionView->getPosition()->getLongName();
-            $officerName = '';
 
-            $members = $positionView->getMembers();
-            if (!empty($members) && !$positionView->isVacant()) {
-                $names = array_map(function ($m) {
-                    return $m->getAnonymousName();
-                }, $members);
-                $officerName = implode(', ', $names);
-            }
+            // Resolve the officer name(s) from all members assigned to this
+            // position, using the latest rotation date. If multiple members
+            // share the same latest date they are all included.
+            $officerName = $this->resolveOfficerNameForPosition($officerId, $allMembers);
 
             $attendance = $this->officerAttendanceFactory->createNew(
                 $meetingId,
@@ -770,6 +760,78 @@ class IntergroupMeetingAdmin
         foreach ($removedOfficerIds as $officerId) {
             $this->officerAttendanceRepository->deleteByIntergroupMeetingAndOfficer($meetingId, $officerId);
         }
+    }
+
+    /**
+     * Resolve the officer display name for a position from the member list.
+     *
+     * Returns the anonymous name of the member with the latest rotation date.
+     * If multiple members share the same latest rotation date all their names
+     * are returned comma-separated. This mirrors the logic used by
+     * TsmlPositionViewFactory::findMemberWithLatestRotationDate but extends it
+     * to include ties.
+     *
+     * @param int            $positionId The position CPT post ID
+     * @param array<Member>  $allMembers All loaded members
+     * @return string Comma-separated anonymous name(s), or empty string if none found
+     */
+    private function resolveOfficerNameForPosition(int $positionId, array $allMembers): string
+    {
+        // Filter to members holding this position
+        $matchingMembers = array_filter($allMembers, function (Member $member) use ($positionId): bool {
+            return $member->getIntergroupPosition() === $positionId;
+        });
+
+        if (empty($matchingMembers)) {
+            return '';
+        }
+
+        $matchingMembers = array_values($matchingMembers);
+
+        if (count($matchingMembers) === 1) {
+            return $matchingMembers[0]->getAnonymousName();
+        }
+
+        // Parse rotation dates and find the latest
+        $latestDateStr = null;
+        $parsed = []; // memberId => normalised Y-m-d string
+
+        foreach ($matchingMembers as $member) {
+            $rotationDateStr = $member->getIntergroupPositionRotation();
+
+            if (empty($rotationDateStr)) {
+                continue;
+            }
+
+            $dt = \DateTime::createFromFormat('Y-m-d', $rotationDateStr)
+                ?: \DateTime::createFromFormat('d/m/Y', $rotationDateStr);
+
+            if (!$dt) {
+                continue;
+            }
+
+            $normalised = $dt->format('Y-m-d');
+            $parsed[$member->getId()] = $normalised;
+
+            if ($latestDateStr === null || $normalised > $latestDateStr) {
+                $latestDateStr = $normalised;
+            }
+        }
+
+        // No parseable rotation dates — fall back to the first member
+        if ($latestDateStr === null) {
+            return $matchingMembers[0]->getAnonymousName();
+        }
+
+        // Collect all members whose rotation date matches the latest
+        $names = [];
+        foreach ($matchingMembers as $member) {
+            if (isset($parsed[$member->getId()]) && $parsed[$member->getId()] === $latestDateStr) {
+                $names[] = $member->getAnonymousName();
+            }
+        }
+
+        return implode(', ', $names);
     }
 
     /**

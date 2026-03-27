@@ -13,6 +13,8 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
+use Unity\Members\Interfaces\Member;
+use Unity\Members\Interfaces\MemberRepository;
 
 use function add_action;
 use function add_submenu_page;
@@ -33,6 +35,7 @@ class IntergroupMeetingAttendanceDashboard
     private IntergroupMeetingRepository $intergroupMeetingRepository;
     private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
     private IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository;
+    private MemberRepository $memberRepository;
 
     private const PAGE_SLUG = 'intergroup-attendance';
 
@@ -42,15 +45,18 @@ class IntergroupMeetingAttendanceDashboard
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
      * @param IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository Group attendance repository
      * @param IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository Officer attendance repository
+     * @param MemberRepository $memberRepository Member repository
      */
     public function __construct(
         IntergroupMeetingRepository $intergroupMeetingRepository,
         IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository,
-        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository
+        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository,
+        MemberRepository $memberRepository
     ) {
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->groupAttendanceRepository = $groupAttendanceRepository;
         $this->officerAttendanceRepository = $officerAttendanceRepository;
+        $this->memberRepository = $memberRepository;
 
         add_action('admin_menu', [$this, 'registerSubmenuPage']);
         add_action('admin_head', [$this, 'addPageStyles']);
@@ -252,6 +258,15 @@ class IntergroupMeetingAttendanceDashboard
     /**
      * Render the officer attendance table for a given intergroup meeting
      *
+     * When a position is registered (via Integrity or Amber), the attendance
+     * record stores a single officer name. This method enriches each row by
+     * looking up the member(s) currently assigned to the same position and
+     * displaying their anonymous names.
+     *
+     * Like the position admin page, only the member with the latest rotation
+     * date is shown. If multiple members share the same latest rotation date
+     * they are all displayed.
+     *
      * @param int $meetingId Intergroup meeting ID
      */
     private function renderOfficerAttendanceTable(int $meetingId): void
@@ -267,12 +282,45 @@ class IntergroupMeetingAttendanceDashboard
             return;
         }
 
-        // Group officer names by position
+        // Collect all unique position IDs from attendance records.
+        // The officer_id column stores the position CPT post ID.
+        $positionIds = [];
+        foreach ($records as $record) {
+            $positionIds[] = $record->getOfficerId();
+        }
+        $positionIds = array_unique($positionIds);
+
+        // Batch-load all members once and group by position ID.
+        $allMembers = $this->memberRepository->findAll();
+        $membersByPosition = [];
+
+        foreach ($allMembers as $member) {
+            $memberPositionId = $member->getIntergroupPosition();
+            if ($memberPositionId > 0 && in_array($memberPositionId, $positionIds, true)) {
+                $membersByPosition[$memberPositionId][] = $member;
+            }
+        }
+
+        // Resolve the display names per position using latest-rotation-date logic.
+        $memberNamesByPosition = [];
+        foreach ($membersByPosition as $positionId => $members) {
+            $memberNamesByPosition[$positionId] = $this->resolveLatestMemberNames($members);
+        }
+
+        // Group records by position name for display, resolving live member names
         $positionGroups = [];
         foreach ($records as $record) {
             $positionName = $record->getPositionName();
             $key = !empty($positionName) ? $positionName : '';
-            $positionGroups[$key][] = $record->getOfficerName();
+            $positionId = $record->getOfficerId();
+
+            if (!empty($memberNamesByPosition[$positionId])) {
+                // Use live member names from the repository
+                $positionGroups[$key] = $memberNamesByPosition[$positionId];
+            } else {
+                // Fall back to the stored officer name from the attendance record
+                $positionGroups[$key][] = $record->getOfficerName();
+            }
         }
 
         echo '<table class="widefat striped ig-attendance-table">';
@@ -285,6 +333,11 @@ class IntergroupMeetingAttendanceDashboard
         echo '<tbody>';
 
         foreach ($positionGroups as $positionName => $officerNames) {
+            // Remove empty names and duplicates
+            $officerNames = array_unique(array_filter($officerNames, function (string $name): bool {
+                return $name !== '';
+            }));
+
             echo '<tr>';
 
             // Position
@@ -297,7 +350,13 @@ class IntergroupMeetingAttendanceDashboard
             echo '</td>';
 
             // Officer Name(s), comma-separated
-            echo '<td>' . esc_html(implode(', ', $officerNames)) . '</td>';
+            echo '<td>';
+            if (!empty($officerNames)) {
+                echo esc_html(implode(', ', $officerNames));
+            } else {
+                echo '<span class="ig-empty-cell">—</span>';
+            }
+            echo '</td>';
 
             echo '</tr>';
         }
@@ -314,6 +373,72 @@ class IntergroupMeetingAttendanceDashboard
         echo '</p>';
 
         echo '</div>';
+    }
+
+    /**
+     * Resolve the anonymous names of the member(s) with the latest rotation date.
+     *
+     * Mirrors the logic in TsmlPositionViewFactory::findMemberWithLatestRotationDate
+     * but returns all members that share the same latest date instead of just one.
+     * When only a single member holds the position the result is a single-element array,
+     * matching the behaviour of the position admin page.
+     *
+     * @param array<Member> $members Members assigned to the same position
+     * @return array<string> Anonymous names to display
+     */
+    private function resolveLatestMemberNames(array $members): array
+    {
+        if (empty($members)) {
+            return [];
+        }
+
+        if (count($members) === 1) {
+            return [$members[0]->getAnonymousName()];
+        }
+
+        // Parse rotation dates for each member, keeping the raw Y-m-d string
+        // so we can compare dates reliably.
+        $latestDateStr = null;
+        $parsed = []; // memberId => dateString (Y-m-d)
+
+        foreach ($members as $member) {
+            $rotationDateStr = $member->getIntergroupPositionRotation();
+
+            if (empty($rotationDateStr)) {
+                continue;
+            }
+
+            // Normalise to Y-m-d — same two-format fallback as TsmlPositionViewFactory
+            $dt = \DateTime::createFromFormat('Y-m-d', $rotationDateStr)
+                ?: \DateTime::createFromFormat('d/m/Y', $rotationDateStr);
+
+            if (!$dt) {
+                continue;
+            }
+
+            $normalised = $dt->format('Y-m-d');
+            $parsed[$member->getId()] = $normalised;
+
+            if ($latestDateStr === null || $normalised > $latestDateStr) {
+                $latestDateStr = $normalised;
+            }
+        }
+
+        // If no member had a parseable rotation date, fall back to the first member
+        // (same behaviour as TsmlPositionViewFactory).
+        if ($latestDateStr === null) {
+            return [$members[0]->getAnonymousName()];
+        }
+
+        // Collect all members whose rotation date matches the latest.
+        $names = [];
+        foreach ($members as $member) {
+            if (isset($parsed[$member->getId()]) && $parsed[$member->getId()] === $latestDateStr) {
+                $names[] = $member->getAnonymousName();
+            }
+        }
+
+        return $names;
     }
 
     /**

@@ -141,13 +141,13 @@ class Plugin
             $count = $positionAdmin->setupAllPositionsMetadata();
 
             self::logInfo('Amber migration complete', [
-                'from'              => $storedVersion ?: '(none)',
-                'to'                => $currentVersion,
-                'positions_updated' => (string) $count,
+                    'from'              => $storedVersion ?: '(none)',
+                    'to'                => $currentVersion,
+                    'positions_updated' => (string) $count,
             ]);
         } catch (\Throwable $e) {
             self::logError('Amber migration failed', [
-                'error' => $e->getMessage(),
+                    'error' => $e->getMessage(),
             ]);
         }
 
@@ -161,49 +161,49 @@ class Plugin
     {
         // Add main Intergroup menu
         add_menu_page(
-            'Intergroup',
-            'Intergroup',
-            self::MENU_CAPABILITY,
-            self::MENU_SLUG,
-            '',
-            'dashicons-admin-multisite',
-            3
+                'Intergroup',
+                'Intergroup',
+                self::MENU_CAPABILITY,
+                self::MENU_SLUG,
+                '',
+                'dashicons-admin-multisite',
+                3
         );
 
         // Add Positions sub-menu
         add_submenu_page(
-            self::MENU_SLUG,
-            'Positions',
-            'Positions',
-            self::MENU_CAPABILITY,
-            'edit.php?post_type=intergroup-position'
+                self::MENU_SLUG,
+                'Positions',
+                'Positions',
+                self::MENU_CAPABILITY,
+                'edit.php?post_type=intergroup-position'
         );
 
         // Add Members sub-menu
         add_submenu_page(
-            self::MENU_SLUG,
-            'Members',
-            'Members',
-            self::MENU_CAPABILITY,
-            'edit.php?post_type=intergroup-member'
+                self::MENU_SLUG,
+                'Members',
+                'Members',
+                self::MENU_CAPABILITY,
+                'edit.php?post_type=intergroup-member'
         );
 
         // Add Meetings sub-menu
         add_submenu_page(
-            self::MENU_SLUG,
-            'Meetings',
-            'Groups / Meetings',
-            self::MENU_CAPABILITY,
-            'edit.php?post_type=tsml_meeting'
+                self::MENU_SLUG,
+                'Meetings',
+                'Groups / Meetings',
+                self::MENU_CAPABILITY,
+                'edit.php?post_type=tsml_meeting'
         );
 
         // Add Intergroup Meetings sub-menu
         add_submenu_page(
-            self::MENU_SLUG,
-            'Intergroup Meetings',
-            'Intergroup Meetings',
-            self::MENU_CAPABILITY,
-            'edit.php?post_type=intergroup-meeting'
+                self::MENU_SLUG,
+                'Intergroup Meetings',
+                'Intergroup Meetings',
+                self::MENU_CAPABILITY,
+                'edit.php?post_type=intergroup-meeting'
         );
 
         // Remove the default Intergroup submenu item
@@ -217,12 +217,12 @@ class Plugin
     public static function registerHelpMenu(): void
     {
         add_submenu_page(
-            self::MENU_SLUG,
-            'Help',
-            'Help',
-            self::MENU_CAPABILITY,
-            'amber-help',
-            [self::class, 'renderHelpPage']
+                self::MENU_SLUG,
+                'Help',
+                'Help',
+                self::MENU_CAPABILITY,
+                'amber-help',
+                [self::class, 'renderHelpPage']
         );
 
         // Intercept Help clicks to open amber.html in a new tab
@@ -237,309 +237,309 @@ class Plugin
     {
         ?>
         <style>
-        /* ── Reset WP admin interference inside our page ── */
-        .amber-help-page * { box-sizing: border-box; }
-        .amber-help-page a { color: inherit; }
+            /* ── Reset WP admin interference inside our page ── */
+            .amber-help-page * { box-sizing: border-box; }
+            .amber-help-page a { color: inherit; }
 
-        /* ── Scoped design tokens ── */
-        .amber-help-page {
-            --bg: #FAFAF8;
-            --surface: #FFFFFF;
-            --border: #E8E5E0;
-            --text: #1A1A18;
-            --text-secondary: #6B6860;
-            --accent: #D97706;
-            --accent-bg: #FEF3C7;
-            --accent-dark: #B45309;
-            --info: #1D4ED8;
-            --info-bg: #DBEAFE;
-            --danger: #DC2626;
-            --danger-bg: #FEE2E2;
-            --success: #16A34A;
-            --success-bg: #DCFCE7;
-            --purple: #7C3AED;
-            --purple-bg: #EDE9FE;
-            --code-bg: #F5F3EF;
-            --nav-width: 260px;
-            --header-height: 56px;
-            --radius: 10px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 16px;
-            line-height: 1.7;
-            color: var(--text);
-            background: var(--bg);
-            -webkit-font-smoothing: antialiased;
-            /* Full-bleed: escape WP's #wpcontent padding */
-            margin: -10px -20px -10px -20px;
-            min-height: calc(100vh - 32px);
-        }
-
-        /* ── Inner header ── */
-        .amber-help-page .ahp-header {
-            position: sticky; top: 32px; z-index: 100;
-            height: var(--header-height);
-            background: rgba(250,250,248,0.95);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; padding: 0 24px; gap: 16px;
-        }
-        .amber-help-page .ahp-header .logo {
-            display: flex; align-items: center; gap: 10px;
-            font-weight: 700; font-size: 20px; color: var(--text);
-            text-decoration: none; letter-spacing: -0.3px;
-        }
-        .amber-help-page .ahp-header .logo span { color: var(--accent); }
-        .amber-help-page .ahp-header .version {
-            font-size: 12px; font-weight: 500; color: var(--text-secondary);
-            background: var(--code-bg); padding: 2px 8px; border-radius: 6px;
-        }
-        .amber-help-page .ahp-hamburger {
-            display: none; background: none; border: none; cursor: pointer;
-            width: 36px; height: 36px; flex-shrink: 0;
-            border-radius: 8px; align-items: center; justify-content: center;
-        }
-        .amber-help-page .ahp-hamburger:hover { background: var(--code-bg); }
-        .amber-help-page .ahp-hamburger svg { width: 22px; height: 22px; color: var(--text); }
-
-        /* ── Layout ── */
-        .amber-help-page .ahp-body {
-            display: flex;
-        }
-
-        /* ── Sidebar ── */
-        .amber-help-page .ahp-sidebar {
-            position: sticky;
-            top: calc(32px + var(--header-height));
-            height: calc(100vh - 32px - var(--header-height));
-            width: var(--nav-width);
-            overflow-y: auto;
-            border-right: 1px solid var(--border);
-            background: var(--bg);
-            padding: 24px 0;
-            flex-shrink: 0;
-        }
-        .amber-help-page .ahp-sidebar::-webkit-scrollbar { width: 4px; }
-        .amber-help-page .ahp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .amber-help-page .nav-section { padding: 0 20px; margin-bottom: 24px; }
-        .amber-help-page .nav-section-title {
-            font-size: 11px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; padding-left: 12px;
-        }
-        .amber-help-page .nav-link {
-            display: block; padding: 6px 12px; border-radius: 8px;
-            color: var(--text-secondary); text-decoration: none;
-            font-size: 14px; font-weight: 400; transition: all 0.15s; line-height: 1.5;
-        }
-        .amber-help-page .nav-link:hover { color: var(--text); background: var(--surface); }
-        .amber-help-page .nav-link.active { color: var(--accent-dark); background: var(--accent-bg); font-weight: 500; }
-
-        /* ── Main content ── */
-        .amber-help-page .ahp-main {
-            flex: 1;
-            padding: 40px 48px 80px;
-            max-width: 860px;
-        }
-
-        /* ── Typography ── */
-        .amber-help-page h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.2; margin-bottom: 12px; margin-top: 0; padding: 0; border: none; color: var(--text); }
-        .amber-help-page h1 .emoji { font-size: 32px; margin-right: 4px; }
-        .amber-help-page .subtitle { font-size: 18px; color: var(--text-secondary); font-weight: 400; margin-bottom: 40px; line-height: 1.6; }
-        .amber-help-page h2 {
-            font-size: 24px; font-weight: 700; letter-spacing: -0.4px;
-            margin-top: 56px; margin-bottom: 16px; padding-top: 24px;
-            border-top: 1px solid var(--border); color: var(--text);
-        }
-        .amber-help-page h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
-        .amber-help-page h3 { font-size: 18px; font-weight: 600; margin-top: 32px; margin-bottom: 10px; color: var(--text); }
-        .amber-help-page p { margin-bottom: 16px; }
-        .amber-help-page ul, .amber-help-page ol { margin-bottom: 16px; padding-left: 24px; }
-        .amber-help-page li { margin-bottom: 6px; }
-
-        /* ── Cards ── */
-        .amber-help-page .card {
-            background: var(--surface); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
-            box-shadow: var(--shadow-sm);
-        }
-        .amber-help-page .card h3 { margin-top: 0; }
-        .amber-help-page .card p:last-child { margin-bottom: 0; }
-
-        /* ── Callouts ── */
-        .amber-help-page .callout {
-            border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px;
-            font-size: 15px; display: flex; gap: 12px; align-items: flex-start; line-height: 1.6;
-        }
-        .amber-help-page .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-        .amber-help-page .callout.info    { background: var(--info-bg);    border-left: 4px solid var(--info); }
-        .amber-help-page .callout.warning { background: var(--accent-bg);  border-left: 4px solid var(--accent); }
-        .amber-help-page .callout.danger  { background: var(--danger-bg);  border-left: 4px solid var(--danger); }
-        .amber-help-page .callout.success { background: var(--success-bg); border-left: 4px solid var(--success); }
-        .amber-help-page .callout.purple  { background: var(--purple-bg);  border-left: 4px solid var(--purple); }
-
-        /* ── Code ── */
-        .amber-help-page code {
-            font-family: 'JetBrains Mono', monospace; font-size: 13.5px;
-            background: var(--code-bg); padding: 2px 7px; border-radius: 5px; color: var(--accent-dark);
-        }
-
-        /* ── Steps ── */
-        .amber-help-page .steps { counter-reset: step; list-style: none; padding-left: 0; }
-        .amber-help-page .steps li {
-            counter-increment: step; padding-left: 44px; position: relative;
-            margin-bottom: 20px; min-height: 32px;
-        }
-        .amber-help-page .steps li::before {
-            content: counter(step); position: absolute; left: 0; top: 0;
-            width: 30px; height: 30px; border-radius: 50%;
-            background: var(--accent); color: #fff;
-            font-weight: 700; font-size: 14px;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        /* ── Path / breadcrumb ── */
-        .amber-help-page .path {
-            display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;
-            background: var(--code-bg); border: 1px solid var(--border);
-            border-radius: 8px; padding: 8px 14px; margin-bottom: 20px;
-            font-size: 14px; font-weight: 500;
-        }
-        .amber-help-page .path .crumb { color: var(--text); }
-        .amber-help-page .path .sep { color: var(--text-secondary); margin: 0 2px; }
-        .amber-help-page .path .crumb.final { color: var(--accent-dark); font-weight: 600; }
-
-        /* ── Field table ── */
-        .amber-help-page .field-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
-        .amber-help-page .field-table th {
-            text-align: left; padding: 10px 16px; font-weight: 600;
-            border-bottom: 2px solid var(--border); font-size: 13px;
-            text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);
-        }
-        .amber-help-page .field-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
-        .amber-help-page .field-table tr:last-child td { border-bottom: none; }
-        .amber-help-page .field-table .field-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent-dark); font-weight: 500; white-space: nowrap; }
-        .amber-help-page .field-table .req { color: var(--danger); font-size: 12px; font-weight: 700; margin-left: 4px; }
-
-        /* ── Badges ── */
-        .amber-help-page .badge {
-            display: inline-block; padding: 2px 10px; border-radius: 20px;
-            font-size: 13px; font-weight: 600; white-space: nowrap;
-        }
-        .amber-help-page .badge-filled  { background: var(--success-bg); color: var(--success); }
-        .amber-help-page .badge-soon    { background: var(--accent-bg);  color: var(--accent-dark); }
-        .amber-help-page .badge-due     { background: var(--danger-bg);  color: var(--danger); }
-        .amber-help-page .badge-overdue { background: var(--danger-bg);  color: var(--danger); }
-        .amber-help-page .badge-vacant  { background: #F3F4F6; color: #6B7280; border: 1px dashed #D1D5DB; }
-        .amber-help-page .badge-norot   { background: #F3F4F6; color: #6B7280; }
-        .amber-help-page .badge-matched { background: var(--success-bg); color: var(--success); }
-        .amber-help-page .badge-partial { background: var(--accent-bg);  color: var(--accent-dark); }
-        .amber-help-page .badge-possible{ background: var(--info-bg);    color: var(--info); }
-        .amber-help-page .badge-missing { background: var(--danger-bg);  color: var(--danger); }
-        .amber-help-page .badge-admin   { background: var(--purple-bg);  color: var(--purple); }
-
-        /* ── Status table ── */
-        .amber-help-page .status-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
-        .amber-help-page .status-table th {
-            text-align: left; padding: 10px 16px; font-weight: 600;
-            border-bottom: 2px solid var(--border); font-size: 13px;
-            text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);
-        }
-        .amber-help-page .status-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
-        .amber-help-page .status-table tr:last-child td { border-bottom: none; }
-
-        /* ── Screen mock ── */
-        .amber-help-page .screen-mock {
-            background: var(--surface); border: 1px solid var(--border);
-            border-radius: var(--radius); overflow: hidden;
-            margin-bottom: 24px; box-shadow: var(--shadow-sm);
-        }
-        .amber-help-page .screen-mock .mock-bar {
-            background: #1D2327; padding: 10px 16px;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .amber-help-page .screen-mock .mock-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .amber-help-page .screen-mock .mock-bar .dot.r { background: #FF5F57; }
-        .amber-help-page .screen-mock .mock-bar .dot.y { background: #FFBD2E; }
-        .amber-help-page .screen-mock .mock-bar .dot.g { background: #28C940; }
-        .amber-help-page .screen-mock .mock-bar .url {
-            flex: 1; background: #2D3748; border-radius: 4px;
-            padding: 4px 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
-            color: #A0AEC0;
-        }
-        .amber-help-page .screen-mock .mock-body { display: flex; min-height: 200px; }
-        .amber-help-page .screen-mock .mock-sidebar {
-            width: 180px; background: #F8F8F8; border-right: 1px solid var(--border);
-            padding: 16px 0; flex-shrink: 0;
-        }
-        .amber-help-page .screen-mock .mock-sidebar .mock-menu-item {
-            padding: 6px 16px; font-size: 13px; color: var(--text-secondary);
-            display: flex; align-items: center; gap: 8px;
-        }
-        .amber-help-page .screen-mock .mock-sidebar .mock-menu-item.active {
-            background: var(--accent-bg); color: var(--accent-dark); font-weight: 600;
-            border-left: 3px solid var(--accent);
-        }
-        .amber-help-page .screen-mock .mock-sidebar .mock-menu-item.parent {
-            font-weight: 600; color: var(--text); font-size: 13px;
-        }
-        .amber-help-page .screen-mock .mock-sidebar .mock-sub-item {
-            padding: 5px 16px 5px 32px; font-size: 12px; color: var(--text-secondary);
-        }
-        .amber-help-page .screen-mock .mock-sidebar .mock-sub-item.active {
-            color: var(--accent-dark); font-weight: 500;
-        }
-        .amber-help-page .screen-mock .mock-content { flex: 1; padding: 20px 24px; }
-        .amber-help-page .screen-mock .mock-content .mock-title {
-            font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--text);
-        }
-        .amber-help-page .screen-mock .mock-content .mock-button {
-            display: inline-block; background: #2271B1; color: #fff;
-            padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 500;
-            margin-bottom: 16px;
-        }
-        .amber-help-page .screen-mock .mock-content .mock-row {
-            display: flex; gap: 8px; align-items: center;
-            padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
-        }
-        .amber-help-page .screen-mock .mock-content .mock-row:last-child { border-bottom: none; }
-        .amber-help-page .screen-mock .mock-content .mock-row .mock-link { color: #2271B1; font-weight: 500; }
-        .amber-help-page .screen-mock .mock-content .mock-row .mock-meta { color: var(--text-secondary); font-size: 12px; }
-        .amber-help-page .screen-mock .mock-content .mock-field-label {
-            font-size: 11px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 4px; margin-top: 12px;
-        }
-        .amber-help-page .screen-mock .mock-content .mock-input {
-            background: #fff; border: 1px solid var(--border); border-radius: 4px;
-            padding: 6px 10px; font-size: 13px; color: var(--text); width: 100%; max-width: 320px;
-        }
-        .amber-help-page .screen-mock .mock-content .mock-input.error { border-color: var(--danger); }
-        .amber-help-page .screen-mock .mock-content .mock-error-msg { color: var(--danger); font-size: 12px; margin-top: 4px; }
-
-        /* ── Responsive ── */
-        @media (max-width: 860px) {
-            .amber-help-page .ahp-sidebar {
-                position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
-                transform: translateX(-100%); transition: transform 0.25s ease;
-                box-shadow: var(--shadow-md);
+            /* ── Scoped design tokens ── */
+            .amber-help-page {
+                --bg: #FAFAF8;
+                --surface: #FFFFFF;
+                --border: #E8E5E0;
+                --text: #1A1A18;
+                --text-secondary: #6B6860;
+                --accent: #D97706;
+                --accent-bg: #FEF3C7;
+                --accent-dark: #B45309;
+                --info: #1D4ED8;
+                --info-bg: #DBEAFE;
+                --danger: #DC2626;
+                --danger-bg: #FEE2E2;
+                --success: #16A34A;
+                --success-bg: #DCFCE7;
+                --purple: #7C3AED;
+                --purple-bg: #EDE9FE;
+                --code-bg: #F5F3EF;
+                --nav-width: 260px;
+                --header-height: 56px;
+                --radius: 10px;
+                --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+                --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+                font-family: 'DM Sans', sans-serif;
+                font-size: 16px;
+                line-height: 1.7;
+                color: var(--text);
+                background: var(--bg);
+                -webkit-font-smoothing: antialiased;
+                /* Full-bleed: escape WP's #wpcontent padding */
+                margin: -10px -20px -10px -20px;
+                min-height: calc(100vh - 32px);
             }
-            .amber-help-page .ahp-sidebar.open { transform: translateX(0); }
-            .amber-help-page .ahp-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 199; }
-            .amber-help-page .ahp-overlay.visible { display: block; }
-            .amber-help-page .ahp-hamburger { display: flex; }
-            .amber-help-page .ahp-main { padding: 24px 20px 60px; }
-            .amber-help-page h1 { font-size: 28px; }
-            .amber-help-page h2 { font-size: 20px; }
-            .amber-help-page .screen-mock .mock-body { flex-direction: column; }
-            .amber-help-page .screen-mock .mock-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-        }
 
-        @media print {
-            .amber-help-page .ahp-header,
-            .amber-help-page .ahp-sidebar,
-            .amber-help-page .ahp-overlay { display: none !important; }
-            .amber-help-page .ahp-main { padding: 20px; }
-        }
+            /* ── Inner header ── */
+            .amber-help-page .ahp-header {
+                position: sticky; top: 32px; z-index: 100;
+                height: var(--header-height);
+                background: rgba(250,250,248,0.95);
+                backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border);
+                display: flex; align-items: center; padding: 0 24px; gap: 16px;
+            }
+            .amber-help-page .ahp-header .logo {
+                display: flex; align-items: center; gap: 10px;
+                font-weight: 700; font-size: 20px; color: var(--text);
+                text-decoration: none; letter-spacing: -0.3px;
+            }
+            .amber-help-page .ahp-header .logo span { color: var(--accent); }
+            .amber-help-page .ahp-header .version {
+                font-size: 12px; font-weight: 500; color: var(--text-secondary);
+                background: var(--code-bg); padding: 2px 8px; border-radius: 6px;
+            }
+            .amber-help-page .ahp-hamburger {
+                display: none; background: none; border: none; cursor: pointer;
+                width: 36px; height: 36px; flex-shrink: 0;
+                border-radius: 8px; align-items: center; justify-content: center;
+            }
+            .amber-help-page .ahp-hamburger:hover { background: var(--code-bg); }
+            .amber-help-page .ahp-hamburger svg { width: 22px; height: 22px; color: var(--text); }
+
+            /* ── Layout ── */
+            .amber-help-page .ahp-body {
+                display: flex;
+            }
+
+            /* ── Sidebar ── */
+            .amber-help-page .ahp-sidebar {
+                position: sticky;
+                top: calc(32px + var(--header-height));
+                height: calc(100vh - 32px - var(--header-height));
+                width: var(--nav-width);
+                overflow-y: auto;
+                border-right: 1px solid var(--border);
+                background: var(--bg);
+                padding: 24px 0;
+                flex-shrink: 0;
+            }
+            .amber-help-page .ahp-sidebar::-webkit-scrollbar { width: 4px; }
+            .amber-help-page .ahp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+            .amber-help-page .nav-section { padding: 0 20px; margin-bottom: 24px; }
+            .amber-help-page .nav-section-title {
+                font-size: 11px; font-weight: 600; text-transform: uppercase;
+                letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; padding-left: 12px;
+            }
+            .amber-help-page .nav-link {
+                display: block; padding: 6px 12px; border-radius: 8px;
+                color: var(--text-secondary); text-decoration: none;
+                font-size: 14px; font-weight: 400; transition: all 0.15s; line-height: 1.5;
+            }
+            .amber-help-page .nav-link:hover { color: var(--text); background: var(--surface); }
+            .amber-help-page .nav-link.active { color: var(--accent-dark); background: var(--accent-bg); font-weight: 500; }
+
+            /* ── Main content ── */
+            .amber-help-page .ahp-main {
+                flex: 1;
+                padding: 40px 48px 80px;
+                max-width: 860px;
+            }
+
+            /* ── Typography ── */
+            .amber-help-page h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.2; margin-bottom: 12px; margin-top: 0; padding: 0; border: none; color: var(--text); }
+            .amber-help-page h1 .emoji { font-size: 32px; margin-right: 4px; }
+            .amber-help-page .subtitle { font-size: 18px; color: var(--text-secondary); font-weight: 400; margin-bottom: 40px; line-height: 1.6; }
+            .amber-help-page h2 {
+                font-size: 24px; font-weight: 700; letter-spacing: -0.4px;
+                margin-top: 56px; margin-bottom: 16px; padding-top: 24px;
+                border-top: 1px solid var(--border); color: var(--text);
+            }
+            .amber-help-page h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+            .amber-help-page h3 { font-size: 18px; font-weight: 600; margin-top: 32px; margin-bottom: 10px; color: var(--text); }
+            .amber-help-page p { margin-bottom: 16px; }
+            .amber-help-page ul, .amber-help-page ol { margin-bottom: 16px; padding-left: 24px; }
+            .amber-help-page li { margin-bottom: 6px; }
+
+            /* ── Cards ── */
+            .amber-help-page .card {
+                background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+                box-shadow: var(--shadow-sm);
+            }
+            .amber-help-page .card h3 { margin-top: 0; }
+            .amber-help-page .card p:last-child { margin-bottom: 0; }
+
+            /* ── Callouts ── */
+            .amber-help-page .callout {
+                border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px;
+                font-size: 15px; display: flex; gap: 12px; align-items: flex-start; line-height: 1.6;
+            }
+            .amber-help-page .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+            .amber-help-page .callout.info    { background: var(--info-bg);    border-left: 4px solid var(--info); }
+            .amber-help-page .callout.warning { background: var(--accent-bg);  border-left: 4px solid var(--accent); }
+            .amber-help-page .callout.danger  { background: var(--danger-bg);  border-left: 4px solid var(--danger); }
+            .amber-help-page .callout.success { background: var(--success-bg); border-left: 4px solid var(--success); }
+            .amber-help-page .callout.purple  { background: var(--purple-bg);  border-left: 4px solid var(--purple); }
+
+            /* ── Code ── */
+            .amber-help-page code {
+                font-family: 'JetBrains Mono', monospace; font-size: 13.5px;
+                background: var(--code-bg); padding: 2px 7px; border-radius: 5px; color: var(--accent-dark);
+            }
+
+            /* ── Steps ── */
+            .amber-help-page .steps { counter-reset: step; list-style: none; padding-left: 0; }
+            .amber-help-page .steps li {
+                counter-increment: step; padding-left: 44px; position: relative;
+                margin-bottom: 20px; min-height: 32px;
+            }
+            .amber-help-page .steps li::before {
+                content: counter(step); position: absolute; left: 0; top: 0;
+                width: 30px; height: 30px; border-radius: 50%;
+                background: var(--accent); color: #fff;
+                font-weight: 700; font-size: 14px;
+                display: flex; align-items: center; justify-content: center;
+            }
+
+            /* ── Path / breadcrumb ── */
+            .amber-help-page .path {
+                display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;
+                background: var(--code-bg); border: 1px solid var(--border);
+                border-radius: 8px; padding: 8px 14px; margin-bottom: 20px;
+                font-size: 14px; font-weight: 500;
+            }
+            .amber-help-page .path .crumb { color: var(--text); }
+            .amber-help-page .path .sep { color: var(--text-secondary); margin: 0 2px; }
+            .amber-help-page .path .crumb.final { color: var(--accent-dark); font-weight: 600; }
+
+            /* ── Field table ── */
+            .amber-help-page .field-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
+            .amber-help-page .field-table th {
+                text-align: left; padding: 10px 16px; font-weight: 600;
+                border-bottom: 2px solid var(--border); font-size: 13px;
+                text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);
+            }
+            .amber-help-page .field-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+            .amber-help-page .field-table tr:last-child td { border-bottom: none; }
+            .amber-help-page .field-table .field-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent-dark); font-weight: 500; white-space: nowrap; }
+            .amber-help-page .field-table .req { color: var(--danger); font-size: 12px; font-weight: 700; margin-left: 4px; }
+
+            /* ── Badges ── */
+            .amber-help-page .badge {
+                display: inline-block; padding: 2px 10px; border-radius: 20px;
+                font-size: 13px; font-weight: 600; white-space: nowrap;
+            }
+            .amber-help-page .badge-filled  { background: var(--success-bg); color: var(--success); }
+            .amber-help-page .badge-soon    { background: var(--accent-bg);  color: var(--accent-dark); }
+            .amber-help-page .badge-due     { background: var(--danger-bg);  color: var(--danger); }
+            .amber-help-page .badge-overdue { background: var(--danger-bg);  color: var(--danger); }
+            .amber-help-page .badge-vacant  { background: #F3F4F6; color: #6B7280; border: 1px dashed #D1D5DB; }
+            .amber-help-page .badge-norot   { background: #F3F4F6; color: #6B7280; }
+            .amber-help-page .badge-matched { background: var(--success-bg); color: var(--success); }
+            .amber-help-page .badge-partial { background: var(--accent-bg);  color: var(--accent-dark); }
+            .amber-help-page .badge-possible{ background: var(--info-bg);    color: var(--info); }
+            .amber-help-page .badge-missing { background: var(--danger-bg);  color: var(--danger); }
+            .amber-help-page .badge-admin   { background: var(--purple-bg);  color: var(--purple); }
+
+            /* ── Status table ── */
+            .amber-help-page .status-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
+            .amber-help-page .status-table th {
+                text-align: left; padding: 10px 16px; font-weight: 600;
+                border-bottom: 2px solid var(--border); font-size: 13px;
+                text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);
+            }
+            .amber-help-page .status-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+            .amber-help-page .status-table tr:last-child td { border-bottom: none; }
+
+            /* ── Screen mock ── */
+            .amber-help-page .screen-mock {
+                background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); overflow: hidden;
+                margin-bottom: 24px; box-shadow: var(--shadow-sm);
+            }
+            .amber-help-page .screen-mock .mock-bar {
+                background: #1D2327; padding: 10px 16px;
+                display: flex; align-items: center; gap: 10px;
+            }
+            .amber-help-page .screen-mock .mock-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+            .amber-help-page .screen-mock .mock-bar .dot.r { background: #FF5F57; }
+            .amber-help-page .screen-mock .mock-bar .dot.y { background: #FFBD2E; }
+            .amber-help-page .screen-mock .mock-bar .dot.g { background: #28C940; }
+            .amber-help-page .screen-mock .mock-bar .url {
+                flex: 1; background: #2D3748; border-radius: 4px;
+                padding: 4px 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+                color: #A0AEC0;
+            }
+            .amber-help-page .screen-mock .mock-body { display: flex; min-height: 200px; }
+            .amber-help-page .screen-mock .mock-sidebar {
+                width: 180px; background: #F8F8F8; border-right: 1px solid var(--border);
+                padding: 16px 0; flex-shrink: 0;
+            }
+            .amber-help-page .screen-mock .mock-sidebar .mock-menu-item {
+                padding: 6px 16px; font-size: 13px; color: var(--text-secondary);
+                display: flex; align-items: center; gap: 8px;
+            }
+            .amber-help-page .screen-mock .mock-sidebar .mock-menu-item.active {
+                background: var(--accent-bg); color: var(--accent-dark); font-weight: 600;
+                border-left: 3px solid var(--accent);
+            }
+            .amber-help-page .screen-mock .mock-sidebar .mock-menu-item.parent {
+                font-weight: 600; color: var(--text); font-size: 13px;
+            }
+            .amber-help-page .screen-mock .mock-sidebar .mock-sub-item {
+                padding: 5px 16px 5px 32px; font-size: 12px; color: var(--text-secondary);
+            }
+            .amber-help-page .screen-mock .mock-sidebar .mock-sub-item.active {
+                color: var(--accent-dark); font-weight: 500;
+            }
+            .amber-help-page .screen-mock .mock-content { flex: 1; padding: 20px 24px; }
+            .amber-help-page .screen-mock .mock-content .mock-title {
+                font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--text);
+            }
+            .amber-help-page .screen-mock .mock-content .mock-button {
+                display: inline-block; background: #2271B1; color: #fff;
+                padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 500;
+                margin-bottom: 16px;
+            }
+            .amber-help-page .screen-mock .mock-content .mock-row {
+                display: flex; gap: 8px; align-items: center;
+                padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+            }
+            .amber-help-page .screen-mock .mock-content .mock-row:last-child { border-bottom: none; }
+            .amber-help-page .screen-mock .mock-content .mock-row .mock-link { color: #2271B1; font-weight: 500; }
+            .amber-help-page .screen-mock .mock-content .mock-row .mock-meta { color: var(--text-secondary); font-size: 12px; }
+            .amber-help-page .screen-mock .mock-content .mock-field-label {
+                font-size: 11px; font-weight: 600; text-transform: uppercase;
+                letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 4px; margin-top: 12px;
+            }
+            .amber-help-page .screen-mock .mock-content .mock-input {
+                background: #fff; border: 1px solid var(--border); border-radius: 4px;
+                padding: 6px 10px; font-size: 13px; color: var(--text); width: 100%; max-width: 320px;
+            }
+            .amber-help-page .screen-mock .mock-content .mock-input.error { border-color: var(--danger); }
+            .amber-help-page .screen-mock .mock-content .mock-error-msg { color: var(--danger); font-size: 12px; margin-top: 4px; }
+
+            /* ── Responsive ── */
+            @media (max-width: 860px) {
+                .amber-help-page .ahp-sidebar {
+                    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
+                    transform: translateX(-100%); transition: transform 0.25s ease;
+                    box-shadow: var(--shadow-md);
+                }
+                .amber-help-page .ahp-sidebar.open { transform: translateX(0); }
+                .amber-help-page .ahp-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 199; }
+                .amber-help-page .ahp-overlay.visible { display: block; }
+                .amber-help-page .ahp-hamburger { display: flex; }
+                .amber-help-page .ahp-main { padding: 24px 20px 60px; }
+                .amber-help-page h1 { font-size: 28px; }
+                .amber-help-page h2 { font-size: 20px; }
+                .amber-help-page .screen-mock .mock-body { flex-direction: column; }
+                .amber-help-page .screen-mock .mock-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            }
+
+            @media print {
+                .amber-help-page .ahp-header,
+                .amber-help-page .ahp-sidebar,
+                .amber-help-page .ahp-overlay { display: none !important; }
+                .amber-help-page .ahp-main { padding: 20px; }
+            }
         </style>
 
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -986,36 +986,36 @@ class Plugin
         </div><!-- .amber-help-page -->
 
         <script>
-        (function () {
-            // Hamburger toggle
-            document.getElementById('ahp-toggle').addEventListener('click', function () {
-                document.getElementById('ahp-sidebar').classList.toggle('open');
-                document.getElementById('ahp-overlay').classList.toggle('visible');
-            });
-            document.getElementById('ahp-overlay').addEventListener('click', function () {
-                document.getElementById('ahp-sidebar').classList.remove('open');
-                document.getElementById('ahp-overlay').classList.remove('visible');
-            });
-
-            // Active nav link on scroll
-            var sections = document.querySelectorAll('.amber-help-page section[id]');
-            var navLinks = document.querySelectorAll('.amber-help-page .nav-link');
-
-            function updateActiveLink() {
-                var current = '';
-                var scrollY = window.scrollY + 120;
-                sections.forEach(function (s) {
-                    if (s.offsetTop <= scrollY) current = s.getAttribute('id');
+            (function () {
+                // Hamburger toggle
+                document.getElementById('ahp-toggle').addEventListener('click', function () {
+                    document.getElementById('ahp-sidebar').classList.toggle('open');
+                    document.getElementById('ahp-overlay').classList.toggle('visible');
                 });
-                navLinks.forEach(function (l) {
-                    l.classList.remove('active');
-                    if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+                document.getElementById('ahp-overlay').addEventListener('click', function () {
+                    document.getElementById('ahp-sidebar').classList.remove('open');
+                    document.getElementById('ahp-overlay').classList.remove('visible');
                 });
-            }
 
-            window.addEventListener('scroll', updateActiveLink, { passive: true });
-            updateActiveLink();
-        })();
+                // Active nav link on scroll
+                var sections = document.querySelectorAll('.amber-help-page section[id]');
+                var navLinks = document.querySelectorAll('.amber-help-page .nav-link');
+
+                function updateActiveLink() {
+                    var current = '';
+                    var scrollY = window.scrollY + 120;
+                    sections.forEach(function (s) {
+                        if (s.offsetTop <= scrollY) current = s.getAttribute('id');
+                    });
+                    navLinks.forEach(function (l) {
+                        l.classList.remove('active');
+                        if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+                    });
+                }
+
+                window.addEventListener('scroll', updateActiveLink, { passive: true });
+                updateActiveLink();
+            })();
         </script>
         <?php
     }
@@ -1031,26 +1031,26 @@ class Plugin
         $helpUrl  = plugins_url('assets/docs/amber.html', dirname(__DIR__) . '/Amber.php');
         ?>
         <script>
-        (function () {
-            var link = document.querySelector('a[href="<?php echo esc_js($adminUrl); ?>"]');
-            if (!link) {
-                link = document.querySelector('a[href*="page=amber-help"]');
-            }
-            if (!link) return;
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                window.name = 'amber-admin';
-                var helpUrl = '<?php echo esc_js($helpUrl); ?>' + '?back=' + encodeURIComponent(window.location.href);
-                var existing = window.open('', 'amber-help');
-                try {
-                    if (existing && existing.location && existing.location.href && existing.location.href !== 'about:blank') {
-                        existing.focus();
-                        return;
-                    }
-                } catch (ex) {}
-                existing.location.href = helpUrl;
-            });
-        })();
+            (function () {
+                var link = document.querySelector('a[href="<?php echo esc_js($adminUrl); ?>"]');
+                if (!link) {
+                    link = document.querySelector('a[href*="page=amber-help"]');
+                }
+                if (!link) return;
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    window.name = 'amber-admin';
+                    var helpUrl = '<?php echo esc_js($helpUrl); ?>' + '?back=' + encodeURIComponent(window.location.href);
+                    var existing = window.open('', 'amber-help');
+                    try {
+                        if (existing && existing.location && existing.location.href && existing.location.href !== 'about:blank') {
+                            existing.focus();
+                            return;
+                        }
+                    } catch (ex) {}
+                    existing.location.href = helpUrl;
+                });
+            })();
         </script>
         <?php
     }
@@ -1072,67 +1072,67 @@ class Plugin
         // Register Intergroup Manager
         $container->register(IntergroupManager::class, function (ContainerInterface $c) {
             return new IntergroupManager(
-                $c->get(Configuration::class),
-                $c->get(PositionViewFactory::class),
-                $c->get(PostTitleSyncer::class)
+                    $c->get(Configuration::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(PostTitleSyncer::class)
             );
         });
 
         // Register Position Shortcode Renderer
         $container->register(PositionShortcodeRenderer::class, function (ContainerInterface $c) {
             return new PositionShortcodeRenderer(
-                $c->get(Configuration::class),
-                $c->get(PositionViewFactory::class)
+                    $c->get(Configuration::class),
+                    $c->get(PositionViewFactory::class)
             );
         });
 
         // Register Member Admin
         $container->register(MemberAdmin::class, function (ContainerInterface $c) {
             return new MemberAdmin(
-                $c->get(Configuration::class),
-                $c->get(PositionFactory::class),
-                $c->get(MemberRepository::class),
-                $c->get(GroupFactory::class)
+                    $c->get(Configuration::class),
+                    $c->get(PositionFactory::class),
+                    $c->get(MemberRepository::class),
+                    $c->get(GroupFactory::class)
             );
         });
 
         // Register Anonymous Name Uniqueness Validator
         $container->register(AnonymousNameValidator::class, function (ContainerInterface $c) {
             return new AnonymousNameValidator(
-                $c->get(Configuration::class)
+                    $c->get(Configuration::class)
             );
         });
 
         // Register Position Admin
         $container->register(PositionAdmin::class, function (ContainerInterface $c) {
             return new PositionAdmin(
-                $c->get(Configuration::class),
-                $c->get(PositionViewFactory::class),
-                $c->get(PositionRepository::class)
+                    $c->get(Configuration::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(PositionRepository::class)
             );
         });
 
         // Register Position Name Uniqueness Validator
         $container->register(PositionNameValidator::class, function (ContainerInterface $c) {
             return new PositionNameValidator(
-                $c->get(Configuration::class)
+                    $c->get(Configuration::class)
             );
         });
 
         // Register Position Dashboard
         $container->register(PositionDashboard::class, function (ContainerInterface $c) {
             return new PositionDashboard(
-                $c->get(Configuration::class),
-                $c->get(PositionViewFactory::class),
-                $c->get(PositionRepository::class)
+                    $c->get(Configuration::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(PositionRepository::class)
             );
         });
 
         // Register Meeting Admin
         $container->register(MeetingAdmin::class, function (ContainerInterface $c) {
             return new MeetingAdmin(
-                $c->get(Configuration::class),
-                $c->get(GroupRepository::class)
+                    $c->get(Configuration::class),
+                    $c->get(GroupRepository::class)
             );
         });
 
@@ -1148,57 +1148,58 @@ class Plugin
             }
 
             return new MeetingDashboard(
-                $c->get(MeetingRepository::class),
-                $c->get(GroupRepository::class),
-                $reconciler
+                    $c->get(MeetingRepository::class),
+                    $c->get(GroupRepository::class),
+                    $reconciler
             );
         });
 
         // Register Intergroup Meeting Admin
         $container->register(IntergroupMeetingAdmin::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAdmin(
-                $c->get(Configuration::class),
-                $c->get(IntergroupMeetingFactory::class),
-                $c->get(IntergroupMeetingRepository::class),
-                $c->get(IntergroupMeetingGroupAttendanceFactory::class),
-                $c->get(IntergroupMeetingGroupAttendanceRepository::class),
-                $c->get(IntergroupMeetingOfficerAttendanceFactory::class),
-                $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
-                $c->get(GroupRepository::class),
-                $c->get(MemberRepository::class),
-                $c->get(PositionFactory::class),
-                $c->get(PositionRepository::class),
-                $c->get(PositionViewFactory::class),
-                $c->get(MeetingRepository::class),
-                $c->get(GroupViewFactory::class)
+                    $c->get(Configuration::class),
+                    $c->get(IntergroupMeetingFactory::class),
+                    $c->get(IntergroupMeetingRepository::class),
+                    $c->get(IntergroupMeetingGroupAttendanceFactory::class),
+                    $c->get(IntergroupMeetingGroupAttendanceRepository::class),
+                    $c->get(IntergroupMeetingOfficerAttendanceFactory::class),
+                    $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
+                    $c->get(GroupRepository::class),
+                    $c->get(MemberRepository::class),
+                    $c->get(PositionFactory::class),
+                    $c->get(PositionRepository::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(MeetingRepository::class),
+                    $c->get(GroupViewFactory::class)
             );
         });
 
         // Register Intergroup Meeting Dashboard
         $container->register(IntergroupMeetingDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingDashboard(
-                $c->get(IntergroupMeetingRepository::class),
-                $c->get(GroupRepository::class),
-                $c->get(MemberRepository::class),
-                $c->get(PositionViewFactory::class),
-                $c->get(GroupViewFactory::class)
+                    $c->get(IntergroupMeetingRepository::class),
+                    $c->get(GroupRepository::class),
+                    $c->get(MemberRepository::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(GroupViewFactory::class)
             );
         });
 
         // Register Intergroup Meeting Attendance Dashboard
         $container->register(IntergroupMeetingAttendanceDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAttendanceDashboard(
-                $c->get(IntergroupMeetingRepository::class),
-                $c->get(IntergroupMeetingGroupAttendanceRepository::class),
-                $c->get(IntergroupMeetingOfficerAttendanceRepository::class)
+                    $c->get(IntergroupMeetingRepository::class),
+                    $c->get(IntergroupMeetingGroupAttendanceRepository::class),
+                    $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
+                    $c->get(MemberRepository::class)
             );
         });
 
         // Register Meeting Reconciler (bridges Unity meetings with national AAGBDB data via Concordance)
         $container->register(MeetingReconciler::class, function (ContainerInterface $c) {
             return new MeetingReconciler(
-                $c->get(MeetingRepository::class),
-                concordance()->get(\Concordance\Api\ApiCache::class)
+                    $c->get(MeetingRepository::class),
+                    concordance()->get(\Concordance\Api\ApiCache::class)
             );
         });
     }
