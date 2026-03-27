@@ -9,18 +9,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
-use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
+use TsmlForUnity\IntergroupMeetings\TsmlIntergroupMeetingGroupAttendanceTable;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
-use Unity\Members\Interfaces\Member;
-use Unity\Members\Interfaces\MemberRepository;
 
 use function add_action;
 use function add_submenu_page;
 use function esc_attr;
 use function esc_html;
 use function get_current_screen;
+use function sanitize_text_field;
+use function wp_unslash;
 
 /**
  * Intergroup Meeting Attendance Dashboard
@@ -32,31 +31,23 @@ use function get_current_screen;
  */
 class IntergroupMeetingAttendanceDashboard
 {
-    private IntergroupMeetingRepository $intergroupMeetingRepository;
     private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
     private IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository;
-    private MemberRepository $memberRepository;
 
     private const PAGE_SLUG = 'intergroup-attendance';
 
     /**
      * Constructor
      *
-     * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
      * @param IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository Group attendance repository
      * @param IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository Officer attendance repository
-     * @param MemberRepository $memberRepository Member repository
      */
     public function __construct(
-        IntergroupMeetingRepository $intergroupMeetingRepository,
         IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository,
-        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository,
-        MemberRepository $memberRepository
+        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository
     ) {
-        $this->intergroupMeetingRepository = $intergroupMeetingRepository;
         $this->groupAttendanceRepository = $groupAttendanceRepository;
         $this->officerAttendanceRepository = $officerAttendanceRepository;
-        $this->memberRepository = $memberRepository;
 
         add_action('admin_menu', [$this, 'registerSubmenuPage']);
         add_action('admin_head', [$this, 'addPageStyles']);
@@ -82,44 +73,26 @@ class IntergroupMeetingAttendanceDashboard
      */
     public function renderPage(): void
     {
-        $meetings = $this->intergroupMeetingRepository->findAll();
-
-        // Sort by date descending (most recent first)
-        usort($meetings, function (IntergroupMeeting $a, IntergroupMeeting $b) {
-            $dateA = $a->getDate();
-            $dateB = $b->getDate();
-
-            if (empty($dateA) && empty($dateB)) {
-                return 0;
-            }
-            if (empty($dateA)) {
-                return 1;
-            }
-            if (empty($dateB)) {
-                return -1;
-            }
-
-            return strcmp($dateB, $dateA);
-        });
+        $labels = $this->getDistinctMeetingLabels();
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        $selectedMeetingId = isset($_GET['meeting_id']) ? (int) $_GET['meeting_id'] : 0;
+        $selectedLabel = isset($_GET['meeting_label']) ? sanitize_text_field(wp_unslash($_GET['meeting_label'])) : '';
 
-        // Default to the most recent meeting if none selected
-        if ($selectedMeetingId === 0 && !empty($meetings)) {
-            $selectedMeetingId = $meetings[0]->getId();
+        // Default to the first label if none selected
+        if (empty($selectedLabel) && !empty($labels)) {
+            $selectedLabel = $labels[0];
         }
 
         echo '<div class="wrap">';
         echo '<h1 class="wp-heading-inline">Intergroup Meeting Attendance</h1>';
 
         // Meeting selector form
-        $this->renderMeetingSelector($meetings, $selectedMeetingId);
+        $this->renderMeetingSelector($labels, $selectedLabel);
 
         // Attendance tables
-        if ($selectedMeetingId > 0) {
-            $this->renderGroupAttendanceTable($selectedMeetingId);
-            $this->renderOfficerAttendanceTable($selectedMeetingId);
+        if (!empty($selectedLabel)) {
+            $this->renderGroupAttendanceTable($selectedLabel);
+            $this->renderOfficerAttendanceTable($selectedLabel);
         }
 
         echo '</div>';
@@ -128,40 +101,24 @@ class IntergroupMeetingAttendanceDashboard
     /**
      * Render the meeting selector dropdown
      *
-     * @param array<IntergroupMeeting> $meetings   All intergroup meetings
-     * @param int                      $selectedId Currently selected meeting ID
+     * @param array<string> $labels        Distinct meeting labels
+     * @param string        $selectedLabel Currently selected meeting label
      */
-    private function renderMeetingSelector(array $meetings, int $selectedId): void
+    private function renderMeetingSelector(array $labels, string $selectedLabel): void
     {
-        if (empty($meetings)) {
-            echo '<p>No intergroup meetings found.</p>';
+        if (empty($labels)) {
+            echo '<p>No attendance records found.</p>';
             return;
         }
 
         echo '<form method="get" action="' . esc_attr(admin_url('admin.php')) . '" class="ig-attendance-selector">';
         echo '<input type="hidden" name="page" value="' . esc_attr(self::PAGE_SLUG) . '">';
-        echo '<label for="meeting_id"><strong>Intergroup Meeting:</strong></label> ';
-        echo '<select name="meeting_id" id="meeting_id" onchange="this.form.submit()">';
+        echo '<label for="meeting_label"><strong>Meeting:</strong></label> ';
+        echo '<select name="meeting_label" id="meeting_label" onchange="this.form.submit()">';
 
-        foreach ($meetings as $meeting) {
-            $id = $meeting->getId();
-            $date = $meeting->getDate();
-            $title = $meeting->getTitle();
-
-            $formattedDate = !empty($date) ? $this->formatDate($date) : '';
-
-            if (!empty($title) && !empty($formattedDate)) {
-                $label = $title . ' — ' . $formattedDate;
-            } elseif (!empty($title)) {
-                $label = $title;
-            } elseif (!empty($formattedDate)) {
-                $label = $formattedDate;
-            } else {
-                $label = 'Meeting (ID: ' . $id . ')';
-            }
-
-            $selected = $id === $selectedId ? ' selected' : '';
-            echo '<option value="' . esc_attr((string) $id) . '"' . $selected . '>'
+        foreach ($labels as $label) {
+            $selected = $label === $selectedLabel ? ' selected' : '';
+            echo '<option value="' . esc_attr($label) . '"' . $selected . '>'
                 . esc_html($label)
                 . '</option>';
         }
@@ -172,13 +129,13 @@ class IntergroupMeetingAttendanceDashboard
     }
 
     /**
-     * Render the group attendance table for a given intergroup meeting
+     * Render the group attendance table for a given meeting label
      *
-     * @param int $meetingId Intergroup meeting ID
+     * @param string $meetingLabel Meeting label to filter by
      */
-    private function renderGroupAttendanceTable(int $meetingId): void
+    private function renderGroupAttendanceTable(string $meetingLabel): void
     {
-        $records = $this->groupAttendanceRepository->findByIntergroupMeeting($meetingId);
+        $records = $this->groupAttendanceRepository->findAll(['meeting_label' => $meetingLabel]);
 
         echo '<h2 class="ig-section-heading">Group Attendance</h2>';
         echo '<div class="ig-attendance-table-wrap">';
@@ -256,22 +213,13 @@ class IntergroupMeetingAttendanceDashboard
     }
 
     /**
-     * Render the officer attendance table for a given intergroup meeting
+     * Render the officer attendance table for a given meeting label
      *
-     * When a position is registered (via Integrity or Amber), the attendance
-     * record stores a single officer name. This method enriches each row by
-     * looking up the member(s) currently assigned to the same position and
-     * displaying their anonymous names.
-     *
-     * Like the position admin page, only the member with the latest rotation
-     * date is shown. If multiple members share the same latest rotation date
-     * they are all displayed.
-     *
-     * @param int $meetingId Intergroup meeting ID
+     * @param string $meetingLabel Meeting label to filter by
      */
-    private function renderOfficerAttendanceTable(int $meetingId): void
+    private function renderOfficerAttendanceTable(string $meetingLabel): void
     {
-        $records = $this->officerAttendanceRepository->findByIntergroupMeeting($meetingId);
+        $records = $this->officerAttendanceRepository->findAll(['meeting_label' => $meetingLabel]);
 
         echo '<h2 class="ig-section-heading">Officer Attendance</h2>';
         echo '<div class="ig-attendance-table-wrap">';
@@ -282,45 +230,12 @@ class IntergroupMeetingAttendanceDashboard
             return;
         }
 
-        // Collect all unique position IDs from attendance records.
-        // The officer_id column stores the position CPT post ID.
-        $positionIds = [];
-        foreach ($records as $record) {
-            $positionIds[] = $record->getOfficerId();
-        }
-        $positionIds = array_unique($positionIds);
-
-        // Batch-load all members once and group by position ID.
-        $allMembers = $this->memberRepository->findAll();
-        $membersByPosition = [];
-
-        foreach ($allMembers as $member) {
-            $memberPositionId = $member->getIntergroupPosition();
-            if ($memberPositionId > 0 && in_array($memberPositionId, $positionIds, true)) {
-                $membersByPosition[$memberPositionId][] = $member;
-            }
-        }
-
-        // Resolve the display names per position using latest-rotation-date logic.
-        $memberNamesByPosition = [];
-        foreach ($membersByPosition as $positionId => $members) {
-            $memberNamesByPosition[$positionId] = $this->resolveLatestMemberNames($members);
-        }
-
-        // Group records by position name for display, resolving live member names
+        // Group officer names by position
         $positionGroups = [];
         foreach ($records as $record) {
             $positionName = $record->getPositionName();
             $key = !empty($positionName) ? $positionName : '';
-            $positionId = $record->getOfficerId();
-
-            if (!empty($memberNamesByPosition[$positionId])) {
-                // Use live member names from the repository
-                $positionGroups[$key] = $memberNamesByPosition[$positionId];
-            } else {
-                // Fall back to the stored officer name from the attendance record
-                $positionGroups[$key][] = $record->getOfficerName();
-            }
+            $positionGroups[$key][] = $record->getOfficerName();
         }
 
         echo '<table class="widefat striped ig-attendance-table">';
@@ -333,11 +248,6 @@ class IntergroupMeetingAttendanceDashboard
         echo '<tbody>';
 
         foreach ($positionGroups as $positionName => $officerNames) {
-            // Remove empty names and duplicates
-            $officerNames = array_unique(array_filter($officerNames, function (string $name): bool {
-                return $name !== '';
-            }));
-
             echo '<tr>';
 
             // Position
@@ -350,13 +260,7 @@ class IntergroupMeetingAttendanceDashboard
             echo '</td>';
 
             // Officer Name(s), comma-separated
-            echo '<td>';
-            if (!empty($officerNames)) {
-                echo esc_html(implode(', ', $officerNames));
-            } else {
-                echo '<span class="ig-empty-cell">—</span>';
-            }
-            echo '</td>';
+            echo '<td>' . esc_html(implode(', ', $officerNames)) . '</td>';
 
             echo '</tr>';
         }
@@ -376,84 +280,23 @@ class IntergroupMeetingAttendanceDashboard
     }
 
     /**
-     * Resolve the anonymous names of the member(s) with the latest rotation date.
+     * Get distinct meeting labels from the group attendance table
      *
-     * Mirrors the logic in TsmlPositionViewFactory::findMemberWithLatestRotationDate
-     * but returns all members that share the same latest date instead of just one.
-     * When only a single member holds the position the result is a single-element array,
-     * matching the behaviour of the position admin page.
+     * Returns labels in reverse alphabetical order so that dates
+     * formatted as "Title — Month Day, Year" sort most-recent first.
      *
-     * @param array<Member> $members Members assigned to the same position
-     * @return array<string> Anonymous names to display
+     * @return array<string>
      */
-    private function resolveLatestMemberNames(array $members): array
+    private function getDistinctMeetingLabels(): array
     {
-        if (empty($members)) {
-            return [];
-        }
+        global $wpdb;
 
-        if (count($members) === 1) {
-            return [$members[0]->getAnonymousName()];
-        }
+        $table = TsmlIntergroupMeetingGroupAttendanceTable::getTableName();
 
-        // Parse rotation dates for each member, keeping the raw Y-m-d string
-        // so we can compare dates reliably.
-        $latestDateStr = null;
-        $parsed = []; // memberId => dateString (Y-m-d)
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $labels = $wpdb->get_col("SELECT DISTINCT meeting_label FROM {$table} WHERE meeting_label != '' ORDER BY meeting_label DESC");
 
-        foreach ($members as $member) {
-            $rotationDateStr = $member->getIntergroupPositionRotation();
-
-            if (empty($rotationDateStr)) {
-                continue;
-            }
-
-            // Normalise to Y-m-d — same two-format fallback as TsmlPositionViewFactory
-            $dt = \DateTime::createFromFormat('Y-m-d', $rotationDateStr)
-                ?: \DateTime::createFromFormat('d/m/Y', $rotationDateStr);
-
-            if (!$dt) {
-                continue;
-            }
-
-            $normalised = $dt->format('Y-m-d');
-            $parsed[$member->getId()] = $normalised;
-
-            if ($latestDateStr === null || $normalised > $latestDateStr) {
-                $latestDateStr = $normalised;
-            }
-        }
-
-        // If no member had a parseable rotation date, fall back to the first member
-        // (same behaviour as TsmlPositionViewFactory).
-        if ($latestDateStr === null) {
-            return [$members[0]->getAnonymousName()];
-        }
-
-        // Collect all members whose rotation date matches the latest.
-        $names = [];
-        foreach ($members as $member) {
-            if (isset($parsed[$member->getId()]) && $parsed[$member->getId()] === $latestDateStr) {
-                $names[] = $member->getAnonymousName();
-            }
-        }
-
-        return $names;
-    }
-
-    /**
-     * Format a date string for display
-     *
-     * @param string $date Date string (Y-m-d)
-     * @return string Formatted date or original string on failure
-     */
-    private function formatDate(string $date): string
-    {
-        $timestamp = strtotime($date);
-        if ($timestamp !== false) {
-            return wp_date('F j, Y', $timestamp);
-        }
-        return $date;
+        return is_array($labels) ? $labels : [];
     }
 
     /**

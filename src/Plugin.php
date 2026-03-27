@@ -1188,10 +1188,8 @@ class Plugin
         // Register Intergroup Meeting Attendance Dashboard
         $container->register(IntergroupMeetingAttendanceDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAttendanceDashboard(
-                    $c->get(IntergroupMeetingRepository::class),
                     $c->get(IntergroupMeetingGroupAttendanceRepository::class),
-                    $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
-                    $c->get(MemberRepository::class)
+                    $c->get(IntergroupMeetingOfficerAttendanceRepository::class)
             );
         });
 

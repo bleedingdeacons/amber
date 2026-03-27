@@ -684,9 +684,11 @@ class IntergroupMeetingAdmin
 
             $groupTitle = $group->getTitle();
             $gsrName = $this->resolveGsrNameForGroup($groupId);
+            $meetingLabel = $this->buildMeetingLabel($meeting);
 
             $attendance = $this->groupAttendanceFactory->createNew(
                 $meetingId,
+                $meetingLabel,
                 $groupId,
                 0,           // member_id — not applicable when adding from admin
                 $groupTitle,
@@ -745,9 +747,11 @@ class IntergroupMeetingAdmin
             // position, using the latest rotation date. If multiple members
             // share the same latest date they are all included.
             $officerName = $this->resolveOfficerNameForPosition($officerId, $allMembers);
+            $meetingLabel = $this->buildMeetingLabel($meeting);
 
             $attendance = $this->officerAttendanceFactory->createNew(
                 $meetingId,
+                $meetingLabel,
                 $officerId,
                 $positionName,
                 $officerName
@@ -857,6 +861,48 @@ class IntergroupMeetingAdmin
         }
 
         return '';
+    }
+
+    /**
+     * Build a human-readable label for an intergroup meeting
+     *
+     * Combines the meeting title and formatted date into a single string
+     * suitable for display and filtering in attendance records.
+     *
+     * Format: "Title — Month Day, Year" (or just the title or date when
+     * only one is available).
+     *
+     * @param IntergroupMeeting $meeting
+     * @return string
+     */
+    private function buildMeetingLabel(IntergroupMeeting $meeting): string
+    {
+        $title = $meeting->getTitle();
+        $date  = $meeting->getDate();
+
+        $formattedDate = '';
+        if (!empty($date)) {
+            $timestamp = strtotime($date);
+            if ($timestamp !== false) {
+                $formattedDate = gmdate('F j, Y', $timestamp);
+            } else {
+                $formattedDate = $date;
+            }
+        }
+
+        if (!empty($title) && !empty($formattedDate)) {
+            return $title . ' — ' . $formattedDate;
+        }
+
+        if (!empty($title)) {
+            return $title;
+        }
+
+        if (!empty($formattedDate)) {
+            return $formattedDate;
+        }
+
+        return 'Meeting (ID: ' . $meeting->getId() . ')';
     }
 
     /**
