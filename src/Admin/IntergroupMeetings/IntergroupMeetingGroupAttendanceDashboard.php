@@ -255,30 +255,37 @@ class IntergroupMeetingGroupAttendanceDashboard
             return;
         }
 
+        // Group officer names by position
+        $positionGroups = [];
+        foreach ($records as $record) {
+            $positionName = $record->getPositionName();
+            $key = !empty($positionName) ? $positionName : '';
+            $positionGroups[$key][] = $record->getOfficerName();
+        }
+
         echo '<table class="widefat striped ig-attendance-table">';
         echo '<thead>';
         echo '<tr>';
-        echo '<th>Officer Name</th>';
         echo '<th>Position</th>';
+        echo '<th>Officer Name</th>';
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';
 
-        foreach ($records as $record) {
+        foreach ($positionGroups as $positionName => $officerNames) {
             echo '<tr>';
-
-            // Officer Name
-            echo '<td>' . esc_html($record->getOfficerName()) . '</td>';
 
             // Position
             echo '<td>';
-            $positionName = $record->getPositionName();
             if (!empty($positionName)) {
                 echo esc_html($positionName);
             } else {
                 echo '<span class="ig-empty-cell">—</span>';
             }
             echo '</td>';
+
+            // Officer Name(s), comma-separated
+            echo '<td>' . esc_html(implode(', ', $officerNames)) . '</td>';
 
             echo '</tr>';
         }

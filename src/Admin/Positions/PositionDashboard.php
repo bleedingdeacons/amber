@@ -172,26 +172,32 @@ class PositionDashboard
      */
     private function renderMemberCell(PositionView $positionView): void
     {
-        $member = $positionView->getMember();
+        $members = $positionView->getMembers();
 
-        if ($positionView->isVacant() || !$member) {
+        if ($positionView->isVacant() || empty($members)) {
             echo '<span class="vacant-indicator">Vacant</span>';
             $membersUrl = admin_url('edit.php?post_type=' . $this->member_config['POST_TYPE']);
             echo ' <a href="' . esc_url($membersUrl) . '" class="vacant-action-btn" title="View Members">..</a>';
             return;
         }
 
-        $memberId = $member->getId();
-        $displayName = $member->getAnonymousName();
-        $editLink = get_edit_post_link($memberId);
+        foreach ($members as $index => $member) {
+            if ($index > 0) {
+                echo '<br>';
+            }
 
-        if ($editLink) {
-            echo '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
-        } else {
-            echo esc_html($displayName);
+            $memberId = $member->getId();
+            $displayName = $member->getAnonymousName();
+            $editLink = get_edit_post_link($memberId);
+
+            if ($editLink) {
+                echo '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
+            } else {
+                echo esc_html($displayName);
+            }
         }
 
-        // Show months until rotation
+        // Show months until rotation (shared across members with same rotation date)
         $months = $positionView->getMonthsUntilRotation();
         if ($months !== null) {
             if ($months < 0) {

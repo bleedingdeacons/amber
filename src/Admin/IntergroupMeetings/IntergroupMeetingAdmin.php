@@ -186,7 +186,12 @@ class IntergroupMeetingAdmin
             return $title;
         }
 
-        return $title . ' (' . $member->getAnonymousName() . ')';
+        $members = $positionView->getMembers();
+        $names = array_map(function ($m) {
+            return $m->getAnonymousName();
+        }, $members);
+
+        return $title . ' (' . implode(', ', $names) . ')';
 
     }
 
@@ -526,17 +531,20 @@ class IntergroupMeetingAdmin
                 continue;
             }
 
-            $positionLabel = esc_html($positionView->getShortDescription());
-            $member = $positionView->getMember();
+            $positionLabel = esc_html($positionView->getPosition()->getShortDescription());
+            $members = $positionView->getMembers();
 
-            if ($member && !$positionView->isVacant()) {
-                $memberId = $member->getId();
-                $editLink = get_edit_post_link($memberId);
-                $nameHtml = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                    : esc_html($member->getAnonymousName());
+            if (!empty($members) && !$positionView->isVacant()) {
+                $memberLinks = [];
+                foreach ($members as $member) {
+                    $memberId = $member->getId();
+                    $editLink = get_edit_post_link($memberId);
+                    $memberLinks[] = $editLink
+                        ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
+                        : esc_html($member->getAnonymousName());
+                }
 
-                $names[] = $positionLabel . ' (' . $nameHtml . ')';
+                $names[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
             } else {
                 $names[] = $positionLabel;
             }
@@ -737,12 +745,15 @@ class IntergroupMeetingAdmin
                 continue;
             }
 
-            $positionName = $positionView->getLongName();
+            $positionName = $positionView->getPosition()->getLongName();
             $officerName = '';
 
-            $member = $positionView->getMember();
-            if ($member && !$positionView->isVacant()) {
-                $officerName = $member->getAnonymousName();
+            $members = $positionView->getMembers();
+            if (!empty($members) && !$positionView->isVacant()) {
+                $names = array_map(function ($m) {
+                    return $m->getAnonymousName();
+                }, $members);
+                $officerName = implode(', ', $names);
             }
 
             $attendance = $this->officerAttendanceFactory->createNew(

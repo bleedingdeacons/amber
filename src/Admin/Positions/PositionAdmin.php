@@ -165,28 +165,33 @@ class PositionAdmin
     }
 
     /**
-     * Display the current member assigned to the position
+     * Display the current member(s) assigned to the position
      * 
      * @param PositionView $positionView Position view object
      */
     private function displayPositionMember(PositionView $positionView): void
     {
-        $member = $positionView->getMember();
+        $members = $positionView->getMembers();
         
-        if ($positionView->isVacant() || !$member) {
+        if ($positionView->isVacant() || empty($members)) {
             echo '-';
             return;
         }
 
-        $memberId = $member->getId();
-        $displayName = $member->getAnonymousName();
-        $editLink = get_edit_post_link($memberId);
-        
-        if ($editLink) {
-            echo '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
-        } else {
-            echo esc_html($displayName);
+        $links = [];
+        foreach ($members as $member) {
+            $memberId = $member->getId();
+            $displayName = $member->getAnonymousName();
+            $editLink = get_edit_post_link($memberId);
+            
+            if ($editLink) {
+                $links[] = '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
+            } else {
+                $links[] = esc_html($displayName);
+            }
         }
+
+        echo implode(', ', $links);
     }
 
     /**
@@ -520,17 +525,24 @@ class PositionAdmin
      */
     private function updateMemberNameMetadata(int $positionId, PositionView $positionView): void
     {
-        $member = $positionView->getMember();
+        $members = $positionView->getMembers();
         
-        if ($positionView->isVacant() || !$member) {
+        if ($positionView->isVacant() || empty($members)) {
             update_post_meta($positionId, '_position_member_name', 'zzz_vacant');
             delete_post_meta($positionId, '_position_member_id');
             return;
         }
         
-        $memberName = $member->getAnonymousName();
-        update_post_meta($positionId, '_position_member_name', strtolower($memberName));
-        update_post_meta($positionId, '_position_member_id', $member->getId());
+        $names = [];
+        $ids = [];
+        foreach ($members as $member) {
+            $names[] = $member->getAnonymousName();
+            $ids[] = $member->getId();
+        }
+
+        // Sort key uses first member name for consistent ordering
+        update_post_meta($positionId, '_position_member_name', strtolower($names[0]));
+        update_post_meta($positionId, '_position_member_id', implode(',', $ids));
     }
     
     /**
