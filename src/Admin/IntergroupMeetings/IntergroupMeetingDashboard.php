@@ -11,10 +11,9 @@ if (!defined('ABSPATH')) {
 
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
-use Unity\Groups\Interfaces\GroupRepository;
-use Unity\Groups\Interfaces\GroupViewFactory;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
+use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 use Unity\Members\Interfaces\MemberRepository;
-use Unity\Positions\Interfaces\PositionViewFactory;
 
 use function add_action;
 use function esc_html;
@@ -27,37 +26,34 @@ use function wp_add_dashboard_widget;
  * Intergroup Meeting Dashboard Widget
  *
  * Adds a dashboard panel listing intergroup meetings with their attendees,
- * sorted by date (most recent first).
+ * sorted by date (most recent first). Reads from the attendance tables
+ * so the widget reflects the archived registration data.
  */
 class IntergroupMeetingDashboard
 {
     private IntergroupMeetingRepository $intergroupMeetingRepository;
-    private GroupRepository $groupRepository;
+    private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
+    private IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository;
     private MemberRepository $memberRepository;
-    private PositionViewFactory $positionViewFactory;
-    private GroupViewFactory $groupViewFactory;
 
     /**
      * Constructor
      *
      * @param IntergroupMeetingRepository $intergroupMeetingRepository Intergroup meeting repository
-     * @param GroupRepository $groupRepository Group repository
+     * @param IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository Group attendance repository
+     * @param IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository Officer attendance repository
      * @param MemberRepository $memberRepository Member repository
-     * @param PositionViewFactory $positionViewFactory Position view factory
-     * @param GroupViewFactory $groupViewFactory Group view factory
      */
     public function __construct(
         IntergroupMeetingRepository $intergroupMeetingRepository,
-        GroupRepository $groupRepository,
-        MemberRepository $memberRepository,
-        PositionViewFactory $positionViewFactory,
-        GroupViewFactory $groupViewFactory
+        IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository,
+        IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository,
+        MemberRepository $memberRepository
     ) {
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;
-        $this->groupRepository = $groupRepository;
+        $this->groupAttendanceRepository = $groupAttendanceRepository;
+        $this->officerAttendanceRepository = $officerAttendanceRepository;
         $this->memberRepository = $memberRepository;
-        $this->positionViewFactory = $positionViewFactory;
-        $this->groupViewFactory = $groupViewFactory;
 
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);
@@ -125,23 +121,38 @@ class IntergroupMeetingDashboard
 
         echo '<div class="ig-meeting-card">';
 
-        // Header with date and total count
+        // Header with title, date and total count
         echo '<div class="ig-meeting-header">';
 
-        // Date
+        // Title and date
         echo '<div class="ig-meeting-date">';
+        $title = $meeting->getTitle();
         $date = $meeting->getDate();
+
+        $formattedDate = '';
         if (!empty($date)) {
             $timestamp = strtotime($date);
             $formattedDate = $timestamp !== false ? wp_date('F j, Y', $timestamp) : $date;
+        }
 
+        if (!empty($title) && !empty($formattedDate)) {
+            $label = $title . ' — ' . $formattedDate;
+        } elseif (!empty($title)) {
+            $label = $title;
+        } elseif (!empty($formattedDate)) {
+            $label = $formattedDate;
+        } else {
+            $label = '';
+        }
+
+        if (!empty($label)) {
             if ($editLink) {
-                echo '<a href="' . esc_url($editLink) . '"><strong>' . esc_html($formattedDate) . '</strong></a>';
+                echo '<a href="' . esc_url($editLink) . '"><strong>' . esc_html($label) . '</strong></a>';
             } else {
-                echo '<strong>' . esc_html($formattedDate) . '</strong>';
+                echo '<strong>' . esc_html($label) . '</strong>';
             }
         } else {
-            echo '<span class="no-date">No Date</span>';
+            echo '<span class="no-date">No Title or Date</span>';
         }
         echo '</div>';
 
@@ -153,7 +164,7 @@ class IntergroupMeetingDashboard
         echo '<div class="ig-meeting-total">';
         echo '<span class="attendee-badge" title="' . esc_html($groupCount . ' groups, ' . $officerCount . ' officers') . '">';
         echo '<span class="badge-number">' . esc_html((string)$total) . '</span>';
-        echo '<span class="badge-label">attendees</span>';
+        echo '<span class="badge-label">votes</span>';
         echo '</span>';
         echo '</div>';
 
@@ -184,102 +195,108 @@ class IntergroupMeetingDashboard
     }
 
     /**
-     * Render the group attendees cell content
+     * Render the group attendees cell content from the attendance table
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
     private function renderGroupAttendees(IntergroupMeeting $meeting): void
     {
-        $attendeeIds = $meeting->getGroupAttendees();
+        $records = $this->groupAttendanceRepository->findByIntergroupMeeting($meeting->getId());
 
-        if (empty($attendeeIds)) {
+        if (empty($records)) {
             echo '<span style="color: gray;">—</span>';
             return;
         }
 
-        $names = [];
-
-        foreach ($attendeeIds as $id) {
-            $groupView = $this->groupViewFactory->createFrom($id);
-            if ($groupView) {
-                $editLink = get_edit_post_link($id);
-                $groupName = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupView->getTitle()) . '</a>'
-                    : esc_html($groupView->getTitle());
-
-                // Find GSR members for this group
-                $gsrNames = [];
-                foreach ($groupView->getMembers() as $member) {
-                    if ($member->isGSR()) {
-                        $memberEditLink = get_edit_post_link($member->getId());
-                        $gsrNames[] = $memberEditLink
-                            ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                            : esc_html($member->getAnonymousName());
-                    }
-                }
-
-                if (!empty($gsrNames)) {
-                    $groupName .= ' (' . implode(', ', $gsrNames) . ')';
-                }
-
-                $names[] = $groupName;
+        $allMembers = $this->memberRepository->findAll();
+        $membersByName = [];
+        foreach ($allMembers as $member) {
+            $name = $member->getAnonymousName();
+            if (!empty($name)) {
+                $membersByName[$name] = $member;
             }
         }
 
-        if (empty($names)) {
-            echo '<span style="color: gray;">—</span>';
-            return;
+        $entries = [];
+        foreach ($records as $record) {
+            $groupName = esc_html($record->getMeetingGroup());
+            $gsrNameStr = $record->getGsrName();
+
+            if (!empty($gsrNameStr)) {
+                $names = array_map('trim', explode(',', $gsrNameStr));
+                $gsrLinks = [];
+                foreach ($names as $name) {
+                    if (isset($membersByName[$name])) {
+                        $editLink = get_edit_post_link($membersByName[$name]->getId());
+                        $gsrLinks[] = $editLink
+                            ? '<a href="' . esc_url($editLink) . '">' . esc_html($name) . '</a>'
+                            : esc_html($name);
+                    } else {
+                        $gsrLinks[] = esc_html($name);
+                    }
+                }
+                $groupName .= ' (' . implode(', ', $gsrLinks) . ')';
+            }
+
+            $entries[] = $groupName;
         }
 
-        echo implode(', ', $names);
+        echo implode(', ', $entries);
     }
 
     /**
-     * Render the officers cell content
+     * Render the officers cell content from the attendance table
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
     private function renderOfficers(IntergroupMeeting $meeting): void
     {
-        $positionIds = $meeting->getOfficersAttending();
+        $records = $this->officerAttendanceRepository->findByIntergroupMeeting($meeting->getId());
 
-        if (empty($positionIds)) {
+        if (empty($records)) {
             echo '<span class="no-attendees">None</span>';
             return;
         }
 
-        $names = [];
-        foreach ($positionIds as $positionId) {
-            $positionView = $this->positionViewFactory->createFrom($positionId);
-            if (!$positionView) {
-                continue;
+        $allMembers = $this->memberRepository->findAll();
+        $membersByName = [];
+        foreach ($allMembers as $member) {
+            $name = $member->getAnonymousName();
+            if (!empty($name)) {
+                $membersByName[$name] = $member;
             }
+        }
 
-            $positionLabel = esc_html($positionView->getPosition()->getShortDescription());
-            $members = $positionView->getMembers();
+        $entries = [];
+        foreach ($records as $record) {
+            $positionLabel = esc_html($record->getPositionName());
+            $officerNameStr = $record->getOfficerName();
 
-            if (!empty($members) && !$positionView->isVacant()) {
+            if (!empty($officerNameStr)) {
+                $names = array_map('trim', explode(',', $officerNameStr));
                 $memberLinks = [];
-                foreach ($members as $member) {
-                    $memberId = $member->getId();
-                    $editLink = get_edit_post_link($memberId);
-                    $memberLinks[] = $editLink
-                        ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                        : esc_html($member->getAnonymousName());
+                foreach ($names as $name) {
+                    if (isset($membersByName[$name])) {
+                        $editLink = get_edit_post_link($membersByName[$name]->getId());
+                        $memberLinks[] = $editLink
+                            ? '<a href="' . esc_url($editLink) . '">' . esc_html($name) . '</a>'
+                            : esc_html($name);
+                    } else {
+                        $memberLinks[] = esc_html($name);
+                    }
                 }
-
-                $names[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
+                $entries[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
             } else {
-                $names[] = $positionLabel;
+                $entries[] = $positionLabel;
             }
         }
 
-        if (empty($names)) {
+        if (empty($entries)) {
             echo '<span class="no-attendees">None</span>';
             return;
         }
 
-        echo '<div class="attendee-list">' . implode(', ', $names) . '</div>';
+        echo '<div class="attendee-list">' . implode(', ', $entries) . '</div>';
     }
 
     /**

@@ -1178,10 +1178,9 @@ class Plugin
         $container->register(IntergroupMeetingDashboard::class, function (ContainerInterface $c) {
             return new IntergroupMeetingDashboard(
                     $c->get(IntergroupMeetingRepository::class),
-                    $c->get(GroupRepository::class),
-                    $c->get(MemberRepository::class),
-                    $c->get(PositionViewFactory::class),
-                    $c->get(GroupViewFactory::class)
+                    $c->get(IntergroupMeetingGroupAttendanceRepository::class),
+                    $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
+                    $c->get(MemberRepository::class)
             );
         });
 

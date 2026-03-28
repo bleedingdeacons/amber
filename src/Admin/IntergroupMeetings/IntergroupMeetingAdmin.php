@@ -459,51 +459,41 @@ class IntergroupMeetingAdmin
     }
 
     /**
-     * Display the group attendees as a list of group names
+     * Display the group attendees from the attendance table
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
     private function displayGroupAttendees(IntergroupMeeting $meeting): void
     {
-        $attendeeIds = $meeting->getGroupAttendees();
+        $records = $this->groupAttendanceRepository->findByIntergroupMeeting($meeting->getId());
 
-        if (empty($attendeeIds)) {
+        if (empty($records)) {
             echo '<span style="color: gray;">—</span>';
             return;
         }
 
         $names = [];
 
-        foreach ($attendeeIds as $id) {
-            $groupView = $this->groupViewFactory->createFrom($id);
-            if ($groupView) {
-                $editLink = get_edit_post_link($id);
-                $groupName = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupView->getTitle()) . '</a>'
-                    : esc_html($groupView->getTitle());
+        foreach ($records as $record) {
+            $groupId = $record->getGroupId();
+            $groupName = $record->getMeetingGroup();
 
-                // Find GSR members for this group
-                $gsrNames = [];
-                foreach ($groupView->getMembers() as $member) {
-                    if ($member->isGSR()) {
-                        $memberEditLink = get_edit_post_link($member->getId());
-                        $gsrNames[] = $memberEditLink
-                            ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                            : esc_html($member->getAnonymousName());
-                    }
-                }
+            $editLink = $groupId > 0 ? get_edit_post_link($groupId) : '';
+            $display = $editLink
+                ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupName) . '</a>'
+                : esc_html($groupName);
 
-                if (!empty($gsrNames)) {
-                    $groupName .= ' (' . implode(', ', $gsrNames) . ')';
-                }
-
-                $names[] = $groupName;
+            $gsrName = $record->getGsrName();
+            if (!empty($gsrName)) {
+                $memberId = $record->getMemberId();
+                $memberEditLink = $memberId > 0 ? get_edit_post_link($memberId) : '';
+                $gsrDisplay = $memberEditLink
+                    ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($gsrName) . '</a>'
+                    : esc_html($gsrName);
+                $display .= ' (' . $gsrDisplay . ')';
             }
-        }
 
-        if (empty($names)) {
-            echo '<span style="color: gray;">—</span>';
-            return;
+            $names[] = $display;
         }
 
         echo implode(', ', $names);
@@ -516,42 +506,53 @@ class IntergroupMeetingAdmin
      */
     private function displayOfficersAttending(IntergroupMeeting $meeting): void
     {
-        $positionIds = $meeting->getOfficersAttending();
+        $records = $this->officerAttendanceRepository->findByIntergroupMeeting($meeting->getId());
 
-        if (empty($positionIds)) {
+        if (empty($records)) {
             echo '—';
             return;
         }
 
-        $names = [];
-        foreach ($positionIds as $positionId) {
-            $positionView = $this->positionViewFactory->createFrom($positionId);
-            if (!$positionView) {
+        $allMembers = $this->memberRepository->findAll();
+
+        // Index members by anonymous name for lookup
+        $membersByName = [];
+        foreach ($allMembers as $member) {
+            $name = $member->getAnonymousName();
+            if (!empty($name)) {
+                $membersByName[$name] = $member;
+            }
+        }
+
+        $entries = [];
+        foreach ($records as $record) {
+            $positionLabel = esc_html($record->getPositionName());
+            $officerNameStr = $record->getOfficerName();
+
+            if (empty($officerNameStr)) {
+                $entries[] = $positionLabel;
                 continue;
             }
 
-            $positionLabel = esc_html($positionView->getPosition()->getShortDescription());
-            $member = $positionView->getMember();
+            // Officer name may be comma-separated when multiple members share the position
+            $names = array_map('trim', explode(',', $officerNameStr));
+            $memberLinks = [];
 
-            if ($member && !$positionView->isVacant()) {
-                $memberId = $member->getId();
-                $editLink = get_edit_post_link($memberId);
-                $nameHtml = $editLink
-                    ? '<a href="' . esc_url($editLink) . '">' . esc_html($member->getAnonymousName()) . '</a>'
-                    : esc_html($member->getAnonymousName());
-
-                $names[] = $positionLabel . ' (' . $nameHtml . ')';
-            } else {
-                $names[] = $positionLabel;
+            foreach ($names as $name) {
+                if (isset($membersByName[$name])) {
+                    $editLink = get_edit_post_link($membersByName[$name]->getId());
+                    $memberLinks[] = $editLink
+                        ? '<a href="' . esc_url($editLink) . '">' . esc_html($name) . '</a>'
+                        : esc_html($name);
+                } else {
+                    $memberLinks[] = esc_html($name);
+                }
             }
+
+            $entries[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
         }
 
-        if (empty($names)) {
-            echo '—';
-            return;
-        }
-
-        echo implode(', ', $names);
+        echo !empty($entries) ? implode(', ', $entries) : '—';
     }
 
     /**
@@ -780,13 +781,14 @@ class IntergroupMeetingAdmin
             return '';
         }
 
+        $gsrNames = [];
         foreach ($groupView->getMembers() as $member) {
             if ($member->isGSR()) {
-                return $member->getAnonymousName();
+                $gsrNames[] = $member->getAnonymousName();
             }
         }
 
-        return '';
+        return implode(', ', $gsrNames);
     }
 
     /**
