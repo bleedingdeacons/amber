@@ -164,7 +164,7 @@ class IntergroupMeetingDashboard
         echo '<div class="ig-meeting-total">';
         echo '<span class="attendee-badge" title="' . esc_html($groupCount . ' groups, ' . $officerCount . ' officers') . '">';
         echo '<span class="badge-number">' . esc_html((string)$total) . '</span>';
-        echo '<span class="badge-label">votes</span>';
+        echo '<span class="badge-label">eligible</span>';
         echo '</span>';
         echo '</div>';
 

@@ -383,7 +383,7 @@ class IntergroupMeetingAdmin
                 $newColumns['meeting_date'] = 'Meeting Date';
                 $newColumns['group_attendees'] = 'Group Attendees';
                 $newColumns['officers_attending'] = 'Officers Attending';
-                $newColumns['attendee_count'] = 'Total Attendees';
+                $newColumns['attendee_count'] = 'Total Eligible';
             }
         }
 

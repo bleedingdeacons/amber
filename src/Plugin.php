@@ -122,7 +122,7 @@ class Plugin
      * Run one-off metadata migrations when the plugin version changes.
      *
      * Compares the stored version against AMBER_VERSION and, on mismatch,
-     * regenerates all position sort-key metadata so that column sorting
+     * regenerates all position and member sort-key metadata so that column sorting
      * works correctly without a manual WP-CLI step after deployment.
      */
     public static function maybeRunMigrations(): void
@@ -138,12 +138,17 @@ class Plugin
         try {
             /** @var PositionAdmin $positionAdmin */
             $positionAdmin = self::$container->get(PositionAdmin::class);
-            $count = $positionAdmin->setupAllPositionsMetadata();
+            $positionCount = $positionAdmin->setupAllPositionsMetadata();
+
+            /** @var MemberAdmin $memberAdmin */
+            $memberAdmin = self::$container->get(MemberAdmin::class);
+            $memberCount = $memberAdmin->setupAllMembersMetadata();
 
             self::logInfo('Amber migration complete', [
                     'from'              => $storedVersion ?: '(none)',
                     'to'                => $currentVersion,
-                    'positions_updated' => (string) $count,
+                    'positions_updated' => (string) $positionCount,
+                    'members_updated'   => (string) $memberCount,
             ]);
         } catch (\Throwable $e) {
             self::logError('Amber migration failed', [

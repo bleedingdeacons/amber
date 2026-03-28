@@ -19,17 +19,22 @@ use Unity\Groups\Interfaces\GroupFactory;
 
 use Amber\Logger\HasLogger;
 
+use WP_Post;
 use WP_Query;
 
 use function add_action;
 use function add_filter;
+use function delete_post_meta;
 use function esc_html;
 use function esc_url;
 use function get_current_screen;
 use function get_edit_post_link;
 use function is_admin;
 use function sanitize_text_field;
+use function update_post_meta;
 use function wp_unslash;
+use const DOING_AJAX;
+use const DOING_AUTOSAVE;
 
 /**
  * Member Admin Table Class
@@ -84,6 +89,9 @@ class MemberAdmin
         // Add GSR filter dropdown
         add_action('restrict_manage_posts', [$this, 'addGsrFilterDropdown']);
         add_action('pre_get_posts', [$this, 'filterByGsrStatus']);
+
+        // Update sort metadata on save
+        add_action('save_post_' . $this->member_config['POST_TYPE'], [$this, 'updateMemberMetadataOnSave'], 10, 3);
     }
 
     /**
@@ -196,12 +204,7 @@ class MemberAdmin
      */
     public function handleCustomSorting(WP_Query $query): void
     {
-        if (!is_admin() || !$query->is_main_query()) {
-            return;
-        }
-
-        $screen = get_current_screen();
-        if (!$screen || $screen->post_type !== $this->member_config['POST_TYPE']) {
+        if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== $this->member_config['POST_TYPE']) {
             return;
         }
 
@@ -209,63 +212,23 @@ class MemberAdmin
 
         switch ($orderby) {
             case 'gsr_status':
-                $query->set('meta_query', [
-                    'relation' => 'OR',
-                    '_gsr_clause' => [
-                        'key' => $this->member_config['FIELD_HOMEGROUP_GSR'],
-                        'compare' => 'EXISTS',
-                    ],
-                    [
-                        'key' => $this->member_config['FIELD_HOMEGROUP_GSR'],
-                        'compare' => 'NOT EXISTS',
-                    ],
-                ]);
-                $query->set('orderby', '_gsr_clause');
+                $query->set('meta_key', '_member_gsr_sort');
+                $query->set('orderby', 'meta_value_num');
                 break;
 
             case 'service_position':
-                $query->set('meta_query', [
-                    'relation' => 'OR',
-                    '_position_clause' => [
-                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION'],
-                        'compare' => 'EXISTS',
-                    ],
-                    [
-                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION'],
-                        'compare' => 'NOT EXISTS',
-                    ],
-                ]);
-                $query->set('orderby', '_position_clause');
+                $query->set('meta_key', '_member_position_sort_name');
+                $query->set('orderby', 'meta_value');
                 break;
 
             case 'rotation_date':
-                $query->set('meta_query', [
-                    'relation' => 'OR',
-                    '_rotation_clause' => [
-                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION_ROTATION'],
-                        'compare' => 'EXISTS',
-                    ],
-                    [
-                        'key' => $this->member_config['FIELD_INTERGROUP_POSITION_ROTATION'],
-                        'compare' => 'NOT EXISTS',
-                    ],
-                ]);
-                $query->set('orderby', '_rotation_clause');
+                $query->set('meta_key', '_member_rotation_date_sort');
+                $query->set('orderby', 'meta_value');
                 break;
 
             case 'homegroup':
-                $query->set('meta_query', [
-                    'relation' => 'OR',
-                    '_homegroup_clause' => [
-                        'key' => $this->member_config['FIELD_HOME_GROUP'],
-                        'compare' => 'EXISTS',
-                    ],
-                    [
-                        'key' => $this->member_config['FIELD_HOME_GROUP'],
-                        'compare' => 'NOT EXISTS',
-                    ],
-                ]);
-                $query->set('orderby', '_homegroup_clause');
+                $query->set('meta_key', '_member_homegroup_sort_name');
+                $query->set('orderby', 'meta_value');
                 break;
         }
     }
@@ -489,5 +452,133 @@ class MemberAdmin
         }
 
         $query->set('meta_query', $metaQuery);
+    }
+
+    /**
+     * Set up metadata for all members
+     *
+     * @return int Number of members updated
+     */
+    public function setupAllMembersMetadata(): int
+    {
+        $members = $this->memberRepository->findAll();
+        $count = 0;
+
+        foreach ($members as $member) {
+            $this->updateMemberMetadata($member->getId());
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Update member metadata when a member is saved
+     *
+     * @param int $postId The member post ID
+     * @param WP_Post $post The member post object
+     * @param bool $update Whether this is an update or a new post
+     */
+    public function updateMemberMetadataOnSave(int $postId, WP_Post $post, bool $update): void
+    {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (defined('DOING_AJAX') && DOING_AJAX) return;
+
+        $this->updateMemberMetadata($postId);
+    }
+
+    /**
+     * Update all sort metadata for a member
+     *
+     * @param int $memberId The member post ID
+     */
+    public function updateMemberMetadata(int $memberId): void
+    {
+        $member = $this->memberRepository->find($memberId);
+        if (!$member) {
+            return;
+        }
+
+        // Clear all computed sort keys first to prevent duplicate meta rows
+        delete_post_meta($memberId, '_member_gsr_sort');
+        delete_post_meta($memberId, '_member_position_sort_name');
+        delete_post_meta($memberId, '_member_rotation_date_sort');
+        delete_post_meta($memberId, '_member_homegroup_sort_name');
+
+        $this->updateGsrSortMetadata($memberId, $member);
+        $this->updatePositionSortMetadata($memberId, $member);
+        $this->updateRotationDateSortMetadata($memberId, $member);
+        $this->updateHomegroupSortMetadata($memberId, $member);
+    }
+
+    /**
+     * Update GSR sort metadata
+     *
+     * @param int $memberId The member post ID
+     * @param Member $member The member object
+     */
+    private function updateGsrSortMetadata(int $memberId, Member $member): void
+    {
+        $isGsr = $member->isGsr() ? 1 : 0;
+        update_post_meta($memberId, '_member_gsr_sort', $isGsr);
+    }
+
+    /**
+     * Update service position sort metadata
+     *
+     * @param int $memberId The member post ID
+     * @param Member $member The member object
+     */
+    private function updatePositionSortMetadata(int $memberId, Member $member): void
+    {
+        $positionId = $member->getIntergroupPosition();
+        $position = $this->positionFactory->createFromSource($positionId);
+
+        if ($position) {
+            update_post_meta($memberId, '_member_position_sort_name', strtolower($position->getLongName()));
+        } else {
+            update_post_meta($memberId, '_member_position_sort_name', 'zzz_none');
+        }
+    }
+
+    /**
+     * Update rotation date sort metadata
+     *
+     * @param int $memberId The member post ID
+     * @param Member $member The member object
+     */
+    private function updateRotationDateSortMetadata(int $memberId, Member $member): void
+    {
+        $rotation = $member->getIntergroupPositionRotation();
+
+        if (!empty($rotation)) {
+            // Parse d/m/Y format to Y-m-d for proper sorting
+            $date = \DateTime::createFromFormat('d/m/Y', $rotation);
+            if ($date) {
+                update_post_meta($memberId, '_member_rotation_date_sort', $date->format('Y-m-d'));
+            } else {
+                update_post_meta($memberId, '_member_rotation_date_sort', $rotation);
+            }
+        } else {
+            update_post_meta($memberId, '_member_rotation_date_sort', 'zzz_none');
+        }
+    }
+
+    /**
+     * Update homegroup sort metadata
+     *
+     * @param int $memberId The member post ID
+     * @param Member $member The member object
+     */
+    private function updateHomegroupSortMetadata(int $memberId, Member $member): void
+    {
+        $homegroupId = $member->getHomeGroup();
+        $homegroup = $this->groupFactory->createFromSource($homegroupId);
+
+        if ($homegroup) {
+            update_post_meta($memberId, '_member_homegroup_sort_name', strtolower($homegroup->getTitle()));
+        } else {
+            update_post_meta($memberId, '_member_homegroup_sort_name', 'zzz_none');
+        }
     }
 }
