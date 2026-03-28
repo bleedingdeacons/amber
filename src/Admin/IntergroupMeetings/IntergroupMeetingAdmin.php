@@ -178,8 +178,13 @@ class IntergroupMeetingAdmin
             return $title;
         }
 
-        $allMembers = $this->memberRepository->findAll();
-        $officerName = $this->resolveOfficerNameForPosition($post->ID, $allMembers);
+        $positionView = $this->positionViewFactory->createFrom($post->ID);
+
+        if (!$positionView) {
+            return $title;
+        }
+
+        $officerName = $positionView->getOfficerDisplayName();
 
         if ($officerName === '') {
             return $title;
@@ -731,9 +736,6 @@ class IntergroupMeetingAdmin
         $addedOfficerIds = array_diff($currentOfficerIds, $existingOfficerIds);
         $removedOfficerIds = array_diff($existingOfficerIds, $currentOfficerIds);
 
-        // Load all members once for resolving names across all added positions
-        $allMembers = $this->memberRepository->findAll();
-
         // Create attendance records for newly added officers
         foreach ($addedOfficerIds as $officerId) {
             $positionView = $this->positionViewFactory->createFrom($officerId);
@@ -742,11 +744,7 @@ class IntergroupMeetingAdmin
             }
 
             $positionName = $positionView->getPosition()->getLongName();
-
-            // Resolve the officer name(s) from all members assigned to this
-            // position, using the latest rotation date. If multiple members
-            // share the same latest date they are all included.
-            $officerName = $this->resolveOfficerNameForPosition($officerId, $allMembers);
+            $officerName = $positionView->getOfficerDisplayName();
             $meetingLabel = $this->buildMeetingLabel($meeting);
 
             $attendance = $this->officerAttendanceFactory->createNew(
@@ -764,78 +762,6 @@ class IntergroupMeetingAdmin
         foreach ($removedOfficerIds as $officerId) {
             $this->officerAttendanceRepository->deleteByIntergroupMeetingAndOfficer($meetingId, $officerId);
         }
-    }
-
-    /**
-     * Resolve the officer display name for a position from the member list.
-     *
-     * Returns the anonymous name of the member with the latest rotation date.
-     * If multiple members share the same latest rotation date all their names
-     * are returned comma-separated. This mirrors the logic used by
-     * TsmlPositionViewFactory::findMemberWithLatestRotationDate but extends it
-     * to include ties.
-     *
-     * @param int            $positionId The position CPT post ID
-     * @param array<Member>  $allMembers All loaded members
-     * @return string Comma-separated anonymous name(s), or empty string if none found
-     */
-    private function resolveOfficerNameForPosition(int $positionId, array $allMembers): string
-    {
-        // Filter to members holding this position
-        $matchingMembers = array_filter($allMembers, function (Member $member) use ($positionId): bool {
-            return $member->getIntergroupPosition() === $positionId;
-        });
-
-        if (empty($matchingMembers)) {
-            return '';
-        }
-
-        $matchingMembers = array_values($matchingMembers);
-
-        if (count($matchingMembers) === 1) {
-            return $matchingMembers[0]->getAnonymousName();
-        }
-
-        // Parse rotation dates and find the latest
-        $latestDateStr = null;
-        $parsed = []; // memberId => normalised Y-m-d string
-
-        foreach ($matchingMembers as $member) {
-            $rotationDateStr = $member->getIntergroupPositionRotation();
-
-            if (empty($rotationDateStr)) {
-                continue;
-            }
-
-            $dt = \DateTime::createFromFormat('Y-m-d', $rotationDateStr)
-                ?: \DateTime::createFromFormat('d/m/Y', $rotationDateStr);
-
-            if (!$dt) {
-                continue;
-            }
-
-            $normalised = $dt->format('Y-m-d');
-            $parsed[$member->getId()] = $normalised;
-
-            if ($latestDateStr === null || $normalised > $latestDateStr) {
-                $latestDateStr = $normalised;
-            }
-        }
-
-        // No parseable rotation dates — fall back to the first member
-        if ($latestDateStr === null) {
-            return $matchingMembers[0]->getAnonymousName();
-        }
-
-        // Collect all members whose rotation date matches the latest
-        $names = [];
-        foreach ($matchingMembers as $member) {
-            if (isset($parsed[$member->getId()]) && $parsed[$member->getId()] === $latestDateStr) {
-                $names[] = $member->getAnonymousName();
-            }
-        }
-
-        return implode(', ', $names);
     }
 
     /**
