@@ -58,6 +58,8 @@ class Plugin
 {
     use \Amber\Logger\HasLogger;
 
+    private static $message;
+
     protected static function logChannel(): string
     {
         return 'amber';
@@ -88,8 +90,6 @@ class Plugin
 
         self::$initialized = true;
 
-        self::logInfo('Amber initialised', ['version' => defined('AMBER_VERSION') ? AMBER_VERSION : 'unknown']);
-
         // Initialize IntergroupManager (hooks and meta updates)
         self::$container->get(IntergroupManager::class);
 
@@ -116,6 +116,9 @@ class Plugin
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupMeetingAttendanceDashboard::class);
         }
+
+        self::logDebug('Initialised', ['version' => defined('AMBER_VERSION') ? AMBER_VERSION : 'unknown']);
+
     }
 
     /**
