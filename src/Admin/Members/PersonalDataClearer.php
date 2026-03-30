@@ -12,10 +12,14 @@ if (!defined('ABSPATH')) {
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 
+use Scrutiny\Privacy\DataObscurer;
+
 use function add_action;
+use function current_user_can;
 use function get_current_screen;
 use function plugin_dir_url;
 use function wp_enqueue_script;
+use function wp_localize_script;
 
 /**
  * Adds "Clear" buttons next to the Personal Email and Mobile Number
@@ -51,5 +55,9 @@ class PersonalDataClearer
             '1.0.0',
             true
         );
+
+        wp_localize_script('amber-personal-data-clear', 'amberPersonalData', [
+            'canEdit' => current_user_can(DataObscurer::EDIT_CAPABILITY),
+        ]);
     }
 }

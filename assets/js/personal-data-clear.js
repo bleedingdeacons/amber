@@ -6,6 +6,12 @@
     }
 
     /**
+     * Whether the current user has the edit-personal-data capability.
+     * When false the Clear buttons are rendered but disabled.
+     */
+    var canEdit = typeof amberPersonalData !== 'undefined' && !!amberPersonalData.canEdit;
+
+    /**
      * Attach a "Clear" button to an ACF field. When cleared the button
      * becomes "Undo" and restores the previous value if clicked again.
      *
@@ -37,6 +43,7 @@
             id: buttonId,
             'class': 'button',
             text: 'Clear',
+            disabled: !canEdit,
             css: {
                 'flex': '0 0 auto',
                 'height': $input.outerHeight() + 'px',
@@ -54,22 +61,55 @@
 
         var storedValue = null;
 
+        // Track whether the Clear button initiated the change so the
+        // field-state monitor (below) can tell legitimate clears apart
+        // from manual edits that empty the field.
+        var clearButtonClicked = false;
+
+        // Remember the last known good value so we can restore it when
+        // the field is emptied without using the Clear button.
+        var previousValue = $input.val();
+
         $(document).on('click', '#' + buttonId, function () {
             if (storedValue !== null) {
                 // Undo — restore the stored value.
+                clearButtonClicked = true;
                 $input.val(storedValue).trigger('change');
+                previousValue = storedValue;
                 storedValue = null;
                 $button.text('Clear');
             } else {
                 // Clear — confirm, store and wipe.
                 if (window.confirm(confirmMsg)) {
                     storedValue = $input.val();
+                    clearButtonClicked = true;
                     $input.val('').trigger('change');
+                    previousValue = '';
                     $button.text('Undo');
                 }
             }
 
             return false;
+        });
+
+        // Monitor field state: if the value becomes empty through any
+        // means other than the Clear button, restore the previous value.
+        $input.on('change', function () {
+            if (clearButtonClicked) {
+                clearButtonClicked = false;
+                return;
+            }
+
+            var currentValue = $input.val();
+
+            if (currentValue === '' && previousValue !== '') {
+                // Field was emptied without using the Clear button —
+                // restore the previous value silently.
+                $input.val(previousValue);
+            } else {
+                // Non-empty update (e.g. correcting a typo) — track it.
+                previousValue = currentValue;
+            }
         });
     }
 
