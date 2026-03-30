@@ -71,7 +71,9 @@ class PositionShortcodeRenderer
             $view   = $this->positionViewFactory->createFrom($positionId);
             $output = '';
 
-            if ($view->isVacant()) {
+            if ($this->isArchivist($view)) {
+                $output .= '<h1></h1>';
+            } elseif ($view->isVacant()) {
                 $output .= '<h1>Vacant!</h1>';
             } else {
                 $rotationDate = $view->getRotationDate();
@@ -119,7 +121,11 @@ class PositionShortcodeRenderer
             }
 
             $termLabel = (int) $termYears == 1 ? 'Year' : 'Years';
-            $output   .= '<br>Term ' . esc_html($termYears) . ' ' . esc_html($termLabel);
+            if ($this->isArchivist($view)) {
+                $output .= '<br>Term Tenure';
+            } else {
+                $output .= '<br>Term ' . esc_html($termYears) . ' ' . esc_html($termLabel);
+            }
 
             if (!$view->isVacant()) {
                 $emailLabel = str_contains($positionTitle, 'Officer') ? 'Officer' : $positionTitle;
@@ -154,7 +160,10 @@ class PositionShortcodeRenderer
                 $status        = '';
                 $anonymousName = '';
 
-                if ($view->isVacant()) {
+                if ($this->isArchivist($view)) {
+                    $anonymousName = $view->getPublicDisplayName();
+                    $status = 'Filled';
+                } elseif ($view->isVacant()) {
                     $status = '<strong>Position Vacant</strong>';
                 } else {
                     $anonymousName = $view->getPublicDisplayName();
@@ -211,6 +220,18 @@ class PositionShortcodeRenderer
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
+
+    /**
+     * Check if a position is the Archivist role (permanent tenure, no rotation)
+     *
+     * @param \Unity\Positions\Interfaces\PositionView $view
+     * @return bool
+     */
+    private function isArchivist(\Unity\Positions\Interfaces\PositionView $view): bool
+    {
+        $description = $view->getDescription() ?? '';
+        return strcasecmp(trim($description), 'Archivist') === 0;
+    }
 
     /**
      * Produce a human-readable rotation status string for the given months-until-rotation.

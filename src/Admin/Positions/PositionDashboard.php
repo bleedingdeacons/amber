@@ -144,13 +144,15 @@ class PositionDashboard
         // Content area with grid layout
         echo '<div class="position-card-content">';
 
-        // Member field
-        echo '<div class="position-card-field">';
-        echo '<div class="field-label">Current Member</div>';
-        echo '<div class="field-value">';
-        $this->renderMemberCell($positionView);
-        echo '</div>';
-        echo '</div>';
+        // Member field (hidden for Archivist positions — permanent tenure, no member display needed)
+        if (!$this->isArchivist($positionView)) {
+            echo '<div class="position-card-field">';
+            echo '<div class="field-label">Current Member</div>';
+            echo '<div class="field-value">';
+            $this->renderMemberCell($positionView);
+            echo '</div>';
+            echo '</div>';
+        }
 
         // Email field
         echo '<div class="position-card-field">';
@@ -198,19 +200,34 @@ class PositionDashboard
         }
 
         // Show months until rotation (shared across members with same rotation date)
-        $months = $positionView->getMonthsUntilRotation();
-        if ($months !== null) {
-            if ($months < 0) {
-                $overdueMonths = abs($months);
-                echo '<br><small class="member-rotation rotation-overdue">';
-                echo 'Overdue ' . $overdueMonths . ' month' . ($overdueMonths !== 1 ? 's' : '');
-                echo '</small>';
-            } else {
-                echo '<br><small class="member-rotation">';
-                echo $months . ' month' . ($months !== 1 ? 's' : '') . ' until rotation';
-                echo '</small>';
+        // Archivist positions have permanent tenure — no rotation info shown
+        if (!$this->isArchivist($positionView)) {
+            $months = $positionView->getMonthsUntilRotation();
+            if ($months !== null) {
+                if ($months < 0) {
+                    $overdueMonths = abs($months);
+                    echo '<br><small class="member-rotation rotation-overdue">';
+                    echo 'Overdue ' . $overdueMonths . ' month' . ($overdueMonths !== 1 ? 's' : '');
+                    echo '</small>';
+                } else {
+                    echo '<br><small class="member-rotation">';
+                    echo $months . ' month' . ($months !== 1 ? 's' : '') . ' until rotation';
+                    echo '</small>';
+                }
             }
         }
+    }
+
+    /**
+     * Check if a position is the Archivist role (permanent tenure, no rotation)
+     * 
+     * @param PositionView $positionView Position view object
+     * @return bool
+     */
+    private function isArchivist(PositionView $positionView): bool
+    {
+        $description = $positionView->getDescription() ?? '';
+        return strcasecmp(trim($description), 'Archivist') === 0;
     }
 
     /**
@@ -238,6 +255,11 @@ class PositionDashboard
      */
     private function renderStatusBadge(PositionView $positionView): void
     {
+        if ($this->isArchivist($positionView)) {
+            echo '<span class="status-badge status-tenure">Tenure</span>';
+            return;
+        }
+
         if ($positionView->isVacant()) {
             echo '<span class="status-badge status-vacant">Vacant</span>';
             return;
@@ -458,6 +480,11 @@ class PositionDashboard
                 background: #f0f0f1;
                 color: #999;
                 border: 1px dashed #ccc;
+            }
+            
+            .status-badge.status-tenure {
+                background: #1565c0;
+                color: white;
             }
         </style>';
     }

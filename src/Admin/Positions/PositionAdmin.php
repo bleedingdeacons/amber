@@ -259,12 +259,29 @@ class PositionAdmin
     }
 
     /**
+     * Check if a position is the Archivist role (permanent tenure, no rotation)
+     * 
+     * @param PositionView $positionView Position view object
+     * @return bool
+     */
+    private function isArchivist(PositionView $positionView): bool
+    {
+        $description = $positionView->getDescription() ?? '';
+        return strcasecmp(trim($description), 'Archivist') === 0;
+    }
+
+    /**
      * Display the rotation date for the position
      * 
      * @param PositionView $positionView Position view object
      */
     private function displayRotationDate(PositionView $positionView): void
     {
+        if ($this->isArchivist($positionView)) {
+            echo '<em>N/A</em>';
+            return;
+        }
+
         $rotationDate = $positionView->getRotationDate();
         
         if (!$rotationDate) {
@@ -282,6 +299,11 @@ class PositionAdmin
      */
     private function displayRotationStatus(PositionView $positionView): void
     {
+        if ($this->isArchivist($positionView)) {
+            echo '<span class="status-tenure"><span class="dashicons dashicons-awards"></span> Tenure</span>';
+            return;
+        }
+
         if ($positionView->isVacant()) {
             echo '<span class="status-vacant"><span class="dashicons dashicons-warning"></span> Vacant Position</span>';
             return;
@@ -326,6 +348,7 @@ class PositionAdmin
         .status-overdue { color: #f44336; font-weight: bold; display: flex; align-items: center; }
         .status-vacant { color: #f44336; font-weight: bold; display: flex; align-items: center; }
         .status-unknown { color: #777; font-style: italic; display: flex; align-items: center; }
+        .status-tenure { color: #1565c0; font-weight: bold; display: flex; align-items: center; }
         .dashicons { margin-right: 4px; font-size: 18px; height: 18px; width: 18px; }
     </style>';
     }
@@ -601,6 +624,15 @@ class PositionAdmin
      */
     private function updateRotationStatusMetadata(int $positionId, PositionView $positionView): void
     {
+        if ($this->isArchivist($positionView)) {
+            update_post_meta($positionId, '_rotation_status', 'tenure');
+            update_post_meta($positionId, '_rotation_sort_key', 10000);
+            delete_post_meta($positionId, '_has_rotation_date');
+            delete_post_meta($positionId, '_rotation_date_sortable');
+            delete_post_meta($positionId, '_months_until_rotation');
+            return;
+        }
+
         if ($positionView->isVacant()) {
             update_post_meta($positionId, '_rotation_status', 'vacant');
             update_post_meta($positionId, '_rotation_sort_key', 0);
