@@ -10,6 +10,7 @@
      * When false the Clear buttons are rendered but disabled.
      */
     var canEdit = typeof amberPersonalData !== 'undefined' && !!amberPersonalData.canEdit;
+    var canView = typeof amberPersonalData !== 'undefined' && !!amberPersonalData.canView;
 
     /**
      * Attach a "Clear" button to an ACF field. When cleared the button
@@ -37,6 +38,19 @@
             return;
         }
 
+        // If the user cannot edit, disable the input directly in the DOM.
+        // ACF's PHP-level readonly/disabled attributes are unreliable for
+        // sub-fields inside groups, so we enforce it client-side.
+        // Users with view capability can still select and copy the value.
+        if (!canEdit) {
+            $input.prop('readonly', true);
+            $input.css({
+                'background-color': '#f0f0f1',
+                'color': canView ? '' : '#8c8f94',
+                'cursor': canView ? 'text' : 'not-allowed'
+            });
+        }
+
         // Build the clear button matching the input height.
         var $button = $('<button/>', {
             type: 'button',
@@ -60,6 +74,12 @@
         $inputParent.after($button);
 
         var storedValue = null;
+        var storedPlaceholder = null;
+
+        // Hidden input that takes over the field's form name and submits
+        // the sentinel value when the Clear button is active. This keeps
+        // the visible input truly empty so the user never sees the sentinel.
+        var $sentinel = null;
 
         // Track whether the Clear button initiated the change so the
         // field-state monitor (below) can tell legitimate clears apart
@@ -72,9 +92,19 @@
 
         $(document).on('click', '#' + buttonId, function () {
             if (storedValue !== null) {
-                // Undo — restore the stored value.
+                // Undo — remove the sentinel hidden input and restore the
+                // original name, value and placeholder on the visible input.
+                if ($sentinel) {
+                    $input.attr('name', $sentinel.attr('name'));
+                    $sentinel.remove();
+                    $sentinel = null;
+                }
                 clearButtonClicked = true;
                 $input.val(storedValue).trigger('change');
+                if (storedPlaceholder !== null) {
+                    $input.attr('placeholder', storedPlaceholder);
+                    storedPlaceholder = null;
+                }
                 previousValue = storedValue;
                 storedValue = null;
                 $button.text('Clear');
@@ -82,8 +112,22 @@
                 // Clear — confirm, store and wipe.
                 if (window.confirm(confirmMsg)) {
                     storedValue = $input.val();
+                    storedPlaceholder = $input.attr('placeholder') || null;
+
+                    // Move the field's form name to a hidden input carrying
+                    // the sentinel. The visible input becomes nameless so it
+                    // doesn't submit, and the user sees a genuinely empty field.
+                    var inputName = $input.attr('name');
+                    $sentinel = $('<input/>', {
+                        type: 'hidden',
+                        name: inputName,
+                        value: '__CLEAR__'
+                    });
+                    $wrapper.append($sentinel);
+                    $input.removeAttr('name');
+
                     clearButtonClicked = true;
-                    $input.val('').trigger('change');
+                    $input.val('').attr('placeholder', '').trigger('change');
                     previousValue = '';
                     $button.text('Undo');
                 }
@@ -109,6 +153,26 @@
             } else {
                 // Non-empty update (e.g. correcting a typo) — track it.
                 previousValue = currentValue;
+
+                // If the user types a new value into a cleared field,
+                // remove the sentinel so the typed value submits instead.
+                if ($sentinel && currentValue !== '') {
+                    $input.attr('name', $sentinel.attr('name'));
+                    $sentinel.remove();
+                    $sentinel = null;
+                }
+            }
+        });
+
+        // Also catch typing mid-keystroke via the input event so the
+        // sentinel is removed as soon as the user starts typing.
+        $input.on('input', function () {
+            if ($sentinel && $input.val() !== '') {
+                $input.attr('name', $sentinel.attr('name'));
+                $sentinel.remove();
+                $sentinel = null;
+                storedValue = null;
+                $button.text('Clear');
             }
         });
     }

@@ -16,7 +16,7 @@ use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
-use Amber\Admin\Members\PersonalDataClearer;
+use Amber\Admin\Members\PersonalDataMinder;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
@@ -105,7 +105,7 @@ class Plugin
             self::$container->get(PositionNameValidator::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(AnonymousNameValidator::class);
-            self::$container->get(PersonalDataClearer::class);
+            self::$container->get(PersonalDataMinder::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
@@ -1113,8 +1113,8 @@ class Plugin
         });
 
         // Register Personal Email/Mobile Clear Button
-        $container->register(PersonalDataClearer::class, function (ContainerInterface $c) {
-            return new PersonalDataClearer(
+        $container->register(PersonalDataMinder::class, function (ContainerInterface $c) {
+            return new PersonalDataMinder(
                     $c->get(Configuration::class)
             );
         });

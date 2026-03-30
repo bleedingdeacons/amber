@@ -22,11 +22,11 @@ use function wp_enqueue_script;
 use function wp_localize_script;
 
 /**
- * Adds "Clear" buttons next to the Personal Email and Mobile Number
- * ACF fields on the member edit screen. When clicked a confirmation
- * dialog is shown; if accepted the field value is cleared.
+ * Manages the personal data fields (Personal Email and Mobile Number)
+ * on the member edit screen. Adds "Clear / Undo" buttons, enforces
+ * edit-capability restrictions, and prevents accidental data loss.
  */
-class PersonalDataClearer
+class PersonalDataMinder
 {
     private readonly array $memberConfig;
 
@@ -38,7 +38,7 @@ class PersonalDataClearer
     }
 
     /**
-     * Enqueue the clear-button JS only on the member edit screen.
+     * Enqueue the personal-data-manager JS only on the member edit screen.
      */
     public function enqueueScripts(): void
     {
@@ -49,15 +49,16 @@ class PersonalDataClearer
         }
 
         wp_enqueue_script(
-            'amber-personal-data-clear',
-            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/personal-data-clear.js',
+            'amber-personal-data-manager',
+            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/personal-data-manager.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true
         );
 
-        wp_localize_script('amber-personal-data-clear', 'amberPersonalData', [
+        wp_localize_script('amber-personal-data-manager', 'amberPersonalData', [
             'canEdit' => current_user_can(DataObscurer::EDIT_CAPABILITY),
+            'canView' => current_user_can(DataObscurer::CAPABILITY),
         ]);
     }
 }
