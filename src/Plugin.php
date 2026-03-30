@@ -16,6 +16,7 @@ use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
+use Amber\Admin\Members\PersonalDataClearer;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
@@ -26,7 +27,6 @@ use Amber\Managers\PostTitleSyncer;
 use Psr\Container\ContainerInterface;
 use Unity\Core\Interfaces\Container;
 use Unity\Core\Interfaces\Configuration;
-use Unity\Core\Interfaces\UnityConfiguration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Groups\Interfaces\GroupViewFactory;
@@ -105,6 +105,7 @@ class Plugin
             self::$container->get(PositionNameValidator::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(AnonymousNameValidator::class);
+            self::$container->get(PersonalDataClearer::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
@@ -1107,6 +1108,13 @@ class Plugin
         // Register Anonymous Name Uniqueness Validator
         $container->register(AnonymousNameValidator::class, function (ContainerInterface $c) {
             return new AnonymousNameValidator(
+                    $c->get(Configuration::class)
+            );
+        });
+
+        // Register Personal Email/Mobile Clear Button
+        $container->register(PersonalDataClearer::class, function (ContainerInterface $c) {
+            return new PersonalDataClearer(
                     $c->get(Configuration::class)
             );
         });
