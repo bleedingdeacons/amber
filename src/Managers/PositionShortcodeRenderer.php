@@ -162,7 +162,7 @@ class PositionShortcodeRenderer
 
                 if ($this->isArchivist($view)) {
                     $anonymousName = $view->getPublicDisplayName();
-                    $status = 'Filled';
+                    $status = '';
                 } elseif ($view->isVacant()) {
                     $status = '<strong>Position Vacant</strong>';
                 } else {
