@@ -49,14 +49,14 @@ class PersonalDataMinder
         }
 
         wp_enqueue_script(
-            'amber-personal-data-manager',
-            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/personal-data-manager.js',
+            'amber-personal-data-minder',
+            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/personal-data-minder.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true
         );
 
-        wp_localize_script('amber-personal-data-manager', 'amberPersonalData', [
+        wp_localize_script('amber-personal-data-minder', 'amberPersonalData', [
             'canEdit' => current_user_can(DataObscurer::EDIT_CAPABILITY),
             'canView' => current_user_can(DataObscurer::CAPABILITY),
         ]);
