@@ -603,7 +603,7 @@
             <li>Select the member's <strong>Home Group</strong> from the dropdown.</li>
             <li>If this member is their group's GSR, tick <strong>Is GSR</strong>.</li>
             <li>If this member holds an intergroup officer role, select it from <strong>Intergroup Position</strong>.</li>
-            <li>Enter their <strong>Personal Email</strong> and <strong>Mobile Number</strong>. These are stored securely and only visible to admin users.</li>
+            <li>Enter their <strong>Personal Email</strong> and <strong>Mobile Number</strong>. These are stored securely and only visible to users with the <code>scrutiny_view_personal_data</code> capability. Editing requires the <code>scrutiny_edit_personal_data</code> capability.</li>
             <li>Set the profile visibility toggles as appropriate.</li>
             <li>Click <strong>Publish</strong>.</li>
         </ol>
@@ -619,8 +619,8 @@
             <tr><td><span class="field-name">Is GSR</span></td><td>Tick if this member is their home group's current Group Service Representative.</td></tr>
             <tr><td><span class="field-name">Intergroup position</span></td><td>The officer role they hold. Leave blank if they are registered as a GSR only.</td></tr>
             <tr><td><span class="field-name">Rotation date</span></td><td>When their current term ends. Set this when they take up an officer position.</td></tr>
-            <tr><td><span class="field-name">Personal email</span></td><td>Private. Admin-only. Used for sending correspondence.</td></tr>
-            <tr><td><span class="field-name">Mobile number</span></td><td>Private. Admin-only.</td></tr>
+            <tr><td><span class="field-name">Personal email</span></td><td>Private. Visible with <code>scrutiny_view_personal_data</code>; editable with <code>scrutiny_edit_personal_data</code>. Used for sending correspondence.</td></tr>
+            <tr><td><span class="field-name">Mobile number</span></td><td>Private. Visible with <code>scrutiny_view_personal_data</code>; editable with <code>scrutiny_edit_personal_data</code>.</td></tr>
             </tbody>
         </table>
     </section>
@@ -670,7 +670,7 @@
 
         <div class="callout info">
             <span class="callout-icon">💡</span>
-            <div>Personal contact details are never shown publicly. They are logged by Scrutiny every time they are accessed, in line with GDPR requirements.</div>
+            <div>Personal contact details are never shown publicly. They are logged by Scrutiny every time they are accessed, in line with GDPR requirements. Updating these fields requires the <code>scrutiny_edit_personal_data</code> capability — without it the fields are read-only.</div>
         </div>
     </section>
 
