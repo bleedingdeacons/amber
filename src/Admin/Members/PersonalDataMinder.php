@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 
-use Scrutiny\Privacy\DataObscurer;
+use Scrutiny\Privacy\PersonalDataObscurer;
 
 use function add_action;
 use function current_user_can;
@@ -57,8 +57,8 @@ class PersonalDataMinder
         );
 
         wp_localize_script('amber-personal-data-minder', 'amberPersonalData', [
-            'canEdit' => current_user_can(DataObscurer::EDIT_CAPABILITY),
-            'canView' => current_user_can(DataObscurer::CAPABILITY),
+            'canEdit' => current_user_can(PersonalDataObscurer::EDIT_CAPABILITY),
+            'canView' => current_user_can(PersonalDataObscurer::VIEW_CAPABILITY),
         ]);
     }
 }
