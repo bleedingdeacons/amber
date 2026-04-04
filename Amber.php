@@ -5,10 +5,12 @@ declare(strict_types=1);
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.16.0
+ * Version: 1.16.1
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Requires Plugins: sentinel, scrutiny
+ * GitHub Plugin URI: https://github.com/thebleedingdeacons/amber
+ * GitHub Branch: main
  * Author: The Bleeding Deacons
  * Author URI: https://github.com/bleedingdeacons/amber
  * Contact: thebleedingdeacons@gmail.com, scrutiny
