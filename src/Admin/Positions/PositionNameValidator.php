@@ -80,7 +80,7 @@ class PositionNameValidator
 
         wp_enqueue_script(
             'amber-position-name-validator',
-            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/position-name-validator.js',
+            plugin_dir_url(dirname(__DIR__, 3) . '/amber.php') . 'assets/js/position-name-validator.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true

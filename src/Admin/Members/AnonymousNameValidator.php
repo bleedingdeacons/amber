@@ -71,7 +71,7 @@ class AnonymousNameValidator
 
         wp_enqueue_script(
             'amber-member-anon-name-validator',
-            plugin_dir_url(dirname(__DIR__, 3) . '/Amber.php') . 'assets/js/anonymous-name-validator.js',
+            plugin_dir_url(dirname(__DIR__, 3) . '/amber.php') . 'assets/js/anonymous-name-validator.js',
             ['jquery', 'acf-input'],
             '1.0.0',
             true

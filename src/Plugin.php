@@ -1037,7 +1037,7 @@ class Plugin
     public static function enqueueHelpTabScript(): void
     {
         $adminUrl = admin_url('admin.php?page=amber-help');
-        $helpUrl  = plugins_url('assets/docs/amber.html', dirname(__DIR__) . '/Amber.php');
+        $helpUrl  = plugins_url('assets/docs/amber.html', dirname(__DIR__) . '/amber.php');
         ?>
         <script>
             (function () {
