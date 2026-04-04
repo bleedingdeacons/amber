@@ -14,9 +14,9 @@ use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
+use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
-use Amber\Admin\Members\PersonalDataMinder;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
@@ -105,11 +105,11 @@ class Plugin
             self::$container->get(PositionNameValidator::class);
             self::$container->get(MemberAdmin::class);
             self::$container->get(AnonymousNameValidator::class);
-            self::$container->get(PersonalDataMinder::class);
             self::$container->get(MeetingAdmin::class);
             self::$container->get(IntergroupMeetingAdmin::class);
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
+            self::$container->get(DirectoryDashboard::class);
 
             // Run metadata migrations once per version upgrade (deferred to admin_init
             // so that $wp_rewrite and other globals are available)
@@ -1112,13 +1112,6 @@ class Plugin
             );
         });
 
-        // Register Personal Email/Mobile Clear Button
-        $container->register(PersonalDataMinder::class, function (ContainerInterface $c) {
-            return new PersonalDataMinder(
-                    $c->get(Configuration::class)
-            );
-        });
-
         // Register Position Admin
         $container->register(PositionAdmin::class, function (ContainerInterface $c) {
             return new PositionAdmin(
@@ -1139,6 +1132,17 @@ class Plugin
         $container->register(PositionDashboard::class, function (ContainerInterface $c) {
             return new PositionDashboard(
                     $c->get(Configuration::class),
+                    $c->get(PositionViewFactory::class),
+                    $c->get(PositionRepository::class)
+            );
+        });
+
+        // Register Directory Dashboard (Groups + Positions)
+        $container->register(DirectoryDashboard::class, function (ContainerInterface $c) {
+            return new DirectoryDashboard(
+                    $c->get(Configuration::class),
+                    $c->get(MemberRepository::class),
+                    $c->get(GroupFactory::class),
                     $c->get(PositionViewFactory::class),
                     $c->get(PositionRepository::class)
             );

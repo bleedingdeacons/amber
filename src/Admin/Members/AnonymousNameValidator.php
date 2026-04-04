@@ -39,14 +39,6 @@ class AnonymousNameValidator
 {
     private readonly array $memberConfig;
 
-    /**
-     * The ACF meta key for the anonymous-name sub-field.
-     *
-     * Because the field lives inside the `about-layout-group` ACF group
-     * the stored meta_key is: about-layout-group_anonymous-name
-     */
-    private const META_KEY = 'about-layout-group_anonymous-name';
-
     public function __construct(Configuration $configuration)
     {
         $this->memberConfig = $configuration->getConfig(Member::class);
@@ -185,7 +177,7 @@ class AnonymousNameValidator
             'fields'         => 'ids',
             'meta_query'     => [
                 [
-                    'key'     => self::META_KEY,
+                    'key'     => $this->memberConfig['FIELD_ANONYMOUS_NAME'],
                     'value'   => $value,
                     'compare' => '=',
                 ],
