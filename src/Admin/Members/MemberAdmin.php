@@ -127,7 +127,7 @@ class MemberAdmin
      */
     public function populateCustomColumns(string $column, int $postId): void
     {
-        $member = $this->memberRepository->find($postId);
+        $member = $this->memberRepository->findById($postId);
 
         if (!$member) {
             echo '<span style="color: gray;">N/A</span>';
@@ -494,7 +494,7 @@ class MemberAdmin
      */
     public function updateMemberMetadata(int $memberId): void
     {
-        $member = $this->memberRepository->find($memberId);
+        $member = $this->memberRepository->findById($memberId);
         if (!$member) {
             return;
         }

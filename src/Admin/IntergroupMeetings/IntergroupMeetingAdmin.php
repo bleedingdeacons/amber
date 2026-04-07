@@ -145,7 +145,7 @@ class IntergroupMeetingAdmin
             return $title;
         }
 
-        $member = $this->memberRepository->find($post->ID);
+        $member = $this->memberRepository->findById($post->ID);
 
         if ($member === null) {
             return $title;
