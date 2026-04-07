@@ -293,8 +293,8 @@ class IntergroupMeetingGroupAttendanceDashboard
 
         $table = TsmlIntergroupMeetingGroupAttendanceTable::getTableName();
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $labels = $wpdb->get_col("SELECT DISTINCT meeting_label FROM {$table} WHERE meeting_label != '' ORDER BY meeting_label DESC");
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix; cannot be parameterised with prepare()
+        $labels = $wpdb->get_col("SELECT DISTINCT meeting_label FROM `" . esc_sql($table) . "` WHERE meeting_label != '' ORDER BY meeting_label DESC");
 
         return is_array($labels) ? $labels : [];
     }
