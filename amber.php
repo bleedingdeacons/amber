@@ -28,12 +28,8 @@ if (!function_exists('get_plugin_data')) {
     }
 }
 
-if (function_exists('get_plugin_data')) {
-    $amber_plugin_data = get_plugin_data(__FILE__, false, false);
-    define('AMBER_VERSION', $amber_plugin_data['Version']);
-} else {
-    define('AMBER_VERSION', '1.9.8');
-}
+$amber_plugin_data = get_plugin_data(__FILE__, false, false);
+define('AMBER_VERSION', $amber_plugin_data['Version']);
 define('AMBER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AMBER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
