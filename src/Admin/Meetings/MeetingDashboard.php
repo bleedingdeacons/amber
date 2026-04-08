@@ -72,6 +72,7 @@ class MeetingDashboard
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);
         add_action('admin_head', [$this, 'addDashboardStyles']);
+        add_action('admin_footer', [$this, 'addDashboardScripts']);
     }
 
     /**
@@ -190,7 +191,7 @@ class MeetingDashboard
         $dayName = self::DAY_NAMES[$day] ?? 'Unknown';
         $count = count($rows);
 
-        echo '<details class="meeting-day-section" open>';
+        echo '<details class="meeting-day-section" data-day="' . esc_attr((string) $day) . '" open>';
         echo '<summary class="meeting-day-header">';
         echo '<span class="meeting-day-header-title">' . esc_html($dayName) . '</span>';
         echo '<span class="meeting-day-header-count">' . $count . '</span>';
@@ -890,5 +891,62 @@ class MeetingDashboard
                 }
             }
         </style>';
+    }
+
+    /**
+     * Add the collapsible-state persistence script
+     */
+    public function addDashboardScripts(): void
+    {
+        $screen = get_current_screen();
+
+        if (!$screen || $screen->id !== 'dashboard') {
+            return;
+        }
+
+        echo '<script>
+        (function() {
+            var STORAGE_KEY = "amber_meeting_days_closed";
+
+            function loadClosedDays() {
+                try {
+                    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+                } catch(e) {
+                    return {};
+                }
+            }
+
+            function saveClosedDays(state) {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                } catch(e) {}
+            }
+
+            /* Restore saved state */
+            var saved = loadClosedDays();
+            var sections = document.querySelectorAll(".meeting-day-section[data-day]");
+            for (var i = 0; i < sections.length; i++) {
+                var day = sections[i].getAttribute("data-day");
+                if (day && saved[day] === true) {
+                    sections[i].removeAttribute("open");
+                }
+            }
+
+            /* Persist on toggle */
+            for (var j = 0; j < sections.length; j++) {
+                sections[j].addEventListener("toggle", function() {
+                    var day = this.getAttribute("data-day");
+                    if (!day) return;
+                    var state = loadClosedDays();
+                    if (this.open) {
+                        delete state[day];
+                    } else {
+                        state[day] = true;
+                    }
+                    saveClosedDays(state);
+                });
+            }
+        })();
+        </script>';
     }
 }

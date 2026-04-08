@@ -488,13 +488,51 @@ class DirectoryDashboard
 
         echo '<script>
         (function() {
-            /* ── Fold / unfold ── */
+            /* ── Fold / unfold with persistent state ── */
+            var STORAGE_KEY = "amber_directory_collapsed";
+
+            function loadCollapsedState() {
+                try {
+                    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+                } catch(e) {
+                    return {};
+                }
+            }
+
+            function saveCollapsedState(state) {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                } catch(e) {}
+            }
+
+            var savedState = loadCollapsedState();
+            var sections = document.querySelectorAll(".directory-section[data-section]");
+            for (var s = 0; s < sections.length; s++) {
+                var key = sections[s].getAttribute("data-section");
+                if (key && savedState[key] === true) {
+                    sections[s].classList.add("collapsed");
+                    var btn = sections[s].querySelector(".directory-section-toggle");
+                    if (btn) btn.setAttribute("aria-expanded", "false");
+                }
+            }
+
             var toggles = document.querySelectorAll(".directory-section-toggle");
             for (var i = 0; i < toggles.length; i++) {
                 toggles[i].addEventListener("click", function() {
                     var section = this.closest(".directory-section");
                     var isCollapsed = section.classList.toggle("collapsed");
                     this.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+
+                    var sectionKey = section.getAttribute("data-section");
+                    if (sectionKey) {
+                        var state = loadCollapsedState();
+                        if (isCollapsed) {
+                            state[sectionKey] = true;
+                        } else {
+                            delete state[sectionKey];
+                        }
+                        saveCollapsedState(state);
+                    }
                 });
             }
 
