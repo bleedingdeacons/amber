@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use Amber\Common\AmberConfiguration;
 use Amber\Common\Functions;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Positions\Interfaces\Position;
