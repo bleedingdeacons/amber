@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use Amber\Admin\DeveloperDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
@@ -105,6 +106,7 @@ class Plugin
             add_action('admin_init', [self::class, 'maybeRunMigrations']);
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupMeetingAttendanceDashboard::class);
+            self::$container->get(DeveloperDashboard::class);
         }
 
         self::logDebug('Initialised', ['version' => defined('AMBER_VERSION') ? AMBER_VERSION : 'unknown']);

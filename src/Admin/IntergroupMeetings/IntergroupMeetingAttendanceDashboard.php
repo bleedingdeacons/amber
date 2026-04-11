@@ -282,8 +282,8 @@ class IntergroupMeetingAttendanceDashboard
     /**
      * Get distinct meeting labels from the group attendance table
      *
-     * Returns labels in reverse alphabetical order so that dates
-     * formatted as "Title — Month Day, Year" sort most-recent first.
+     * Returns labels ordered by their intergroup meeting ID descending
+     * so that the most recently created meetings appear first.
      *
      * @return array<string>
      */
@@ -294,7 +294,7 @@ class IntergroupMeetingAttendanceDashboard
         $table = TsmlIntergroupMeetingGroupAttendanceTable::getTableName();
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix; cannot be parameterised with prepare()
-        $labels = $wpdb->get_col("SELECT DISTINCT meeting_label FROM `" . esc_sql($table) . "` WHERE meeting_label != '' ORDER BY meeting_label DESC");
+        $labels = $wpdb->get_col("SELECT meeting_label FROM `" . esc_sql($table) . "` WHERE meeting_label != '' GROUP BY meeting_label ORDER BY MAX(intergroup_meeting_id) DESC");
 
         return is_array($labels) ? $labels : [];
     }
