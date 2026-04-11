@@ -51,14 +51,11 @@ class DeveloperDashboard
     /**
      * Register the submenu page under Intergroup
      *
-     * Only visible to users with the Administrator role.
+     * Visible only to users with the manage_options capability (Administrators).
+     * An additional explicit role check is enforced when handling actions.
      */
     public function registerSubmenuPage(): void
     {
-        if (!$this->currentUserIsAdministrator()) {
-            return;
-        }
-
         add_submenu_page(
             'intergroup',
             'Developer',
@@ -117,6 +114,10 @@ class DeveloperDashboard
      */
     public function renderPage(): void
     {
+        if (!$this->currentUserIsAdministrator()) {
+            wp_die('You do not have permission to access this page.');
+        }
+
         echo '<div class="wrap">';
         echo '<h1 class="wp-heading-inline">Developer</h1>';
         echo '<p class="dev-page-description">Maintenance utilities for development and testing. '
