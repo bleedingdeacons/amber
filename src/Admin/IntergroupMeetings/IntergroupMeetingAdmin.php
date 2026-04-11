@@ -845,9 +845,10 @@ class IntergroupMeetingAdmin
         }
 
         echo '<style>
-            .column-meeting_date { width: 15%; }
-            .column-group_attendees { width: 25%; }
-            .column-officers_attending { width: 25%; }
+            .column-title { width: 25%; }
+            .column-meeting_date { width: 12%; }
+            .column-group_attendees { width: 22%; }
+            .column-officers_attending { width: 22%; }
             .column-attendee_count { width: 10%; text-align: center; }
         </style>';
     }
