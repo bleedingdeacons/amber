@@ -270,7 +270,7 @@ class IntergroupMeetingAdmin
         $todaysMeetingId = null;
 
         foreach ($attendanceRecords as $record) {
-            $meeting = $this->intergroupMeetingRepository->find($record->getIntergroupMeetingId());
+            $meeting = $this->intergroupMeetingRepository->findById($record->getIntergroupMeetingId());
 
             if (!$meeting) {
                 continue;
