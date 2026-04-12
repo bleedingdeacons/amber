@@ -459,100 +459,94 @@ class IntergroupMeetingAdmin
     }
 
     /**
-     * Display the group attendees from the attendance table
+     * Display the group attendees from the meeting's ACF relationship field
+     *
+     * Resolves group names and GSR names directly from the group and
+     * member repositories so the column does not depend on the
+     * attendance tables.
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
     private function displayGroupAttendees(IntergroupMeeting $meeting): void
     {
-        $records = $this->groupAttendanceRepository->findByIntergroupMeeting($meeting->getId());
+        $groupIds = $meeting->getGroupAttendees();
 
-        if (empty($records)) {
+        if (empty($groupIds)) {
             echo '<span style="color: gray;">—</span>';
             return;
         }
 
         $names = [];
 
-        foreach ($records as $record) {
-            $groupId = $record->getGroupId();
-            $groupName = $record->getMeetingGroup();
+        foreach ($groupIds as $groupId) {
+            $group = $this->groupRepository->findById($groupId);
+            if (!$group) {
+                continue;
+            }
 
-            $editLink = $groupId > 0 ? get_edit_post_link($groupId) : '';
+            $groupName = $group->getTitle();
+            $editLink = get_edit_post_link($groupId);
             $display = $editLink
                 ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupName) . '</a>'
                 : esc_html($groupName);
 
-            $gsrName = $record->getGsrName();
+            $gsrName = $this->resolveGsrNameForGroup($groupId);
             if (!empty($gsrName)) {
-                $memberId = $record->getMemberId();
-                $memberEditLink = $memberId > 0 ? get_edit_post_link($memberId) : '';
-                $gsrDisplay = $memberEditLink
-                    ? '<a href="' . esc_url($memberEditLink) . '">' . esc_html($gsrName) . '</a>'
-                    : esc_html($gsrName);
-                $display .= ' (' . $gsrDisplay . ')';
+                $display .= ' (' . esc_html($gsrName) . ')';
             }
 
             $names[] = $display;
         }
 
-        echo implode(', ', $names);
+        echo !empty($names) ? implode(', ', $names) : '<span style="color: gray;">—</span>';
     }
 
     /**
-     * Display the officers attending as a list of member names
+     * Display the officers attending from the meeting's ACF relationship field
+     *
+     * Resolves position and officer names directly from the position
+     * view factory so the column does not depend on the attendance
+     * tables.
      *
      * @param IntergroupMeeting $meeting Intergroup meeting object
      */
     private function displayOfficersAttending(IntergroupMeeting $meeting): void
     {
-        $records = $this->officerAttendanceRepository->findByIntergroupMeeting($meeting->getId());
+        $officerIds = $meeting->getOfficersAttending();
 
-        if (empty($records)) {
-            echo '—';
+        if (empty($officerIds)) {
+            echo '<span style="color: gray;">—</span>';
             return;
         }
 
-        $allMembers = $this->memberRepository->findAll();
-
-        // Index members by anonymous name for lookup
-        $membersByName = [];
-        foreach ($allMembers as $member) {
-            $name = $member->getAnonymousName();
-            if (!empty($name)) {
-                $membersByName[$name] = $member;
-            }
-        }
-
         $entries = [];
-        foreach ($records as $record) {
-            $positionLabel = esc_html($record->getPositionName());
-            $officerNameStr = $record->getOfficerName();
 
-            if (empty($officerNameStr)) {
+        foreach ($officerIds as $officerId) {
+            $positionView = $this->positionViewFactory->createFrom($officerId);
+            if (!$positionView) {
+                continue;
+            }
+
+            $positionLabel = esc_html($positionView->getPosition()->getLongName());
+            $officerName = $positionView->getOfficerDisplayName();
+
+            if (empty($officerName)) {
                 $entries[] = $positionLabel;
                 continue;
             }
 
-            // Officer name may be comma-separated when multiple members share the position
-            $names = array_map('trim', explode(',', $officerNameStr));
+            // Officer name may contain multiple names when members share the position
+            $names = array_map('trim', explode(',', $officerName));
             $memberLinks = [];
 
             foreach ($names as $name) {
-                if (isset($membersByName[$name])) {
-                    $editLink = get_edit_post_link($membersByName[$name]->getId());
-                    $memberLinks[] = $editLink
-                        ? '<a href="' . esc_url($editLink) . '">' . esc_html($name) . '</a>'
-                        : esc_html($name);
-                } else {
-                    $memberLinks[] = esc_html($name);
-                }
+                $memberLinks[] = esc_html($name);
             }
 
             $entries[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
         }
 
-        echo !empty($entries) ? implode(', ', $entries) : '—';
+        echo !empty($entries) ? implode(', ', $entries) : '<span style="color: gray;">—</span>';
     }
 
     /**

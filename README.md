@@ -4,7 +4,7 @@
 
 Amber provides the WordPress admin interface layer for the [Unity](https://github.com/bleeding-deacons/unity) intergroup management framework. It adds admin menus, dashboard widgets, column customisations, shortcodes, and data-validation hooks for managing members, positions, meetings, and intergroup meetings — all backed by Unity's service container and Scrutiny's audit logging.
 
-**Version:** 1.18.1
+**Version:** 1.18.2
 **Requires:** WordPress 6.0+ · PHP 8.1+
 **Dependencies:** Unity, Scrutiny
 **License:** MIT (Modified — see [License](#license))
