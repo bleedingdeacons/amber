@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 /**
  * Plugin Name: Amber
- * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.19.6
+// * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
+ * Version: 1.19.8
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Requires Plugins: sentinel, scrutiny
@@ -98,7 +98,7 @@ add_action('unity/loaded', function($unityContainer) {
                     '<strong>Amber Plugin Error:</strong> %s',
                     esc_html($e->getMessage())
                 );
-                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($message) . '</p></div>';
+                echo '<div class="notice notice-error is-dismissible"><p>' . $message . '</p></div>';
             });
         }
 

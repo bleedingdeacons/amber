@@ -22,7 +22,7 @@ use function sanitize_text_field;
 use function wp_unslash;
 
 /**
- * Intergroup Meeting Attendance Dashboard
+ * Intergroup Meeting Attendance
  *
  * Adds an admin submenu page showing both group and officer attendance
  * records for a selected intergroup meeting. Users pick a meeting from

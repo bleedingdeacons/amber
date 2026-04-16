@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 use Amber\Admin\DeveloperDashboard;
+use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
@@ -201,7 +202,7 @@ class AmberServiceProvider
             );
         });
 
-        $container->register(IntergroupMeetingAttendanceDashboard::class, function (ContainerInterface $c) {
+        $container->register(IntergroupAttendanceAdmin::class, function (ContainerInterface $c) {
             return new IntergroupMeetingAttendanceDashboard(
                 $c->get(IntergroupMeetingGroupAttendanceRepository::class),
                 $c->get(IntergroupMeetingOfficerAttendanceRepository::class)
