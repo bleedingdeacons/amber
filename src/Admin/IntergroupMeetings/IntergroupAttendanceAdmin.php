@@ -29,7 +29,7 @@ use function wp_unslash;
  * a dropdown and see two tables: one for group attendance (with GSR
  * and proxy info) and one for officer attendance (with position info).
  */
-class IntergroupMeetingGroupAttendanceDashboard
+class IntergroupAttendanceAdmin
 {
     private IntergroupMeetingGroupAttendanceRepository $groupAttendanceRepository;
     private IntergroupMeetingOfficerAttendanceRepository $officerAttendanceRepository;

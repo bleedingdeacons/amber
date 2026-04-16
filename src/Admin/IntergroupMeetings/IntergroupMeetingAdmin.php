@@ -389,7 +389,7 @@ class IntergroupMeetingAdmin
                 $newColumns['meeting_date'] = 'Meeting Date';
                 $newColumns['group_attendees'] = 'Group Attendees';
                 $newColumns['officers_attending'] = 'Officers Attending';
-                $newColumns['attendee_count'] = 'Total Eligible';
+                $newColumns['attendee_count'] = 'Eligible';
             }
         }
 
@@ -857,9 +857,6 @@ class IntergroupMeetingAdmin
      *   - officerDisplayName: string   The officer display name (may be empty)
      *   - memberIds:          int[]    IDs of members holding the position
      *
-     * Results are cached per-request so repeated calls with overlapping
-     * IDs only resolve each position once.
-     *
      * @param array<int> $positionIds Position IDs to resolve
      * @return array<int, array{positionName: string, officerDisplayName: string, memberIds: array<int>}|null>
      */
@@ -952,11 +949,11 @@ class IntergroupMeetingAdmin
         }
 
         echo '<style>
-            .column-title { width: 25%; }
-            .column-meeting_date { width: 12%; }
-            .column-group_attendees { width: 22%; }
-            .column-officers_attending { width: 22%; }
-            .column-attendee_count { width: 10%; text-align: center; }
+            .column-title { width: 20%; }
+            .column-meeting_date { width: 10%; }
+            .column-group_attendees { width: 28%; }
+            .column-officers_attending { width: 28%; }
+            .column-attendee_count { width: 8%; text-align: center; }
         </style>';
     }
 }

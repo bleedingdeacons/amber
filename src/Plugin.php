@@ -10,8 +10,8 @@ if (!defined('ABSPATH')) {
 }
 
 use Amber\Admin\DeveloperDashboard;
+use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
-use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
@@ -105,7 +105,7 @@ class Plugin
             // so that $wp_rewrite and other globals are available)
             add_action('admin_init', [self::class, 'maybeRunMigrations']);
             self::$container->get(IntergroupMeetingDashboard::class);
-            self::$container->get(IntergroupMeetingAttendanceDashboard::class);
+            self::$container->get(IntergroupAttendanceAdmin::class);
             self::$container->get(DeveloperDashboard::class);
         }
 

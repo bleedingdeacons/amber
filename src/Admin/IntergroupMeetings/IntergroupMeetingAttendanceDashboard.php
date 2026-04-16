@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 use TsmlForUnity\IntergroupMeetings\TsmlIntergroupMeetingGroupAttendanceTable;
+use TsmlForUnity\IntergroupMeetings\TsmlIntergroupMeetingOfficerAttendanceTable;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 
@@ -280,7 +281,7 @@ class IntergroupMeetingAttendanceDashboard
     }
 
     /**
-     * Get distinct meeting labels from the group attendance table
+     * Get distinct meeting labels from both attendance tables
      *
      * Returns labels ordered by their intergroup meeting ID descending
      * so that the most recently created meetings appear first.
@@ -291,10 +292,18 @@ class IntergroupMeetingAttendanceDashboard
     {
         global $wpdb;
 
-        $table = TsmlIntergroupMeetingGroupAttendanceTable::getTableName();
+        $groupTable = TsmlIntergroupMeetingGroupAttendanceTable::getTableName();
+        $officerTable = TsmlIntergroupMeetingOfficerAttendanceTable::getTableName();
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix; cannot be parameterised with prepare()
-        $labels = $wpdb->get_col("SELECT meeting_label FROM `" . esc_sql($table) . "` WHERE meeting_label != '' GROUP BY meeting_label ORDER BY MAX(intergroup_meeting_id) DESC");
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from constants; cannot be parameterised with prepare()
+        $labels = $wpdb->get_col(
+            "SELECT meeting_label FROM ("
+            . "SELECT meeting_label, intergroup_meeting_id FROM `" . esc_sql($groupTable) . "` WHERE meeting_label != '' "
+            . "UNION "
+            . "SELECT meeting_label, intergroup_meeting_id FROM `" . esc_sql($officerTable) . "` WHERE meeting_label != ''"
+            . ") AS combined "
+            . "GROUP BY meeting_label ORDER BY MAX(intergroup_meeting_id) DESC"
+        );
 
         return is_array($labels) ? $labels : [];
     }
