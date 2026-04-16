@@ -67,6 +67,12 @@ class IntergroupMeetingAdmin
     private readonly array $groupConfig;
     private readonly array $memberConfig;
 
+    /** @var array<int, array<int>> Per-request cache for resolveGroupGsrs */
+    private array $groupGsrCache = [];
+
+    /** @var array<int, array{positionName: string, officerDisplayName: string, memberIds: array<int>}|null> Per-request cache for resolvePositionOfficers */
+    private array $positionOfficerCache = [];
+
     /**
      * Constructor
      *
@@ -477,6 +483,7 @@ class IntergroupMeetingAdmin
         }
 
         $names = [];
+        $groupGsrs = $this->resolveGroupGsrs($groupIds);
 
         foreach ($groupIds as $groupId) {
             $group = $this->groupRepository->findById($groupId);
@@ -490,15 +497,30 @@ class IntergroupMeetingAdmin
                 ? '<a href="' . esc_url($editLink) . '">' . esc_html($groupName) . '</a>'
                 : esc_html($groupName);
 
-            $gsrName = $this->resolveGsrNameForGroup($groupId);
-            if (!empty($gsrName)) {
-                $display .= ' (' . esc_html($gsrName) . ')';
+            $gsrMemberIds = $groupGsrs[$groupId] ?? [];
+            if (!empty($gsrMemberIds)) {
+                $gsrLinks = [];
+                foreach ($gsrMemberIds as $gsrMemberId) {
+                    $gsrMember = $this->memberRepository->findById($gsrMemberId);
+                    if (!$gsrMember) {
+                        continue;
+                    }
+                    $memberEditLink = get_edit_post_link($gsrMemberId);
+                    if ($memberEditLink) {
+                        $gsrLinks[] = '<a href="' . esc_url($memberEditLink) . '">' . esc_html($gsrMember->getAnonymousName()) . '</a>';
+                    } else {
+                        $gsrLinks[] = esc_html($gsrMember->getAnonymousName());
+                    }
+                }
+                if (!empty($gsrLinks)) {
+                    $display .= ' (' . implode(', ', $gsrLinks) . ')';
+                }
             }
 
             $names[] = $display;
         }
 
-        echo !empty($names) ? implode(', ', $names) : '<span style="color: gray;">—</span>';
+        echo !empty($names) ? implode('<br>', $names) : '<span style="color: gray;">—</span>';
     }
 
     /**
@@ -520,33 +542,48 @@ class IntergroupMeetingAdmin
         }
 
         $entries = [];
+        $positionData = $this->resolvePositionOfficers($officerIds);
 
         foreach ($officerIds as $officerId) {
-            $positionView = $this->positionViewFactory->createFrom($officerId);
-            if (!$positionView) {
+            $data = $positionData[$officerId] ?? null;
+            if (!$data) {
                 continue;
             }
 
-            $positionLabel = esc_html($positionView->getPosition()->getLongName());
-            $officerName = $positionView->getOfficerDisplayName();
+            $positionLabel = esc_html($data['positionName']);
 
-            if (empty($officerName)) {
+            if (empty($data['officerDisplayName'])) {
                 $entries[] = $positionLabel;
                 continue;
             }
 
-            // Officer name may contain multiple names when members share the position
-            $names = array_map('trim', explode(',', $officerName));
             $memberLinks = [];
 
-            foreach ($names as $name) {
-                $memberLinks[] = esc_html($name);
+            if (!empty($data['memberIds'])) {
+                foreach ($data['memberIds'] as $memberId) {
+                    $member = $this->memberRepository->findById($memberId);
+                    if (!$member) {
+                        continue;
+                    }
+                    $memberEditLink = get_edit_post_link($memberId);
+                    if ($memberEditLink) {
+                        $memberLinks[] = '<a href="' . esc_url($memberEditLink) . '">' . esc_html($member->getAnonymousName()) . '</a>';
+                    } else {
+                        $memberLinks[] = esc_html($member->getAnonymousName());
+                    }
+                }
+            } else {
+                // Fallback to display name string if members can't be resolved
+                $names = array_map('trim', explode(',', $data['officerDisplayName']));
+                foreach ($names as $name) {
+                    $memberLinks[] = esc_html($name);
+                }
             }
 
             $entries[] = $positionLabel . ' (' . implode(', ', $memberLinks) . ')';
         }
 
-        echo !empty($entries) ? implode(', ', $entries) : '<span style="color: gray;">—</span>';
+        echo !empty($entries) ? implode('<br>', $entries) : '<span style="color: gray;">—</span>';
     }
 
     /**
@@ -676,6 +713,8 @@ class IntergroupMeetingAdmin
         $removedGroupIds = array_diff($existingGroupIds, $currentGroupIds);
 
         // Create attendance records for newly added groups
+        $groupGsrs = $this->resolveGroupGsrs($addedGroupIds);
+
         foreach ($addedGroupIds as $groupId) {
             $group = $this->groupRepository->findById($groupId);
             if (!$group) {
@@ -683,7 +722,15 @@ class IntergroupMeetingAdmin
             }
 
             $groupTitle = $group->getTitle();
-            $gsrName = $this->resolveGsrNameForGroup($groupId);
+            $gsrMemberIds = $groupGsrs[$groupId] ?? [];
+            $gsrNames = [];
+            foreach ($gsrMemberIds as $gsrMemberId) {
+                $gsrMember = $this->memberRepository->findById($gsrMemberId);
+                if ($gsrMember) {
+                    $gsrNames[] = $gsrMember->getAnonymousName();
+                }
+            }
+            $gsrName = implode(', ', $gsrNames);
             $meetingLabel = $this->buildMeetingLabel($meeting);
 
             $attendance = $this->groupAttendanceFactory->createNew(
@@ -732,14 +779,16 @@ class IntergroupMeetingAdmin
         $removedOfficerIds = array_diff($existingOfficerIds, $currentOfficerIds);
 
         // Create attendance records for newly added officers
+        $positionData = $this->resolvePositionOfficers($addedOfficerIds);
+
         foreach ($addedOfficerIds as $officerId) {
-            $positionView = $this->positionViewFactory->createFrom($officerId);
-            if (!$positionView) {
+            $data = $positionData[$officerId] ?? null;
+            if (!$data) {
                 continue;
             }
 
-            $positionName = $positionView->getPosition()->getLongName();
-            $officerName = $positionView->getOfficerDisplayName();
+            $positionName = $data['positionName'];
+            $officerName = $data['officerDisplayName'];
             $meetingLabel = $this->buildMeetingLabel($meeting);
 
             $attendance = $this->officerAttendanceFactory->createNew(
@@ -760,29 +809,93 @@ class IntergroupMeetingAdmin
     }
 
     /**
-     * Resolve the GSR name for a group.
+     * Resolve GSR member IDs for a list of groups.
      *
-     * Looks up the group's members and returns the anonymous name of
-     * the first member marked as a GSR, or an empty string if none found.
+     * Returns an associative array keyed by group ID, where each value
+     * is an array of GSR member IDs belonging to that group.
      *
-     * @param int $groupId The group ID
-     * @return string GSR anonymous name or empty string
+     * @param array<int> $groupIds Group IDs to resolve
+     * @return array<int, array<int>> Map of groupId => [gsrMemberId, ...]
      */
-    private function resolveGsrNameForGroup(int $groupId): string
+    private function resolveGroupGsrs(array $groupIds): array
     {
-        $groupView = $this->groupViewFactory->createFrom($groupId);
-        if (!$groupView) {
-            return '';
-        }
+        $result = [];
 
-        $gsrNames = [];
-        foreach ($groupView->getMembers() as $member) {
-            if ($member->isGSR()) {
-                $gsrNames[] = $member->getAnonymousName();
+        foreach ($groupIds as $groupId) {
+            if (array_key_exists($groupId, $this->groupGsrCache)) {
+                $result[$groupId] = $this->groupGsrCache[$groupId];
+                continue;
             }
+
+            $groupView = $this->groupViewFactory->createFrom($groupId);
+            if (!$groupView) {
+                $this->groupGsrCache[$groupId] = [];
+                $result[$groupId] = [];
+                continue;
+            }
+
+            $gsrIds = [];
+            foreach ($groupView->getMembers() as $member) {
+                if ($member->isGSR()) {
+                    $gsrIds[] = $member->getId();
+                }
+            }
+
+            $this->groupGsrCache[$groupId] = $gsrIds;
+            $result[$groupId] = $gsrIds;
         }
 
-        return implode(', ', $gsrNames);
+        return $result;
+    }
+
+    /**
+     * Resolve position and officer details for a list of position IDs.
+     *
+     * Returns an associative array keyed by position ID. Each value is
+     * either null (position not found) or an array with:
+     *   - positionName:       string   The position long name
+     *   - officerDisplayName: string   The officer display name (may be empty)
+     *   - memberIds:          int[]    IDs of members holding the position
+     *
+     * Results are cached per-request so repeated calls with overlapping
+     * IDs only resolve each position once.
+     *
+     * @param array<int> $positionIds Position IDs to resolve
+     * @return array<int, array{positionName: string, officerDisplayName: string, memberIds: array<int>}|null>
+     */
+    private function resolvePositionOfficers(array $positionIds): array
+    {
+        $result = [];
+
+        foreach ($positionIds as $positionId) {
+            if (array_key_exists($positionId, $this->positionOfficerCache)) {
+                $result[$positionId] = $this->positionOfficerCache[$positionId];
+                continue;
+            }
+
+            $positionView = $this->positionViewFactory->createFrom($positionId);
+            if (!$positionView) {
+                $this->positionOfficerCache[$positionId] = null;
+                $result[$positionId] = null;
+                continue;
+            }
+
+            $memberIds = [];
+            foreach ($positionView->getMembers() as $member) {
+                $memberIds[] = $member->getId();
+            }
+
+            $data = [
+                'positionName'       => $positionView->getPosition()->getLongName(),
+                'officerDisplayName' => $positionView->getOfficerDisplayName(),
+                'memberIds'          => $memberIds,
+            ];
+
+            $this->positionOfficerCache[$positionId] = $data;
+            $result[$positionId] = $data;
+        }
+
+        return $result;
     }
 
     /**
