@@ -259,7 +259,13 @@ class MemberAdmin
             return;
         }
 
-        self::logDebug('extendSearch started', ['term' => $searchTerm]);
+        // Do not log the raw term: admins routinely search by email/phone,
+        // which would accumulate PII in debug.log. Log a length + short hash
+        // so recurring searches can still be correlated across log lines.
+        self::logDebug('extendSearch started', [
+            'term_length' => strlen($searchTerm),
+            'term_hash'   => substr(hash('sha256', $searchTerm), 0, 8),
+        ]);
 
         global $wpdb;
 

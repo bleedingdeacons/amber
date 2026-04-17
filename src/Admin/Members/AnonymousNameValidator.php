@@ -16,6 +16,7 @@ use WP_Query;
 use function add_action;
 use function add_filter;
 use function check_ajax_referer;
+use function current_user_can;
 use function esc_html;
 use function get_the_ID;
 use function intval;
@@ -25,6 +26,7 @@ use function sanitize_text_field;
 use function wp_create_nonce;
 use function wp_enqueue_script;
 use function wp_localize_script;
+use function wp_send_json_error;
 use function wp_send_json_success;
 
 /**
@@ -91,6 +93,14 @@ class AnonymousNameValidator
     public function handleAjax(): void
     {
         check_ajax_referer('amber_anon_name', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(
+                ['message' => 'Insufficient permissions.'],
+                403
+            );
+            return;
+        }
 
         $value  = sanitize_text_field($_POST['value'] ?? '');
         $postId = intval($_POST['post_id'] ?? 0);
