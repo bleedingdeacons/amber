@@ -157,8 +157,6 @@ class PositionAdmin
     {
         $columns['position_member'] = 'position_member';
         $columns['position_email'] = 'position_email';
-        $columns['private_email'] = 'private_email';
-        $columns['private_contact'] = 'private_contact';
         $columns['rotation_date'] = 'rotation_date';
         $columns['rotation_status'] = 'rotation_status';
         return $columns;
@@ -210,52 +208,6 @@ class PositionAdmin
         
         echo '<a href="mailto:' . esc_attr($positionEmail) . '">' . 
              esc_html($positionEmail) . '</a>';
-    }
-
-    /**
-     * Display the private email for the position holder as a mailto link
-     * 
-     * @param PositionView $positionView Position view object
-     */
-    private function displayPrivateEmail(PositionView $positionView): void
-    {
-        if ($positionView->isVacant()) {
-            echo '-';
-            return;
-        }
-        
-        $privateEmail = $positionView->getPrivateEmail();
-        
-        if (empty($privateEmail)) {
-            echo '-';
-            return;
-        }
-        
-        echo '<a href="mailto:' . esc_attr($privateEmail) . '">' . 
-             esc_html($privateEmail) . '</a>';
-    }
-
-    /**
-     * Display the private mobile contact for the position holder as a tel link
-     * 
-     * @param PositionView $positionView Position view object
-     */
-    private function displayPrivateContact(PositionView $positionView): void
-    {
-        if ($positionView->isVacant()) {
-            echo '-';
-            return;
-        }
-        
-        $privateContact = $positionView->getPrivateContact();
-        
-        if (empty($privateContact)) {
-            echo '-';
-            return;
-        }
-        
-        echo '<a href="tel:' . esc_attr($privateContact) . '">' . 
-             esc_html($privateContact) . '</a>';
     }
 
     /**
@@ -377,17 +329,7 @@ class PositionAdmin
                 $query->set('meta_key', '_position_email');
                 $query->set('orderby', 'meta_value');
                 break;
-                
-            case 'private_email':
-                $query->set('meta_key', '_member_private_email');
-                $query->set('orderby', 'meta_value');
-                break;
-                
-            case 'private_contact':
-                $query->set('meta_key', '_member_private_contact');
-                $query->set('orderby', 'meta_value');
-                break;
-                
+
             case 'rotation_date':
                 $query->set('meta_key', '_rotation_date_sortable');
                 $query->set('orderby', 'meta_value');
@@ -526,8 +468,6 @@ class PositionAdmin
         delete_post_meta($positionId, '_position_member_name');
         delete_post_meta($positionId, '_position_member_id');
         delete_post_meta($positionId, '_position_email');
-        delete_post_meta($positionId, '_member_private_email');
-        delete_post_meta($positionId, '_member_private_contact');
         delete_post_meta($positionId, '_rotation_status');
         delete_post_meta($positionId, '_rotation_sort_key');
         delete_post_meta($positionId, '_has_rotation_date');
@@ -536,7 +476,6 @@ class PositionAdmin
         
         $this->updateMemberNameMetadata($positionId, $positionView);
         $this->updatePositionEmailMetadata($positionId, $positionView);
-        $this->updateMemberContactMetadata($positionId, $positionView);
         $this->updateRotationStatusMetadata($positionId, $positionView);
     }
     
@@ -584,38 +523,7 @@ class PositionAdmin
             delete_post_meta($positionId, '_position_email');
         }
     }
-    
-    /**
-     * Update member contact metadata for a position (for email and phone sorting)
-     * 
-     * @param int $positionId The position ID
-     * @param PositionView $positionView The position view object
-     */
-    private function updateMemberContactMetadata(int $positionId, PositionView $positionView): void
-    {
-        if ($positionView->isVacant()) {
-            delete_post_meta($positionId, '_member_private_email');
-            delete_post_meta($positionId, '_member_private_contact');
-            return;
-        }
-        
-        $privateEmail = $positionView->getPrivateEmail();
-        $privateContact = $positionView->getPrivateContact();
-        
-        if ($privateEmail) {
-            update_post_meta($positionId, '_member_private_email', strtolower($privateEmail));
-        } else {
-            delete_post_meta($positionId, '_member_private_email');
-        }
-        
-        if ($privateContact) {
-            $contactSortable = preg_replace('/[^0-9]/', '', $privateContact);
-            update_post_meta($positionId, '_member_private_contact', $contactSortable);
-        } else {
-            delete_post_meta($positionId, '_member_private_contact');
-        }
-    }
-    
+
     /**
      * Update rotation status metadata for a position
      * 
