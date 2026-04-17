@@ -11,8 +11,10 @@ if (!defined('ABSPATH')) {
 
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Groups\Interfaces\GroupViewFactory;
 
 use Unity\Meetings\Interfaces\Meeting;
+use Unity\Members\Interfaces\MemberRepository;
 
 use WP_Query;
 
@@ -20,7 +22,9 @@ use function add_action;
 use function add_filter;
 use function esc_attr;
 use function esc_html;
+use function esc_url;
 use function get_current_screen;
+use function get_edit_post_link;
 use function get_post_meta;
 use function is_admin;
 
@@ -33,18 +37,31 @@ use function is_admin;
 class MeetingAdmin
 {
     private GroupRepository $groupRepository;
+    private GroupViewFactory $groupViewFactory;
+    private MemberRepository $memberRepository;
     private readonly array $meeting_config;
+
+    /** @var array<int, array<int>> Per-request cache of groupId => [gsrMemberId, ...] */
+    private array $groupGsrCache = [];
 
     /**
      * Initialize the admin table customizations
      *
      * @param GroupRepository $groupRepository
+     * @param GroupViewFactory $groupViewFactory
+     * @param MemberRepository $memberRepository
      */
-    public function __construct(Configuration $configuration, GroupRepository $groupRepository)
-    {
+    public function __construct(
+        Configuration $configuration,
+        GroupRepository $groupRepository,
+        GroupViewFactory $groupViewFactory,
+        MemberRepository $memberRepository
+    ) {
         $this->meeting_config = $configuration->getConfig(Meeting::class);
 
         $this->groupRepository = $groupRepository;
+        $this->groupViewFactory = $groupViewFactory;
+        $this->memberRepository = $memberRepository;
 
         // Register hooks immediately - unity/loaded fires during plugins_loaded,
         // which is before admin_init when the list table columns are set up
@@ -101,6 +118,9 @@ class MeetingAdmin
         // Remove the Data Source column added by TSML
         unset($columns['data_source']);
 
+        // Remove the Region column added by TSML
+        unset($columns['region']);
+
         $newColumns = [];
 
         foreach ($columns as $key => $value) {
@@ -110,6 +130,7 @@ class MeetingAdmin
             if ($key === 'time') {
                 $newColumns['group'] = __('Group', 'amber');
                 $newColumns['email'] = __('Email', 'amber');
+                $newColumns['gsrs'] = __('GSRs', 'amber');
             }
         }
 
@@ -128,6 +149,8 @@ class MeetingAdmin
             $this->displayGroupColumn($postId);
         } elseif ($column === 'email') {
             $this->displayEmailColumn($postId);
+        } elseif ($column === 'gsrs') {
+            $this->displayGsrsColumn($postId);
         }
     }
 
@@ -192,6 +215,88 @@ class MeetingAdmin
         }
 
         echo '<a href="mailto:' . esc_attr($email) . '">' . esc_html($email) . '</a>';
+    }
+
+    /**
+     * Display the GSR member(s) for the meeting's group as links
+     *
+     * Resolves the meeting's associated group, then lists the
+     * anonymous names of any members of that group who are flagged
+     * as GSR. Each GSR name links to the member's edit screen when
+     * available.
+     *
+     * @param int $postId Meeting post ID
+     */
+    private function displayGsrsColumn(int $postId): void
+    {
+        $groupId = (int) get_post_meta($postId, $this->meeting_config['GROUP_META_KEY'], true);
+
+        if ($groupId <= 0) {
+            echo '<span style="color: gray;">—</span>';
+            return;
+        }
+
+        $gsrMemberIds = $this->resolveGroupGsrs($groupId);
+
+        if (empty($gsrMemberIds)) {
+            echo '<span style="color: gray;">—</span>';
+            return;
+        }
+
+        $links = [];
+        foreach ($gsrMemberIds as $gsrMemberId) {
+            $gsrMember = $this->memberRepository->findById($gsrMemberId);
+            if (!$gsrMember) {
+                continue;
+            }
+
+            $memberEditLink = get_edit_post_link($gsrMemberId);
+            if ($memberEditLink) {
+                $links[] = '<a href="' . esc_url($memberEditLink) . '">' . esc_html($gsrMember->getAnonymousName()) . '</a>';
+            } else {
+                $links[] = esc_html($gsrMember->getAnonymousName());
+            }
+        }
+
+        if (empty($links)) {
+            echo '<span style="color: gray;">—</span>';
+            return;
+        }
+
+        echo implode(', ', $links);
+    }
+
+    /**
+     * Resolve the GSR member IDs for a given group
+     *
+     * Uses a per-request cache so the same group is not resolved
+     * repeatedly when many meetings share a group on the same
+     * admin page load.
+     *
+     * @param int $groupId Group ID
+     * @return array<int> List of GSR member IDs (may be empty)
+     */
+    private function resolveGroupGsrs(int $groupId): array
+    {
+        if (array_key_exists($groupId, $this->groupGsrCache)) {
+            return $this->groupGsrCache[$groupId];
+        }
+
+        $groupView = $this->groupViewFactory->createFrom($groupId);
+        if (!$groupView) {
+            $this->groupGsrCache[$groupId] = [];
+            return [];
+        }
+
+        $gsrIds = [];
+        foreach ($groupView->getMembers() as $member) {
+            if ($member->isGSR()) {
+                $gsrIds[] = $member->getId();
+            }
+        }
+
+        $this->groupGsrCache[$groupId] = $gsrIds;
+        return $gsrIds;
     }
 
     /**

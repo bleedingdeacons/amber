@@ -130,7 +130,9 @@ class AmberServiceProvider
         $container->register(MeetingAdmin::class, function (ContainerInterface $c) {
             return new MeetingAdmin(
                 $c->get(Configuration::class),
-                $c->get(GroupRepository::class)
+                $c->get(GroupRepository::class),
+                $c->get(GroupViewFactory::class),
+                $c->get(MemberRepository::class)
             );
         });
 
