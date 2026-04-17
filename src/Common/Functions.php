@@ -56,7 +56,7 @@ class Functions
      */
     public static function linkTo(string $href, string $class, string $text = ''): string
     {
-        return '<a target="_blank" rel="noreferrer noopener" class="' . esc_attr($class) . '" href="' . esc_attr($href) . '">' . esc_html($text) . '</a>';
+        return '<a target="_blank" rel="noreferrer noopener" class="' . esc_url($class) . '" href="' . esc_attr($href) . '">' . esc_html($text) . '</a>';
     }
 
     /**
