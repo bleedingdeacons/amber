@@ -129,8 +129,8 @@ class MeetingAdmin
             // Insert after 'time' column
             if ($key === 'time') {
                 $newColumns['group'] = __('Group', 'amber');
-                $newColumns['email'] = __('Email', 'amber');
                 $newColumns['gsrs'] = __('GSRs', 'amber');
+                $newColumns['email'] = __('Email', 'amber');
             }
         }
 
