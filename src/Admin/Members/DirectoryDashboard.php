@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use Scrutiny\Privacy\Interfaces\DataObscurer;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Members\Interfaces\Member;
@@ -37,6 +38,7 @@ class DirectoryDashboard
     private GroupFactory $groupFactory;
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
+    private DataObscurer $obscurer;
     private readonly array $member_config;
 
     /**
@@ -47,18 +49,21 @@ class DirectoryDashboard
      * @param GroupFactory        $groupFactory        Group factory
      * @param PositionViewFactory $positionViewFactory Position view factory
      * @param PositionRepository  $positionRepository  Position repository
+     * @param DataObscurer        $obscurer            Scrutiny personal-data obscurer
      */
     public function __construct(
         Configuration $configuration,
         MemberRepository $memberRepository,
         GroupFactory $groupFactory,
         PositionViewFactory $positionViewFactory,
-        PositionRepository $positionRepository
+        PositionRepository $positionRepository,
+        DataObscurer $obscurer
     ) {
         $this->memberRepository    = $memberRepository;
         $this->groupFactory        = $groupFactory;
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository  = $positionRepository;
+        $this->obscurer            = $obscurer;
         $this->member_config       = $configuration->getConfig(Member::class);
 
         // Register hooks
@@ -69,9 +74,19 @@ class DirectoryDashboard
 
     /**
      * Register the dashboard widget
+     *
+     * The widget exposes members' personal email addresses (rendered into the
+     * `data-email` attribute so the "Copy All" button can build a mailto list).
+     * Users who lack the Scrutiny "view personal data" capability must not see
+     * these values — so we skip the widget entirely rather than registering an
+     * empty one. WordPress will not offer it in Screen Options either.
      */
     public function registerDashboardWidget(): void
     {
+        if (!$this->obscurer->currentUserCanViewPersonalData()) {
+            return;
+        }
+
         wp_add_dashboard_widget(
             'directory_dashboard',
             'Intergroup Directory',
@@ -267,6 +282,10 @@ class DirectoryDashboard
         $screen = get_current_screen();
 
         if (!$screen || $screen->id !== 'dashboard') {
+            return;
+        }
+
+        if (!$this->obscurer->currentUserCanViewPersonalData()) {
             return;
         }
 
@@ -483,6 +502,10 @@ class DirectoryDashboard
         $screen = get_current_screen();
 
         if (!$screen || $screen->id !== 'dashboard') {
+            return;
+        }
+
+        if (!$this->obscurer->currentUserCanViewPersonalData()) {
             return;
         }
 

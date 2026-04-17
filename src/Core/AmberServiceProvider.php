@@ -27,6 +27,7 @@ use Amber\Managers\MeetingReconciler;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Managers\PostTitleSyncer;
 use Psr\Container\ContainerInterface;
+use Scrutiny\Privacy\Interfaces\DataObscurer;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\Container;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -172,7 +173,8 @@ class AmberServiceProvider
                 $c->get(MemberRepository::class),
                 $c->get(GroupFactory::class),
                 $c->get(PositionViewFactory::class),
-                $c->get(PositionRepository::class)
+                $c->get(PositionRepository::class),
+                $c->get(DataObscurer::class)
             );
         });
 
