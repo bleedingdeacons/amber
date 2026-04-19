@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use Scrutiny\Privacy\Interfaces\DataObscurer;
+use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Members\Interfaces\Member;
@@ -38,7 +38,7 @@ class DirectoryDashboard
     private GroupFactory $groupFactory;
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
-    private DataObscurer $obscurer;
+    private PersonalDataPolicy $policy;
     private readonly array $member_config;
 
     /**
@@ -49,7 +49,7 @@ class DirectoryDashboard
      * @param GroupFactory        $groupFactory        Group factory
      * @param PositionViewFactory $positionViewFactory Position view factory
      * @param PositionRepository  $positionRepository  Position repository
-     * @param DataObscurer        $obscurer            Scrutiny personal-data obscurer
+     * @param PersonalDataPolicy  $policy              Scrutiny personal-data policy
      */
     public function __construct(
         Configuration $configuration,
@@ -57,13 +57,13 @@ class DirectoryDashboard
         GroupFactory $groupFactory,
         PositionViewFactory $positionViewFactory,
         PositionRepository $positionRepository,
-        DataObscurer $obscurer
+        PersonalDataPolicy $policy
     ) {
         $this->memberRepository    = $memberRepository;
         $this->groupFactory        = $groupFactory;
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository  = $positionRepository;
-        $this->obscurer            = $obscurer;
+        $this->policy              = $policy;
         $this->member_config       = $configuration->getConfig(Member::class);
 
         // Register hooks
@@ -83,7 +83,7 @@ class DirectoryDashboard
      */
     public function registerDashboardWidget(): void
     {
-        if (!$this->obscurer->currentUserCanViewPersonalData()) {
+        if (!$this->policy->currentUserCanView()) {
             return;
         }
 
@@ -285,7 +285,7 @@ class DirectoryDashboard
             return;
         }
 
-        if (!$this->obscurer->currentUserCanViewPersonalData()) {
+        if (!$this->policy->currentUserCanView()) {
             return;
         }
 
@@ -505,7 +505,7 @@ class DirectoryDashboard
             return;
         }
 
-        if (!$this->obscurer->currentUserCanViewPersonalData()) {
+        if (!$this->policy->currentUserCanView()) {
             return;
         }
 
