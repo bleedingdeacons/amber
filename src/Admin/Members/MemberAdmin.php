@@ -172,7 +172,17 @@ class MemberAdmin
                 $homegroup = $this->groupFactory->createFromSource($homegroupId);
 
                 if ($homegroup) {
-                    echo esc_html($homegroup->getTitle());
+                    // Groups have no editable admin page of their own,
+                    // so link to the first meeting the group contains.
+                    $meetings = $homegroup->getMeetings();
+                    $firstMeeting = $meetings[0] ?? null;
+                    $meetingEditLink = $firstMeeting ? get_edit_post_link($firstMeeting->getId()) : null;
+
+                    if ($meetingEditLink) {
+                        echo '<a href="' . esc_url($meetingEditLink) . '">' . esc_html($homegroup->getTitle()) . '</a>';
+                    } else {
+                        echo esc_html($homegroup->getTitle());
+                    }
                 } else {
                     echo '<span style="color: gray;">N/A</span>';
                 }
