@@ -24,18 +24,50 @@ use function is_wp_error;
  * national AAGBDB group listings fetched via the Concordance ApiCache.
  *
  * Matching strategy:
- *  1. Confident match  — same day + same start time + name similarity >= threshold.
- *  2. Possible match   — same day + same start time, but names are too dissimilar.
- *  3. Local only       — present in Unity but unmatched nationally.
- *  4. National only    — present in AAGBDB but unmatched locally.
+ *  1. Confident match  — same day + same start time + composite (name + address)
+ *                        similarity >= NAME_THRESHOLD and the national listing
+ *                        is in an "open" state.
+ *  2. Closed national  — confident match, but the national listing's
+ *                        meetingStatus is anything other than open. Surfaced
+ *                        as a distinct status so the user can decide whether
+ *                        to retire the local meeting.
+ *  3. Possible match   — same day + same start time, but composite similarity
+ *                        below threshold.
+ *  4. Local only       — present in Unity but unmatched nationally.
+ *  5. National only    — present in AAGBDB but unmatched locally (open
+ *                        listings only — closed-only national entries are
+ *                        excluded so reports stay actionable).
+ *
+ * Composite scoring:
+ *   final = NAME_WEIGHT * name_similarity + ADDRESS_WEIGHT * address_similarity
+ *
+ * Address similarity is itself composed of postcode and town signals
+ * (see addressSimilarity()).
  */
 class MeetingReconciler
 {
-    /** Minimum name-similarity score (0–1) for a confident match. */
+    /** Minimum composite-similarity score (0–1) for a confident match. */
     private const NAME_THRESHOLD = 0.3;
 
-    /** Scores below this are flagged as "weak name match". */
+    /** Composite scores below this are flagged as "weak match". */
     private const WEAK_NAME_THRESHOLD = 0.7;
+
+    /** Weighting of name vs. address inside the composite score. Must sum to 1. */
+    private const NAME_WEIGHT    = 0.7;
+    private const ADDRESS_WEIGHT = 0.3;
+
+    /** End-time discrepancies smaller than this (in minutes) are ignored. */
+    private const END_TIME_TOLERANCE_MINUTES = 15;
+
+    /**
+     * Whitelist of national meetingStatus values that count as "currently
+     * meeting". Anything else is treated as closed/suspended.
+     *
+     * Compared case-insensitively after trimming.
+     *
+     * @var string[]
+     */
+    private const OPEN_STATUSES = ['open', 'open again', ''];
 
     /** Words stripped before comparing names. */
     private const STOP_WORDS = [
@@ -76,16 +108,20 @@ class MeetingReconciler
         $nationalGroups = $this->fetchNationalGroups($apiQueryArgs);
 
         $matches         = [];
+        $closedMatches   = [];
         $localMatched    = [];
         $nationalMatched = [];
 
-        // ── Pass 1: confident matches ───────────────────────────────────
+        // ── Pass 1: best candidate per local meeting (composite scoring) ──
         foreach ($localMeetings as $li => $local) {
-            $bestScore = 0.0;
-            $bestNi    = null;
+            $bestScore   = 0.0;
+            $bestNameSim = 0.0;
+            $bestAddrSim = 0.0;
+            $bestNi      = null;
 
-            $lDay  = $this->normaliseDayFromMeeting($local);
-            $lTime = $this->normaliseTime($local->getTime());
+            $lDay     = $this->normaliseDayFromMeeting($local);
+            $lTime    = $this->normaliseTime($local->getTime());
+            $lAddress = $this->extractLocalAddress($local);
 
             foreach ($nationalGroups as $ni => $national) {
                 if (isset($nationalMatched[$ni])) {
@@ -99,41 +135,65 @@ class MeetingReconciler
                     continue;
                 }
 
-                $score = $this->nameSimilarity($local->getName(), $national->getGroupName());
+                $nameSim = $this->nameSimilarity($local->getName(), $national->getGroupName());
+                $addrSim = $this->addressSimilarity($lAddress, $national);
+                $score   = self::NAME_WEIGHT * $nameSim + self::ADDRESS_WEIGHT * $addrSim;
 
                 if ($score > $bestScore) {
-                    $bestScore = $score;
-                    $bestNi    = $ni;
+                    $bestScore   = $score;
+                    $bestNameSim = $nameSim;
+                    $bestAddrSim = $addrSim;
+                    $bestNi      = $ni;
                 }
             }
 
             if ($bestScore >= self::NAME_THRESHOLD && $bestNi !== null) {
                 $national = $nationalGroups[$bestNi];
-                $lEnd     = $this->normaliseTime($local->getEndTime());
-                $nEnd     = $this->normaliseTime($national->getEndTime());
-                $timeDiff = ($lEnd !== $nEnd);
+
+                $endDiff  = $this->endTimeDiscrepancy(
+                    $local->getEndTime(),
+                    $national->getEndTime()
+                );
 
                 $notes = [];
-                if ($timeDiff) {
+                if ($endDiff) {
                     $notes[] = 'End time mismatch';
                 }
                 if ($bestScore < self::WEAK_NAME_THRESHOLD) {
-                    $notes[] = 'Weak name match';
+                    $notes[] = 'Weak match';
+                }
+                if ($bestAddrSim === 0.0 && $lAddress !== '') {
+                    $notes[] = 'Address differs';
                 }
 
-                $matches[] = [
-                    'local_name'    => $local->getName(),
-                    'local_id'      => $local->getId(),
-                    'national_name' => $national->getGroupName(),
-                    'national_id'   => $national->getId(),
-                    'day'           => $local->getDayOfWeek(),
-                    'start_time'    => $local->getTime(),
-                    'local_end'     => $local->getEndTime(),
-                    'national_end'  => $national->getEndTime(),
-                    'score'         => round($bestScore, 2),
-                    'end_time_diff' => $timeDiff,
-                    'notes'         => $notes,
+                $row = [
+                    'local_name'       => $local->getName(),
+                    'local_id'         => $local->getId(),
+                    'national_name'    => $national->getGroupName(),
+                    'national_id'      => $national->getId(),
+                    'national_status'  => $national->getMeetingStatus(),
+                    'national_address' => $this->formatNationalAddress($national),
+                    'national_postcode'=> $national->getPostcode(),
+                    'day'              => $local->getDayOfWeek(),
+                    'start_time'       => $local->getTime(),
+                    'local_end'        => $local->getEndTime(),
+                    'national_end'     => $national->getEndTime(),
+                    'score'            => round($bestScore, 2),
+                    'name_score'       => round($bestNameSim, 2),
+                    'address_score'    => round($bestAddrSim, 2),
+                    'end_time_diff'    => $endDiff,
+                    'notes'            => $notes,
                 ];
+
+                if ($this->isOpenStatus($national->getMeetingStatus())) {
+                    $matches[] = $row;
+                } else {
+                    $row['notes'] = array_merge(
+                        ['Closed nationally: ' . ($national->getMeetingStatus() ?: 'unknown')],
+                        $notes
+                    );
+                    $closedMatches[] = $row;
+                }
 
                 $localMatched[$li]        = true;
                 $nationalMatched[$bestNi] = true;
@@ -163,14 +223,17 @@ class MeetingReconciler
 
                 if ($lDay === $nDay && $lTime === $nTime) {
                     $possibles[] = [
-                        'local_name'    => $local->getName(),
-                        'local_id'      => $local->getId(),
-                        'national_name' => $national->getGroupName(),
-                        'national_id'   => $national->getId(),
-                        'day'           => $local->getDayOfWeek(),
-                        'start_time'    => $local->getTime(),
-                        'local_end'     => $local->getEndTime(),
-                        'national_end'  => $national->getEndTime(),
+                        'local_name'       => $local->getName(),
+                        'local_id'         => $local->getId(),
+                        'national_name'    => $national->getGroupName(),
+                        'national_id'      => $national->getId(),
+                        'national_status'  => $national->getMeetingStatus(),
+                        'national_address' => $this->formatNationalAddress($national),
+                        'national_postcode'=> $national->getPostcode(),
+                        'day'              => $local->getDayOfWeek(),
+                        'start_time'       => $local->getTime(),
+                        'local_end'        => $local->getEndTime(),
+                        'national_end'     => $national->getEndTime(),
                     ];
                     $localPossible[$li]    = true;
                     $nationalPossible[$ni] = true;
@@ -196,43 +259,62 @@ class MeetingReconciler
 
         $nationalOnly = [];
         foreach ($nationalGroups as $ni => $national) {
-            if (!isset($nationalMatched[$ni]) && !isset($nationalPossible[$ni])) {
-                $nationalOnly[] = [
-                    'id'         => $national->getId(),
-                    'name'       => $national->getGroupName(),
-                    'day'        => $national->getDay(),
-                    'start_time' => $national->getStartTime(),
-                    'end_time'   => $national->getEndTime(),
-                    'town'       => $national->getTown(),
-                    'reason'     => 'Missing from local list',
-                ];
+            if (isset($nationalMatched[$ni]) || isset($nationalPossible[$ni])) {
+                continue;
             }
+
+            // National-only listings that are themselves closed are noise —
+            // they're neither local nor currently meeting, so excluding them
+            // keeps the report focused on actionable discrepancies.
+            if (!$this->isOpenStatus($national->getMeetingStatus())) {
+                continue;
+            }
+
+            $nationalOnly[] = [
+                'id'         => $national->getId(),
+                'name'       => $national->getGroupName(),
+                'day'        => $national->getDay(),
+                'start_time' => $national->getStartTime(),
+                'end_time'   => $national->getEndTime(),
+                'town'       => $national->getTown(),
+                'postcode'   => $national->getPostcode(),
+                'reason'     => 'Missing from local list',
+            ];
         }
 
         // ── Summary ─────────────────────────────────────────────────────
-        $localTotal    = count($localMeetings);
-        $nationalTotal = count($nationalGroups);
-        $endTimeDiffs  = count(array_filter($matches, static fn(array $m): bool => $m['end_time_diff']));
-        $weakNames     = count(array_filter($matches, static fn(array $m): bool => $m['score'] < self::WEAK_NAME_THRESHOLD));
+        $localTotal      = count($localMeetings);
+        $nationalTotal   = count($nationalGroups);
+        $endTimeDiffs    = count(array_filter($matches, static fn(array $m): bool => $m['end_time_diff']));
+        $weakNames       = count(array_filter($matches, static fn(array $m): bool => $m['score'] < self::WEAK_NAME_THRESHOLD));
+        $confidentTotal  = count($matches);
 
         $summary = [
             'local_total'            => $localTotal,
             'national_total'         => $nationalTotal,
-            'confident_matches'      => count($matches),
+            'confident_matches'      => $confidentTotal,
+            'closed_matches'         => count($closedMatches),
             'end_time_discrepancies' => $endTimeDiffs,
             'weak_name_matches'      => $weakNames,
             'possible_matches'       => count($possibles),
             'local_only'             => count($localOnly),
             'national_only'          => count($nationalOnly),
             'local_match_pct'        => $localTotal > 0
-                ? round(count($matches) / $localTotal * 100, 1)
+                ? round($confidentTotal / $localTotal * 100, 1)
                 : 0.0,
             'national_match_pct'     => $nationalTotal > 0
-                ? round(count($matches) / $nationalTotal * 100, 1)
+                ? round($confidentTotal / $nationalTotal * 100, 1)
                 : 0.0,
         ];
 
-        return new ReconciliationResult($matches, $possibles, $localOnly, $nationalOnly, $summary);
+        return new ReconciliationResult(
+            $matches,
+            $possibles,
+            $localOnly,
+            $nationalOnly,
+            $summary,
+            $closedMatches,
+        );
     }
 
     // ── Private helpers ─────────────────────────────────────────────────
@@ -331,5 +413,192 @@ class MeetingReconciler
         }
 
         return $overlap / $total;
+    }
+
+    /**
+     * Pull together a single normalised address string from a Unity Meeting.
+     *
+     * Combines the location's name and formatted address (when present).
+     * Used as the source for postcode extraction and fuzzy town comparison.
+     */
+    private function extractLocalAddress(Meeting $meeting): string
+    {
+        $location = $meeting->getLocation();
+
+        if ($location === null) {
+            return '';
+        }
+
+        $parts = [];
+        $name  = trim((string) $location->getName());
+        $addr  = trim((string) $location->getFormattedAddress());
+
+        if ($name !== '') {
+            $parts[] = $name;
+        }
+        if ($addr !== '') {
+            $parts[] = $addr;
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Format the national listing's address into a single display string.
+     */
+    private function formatNationalAddress(GroupListing $national): string
+    {
+        $parts = array_filter([
+            $national->getAddress1(),
+            $national->getTown(),
+            $national->getPostcode(),
+        ], static fn(string $p): bool => $p !== '');
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Compute a 0–1 address similarity score between a local meeting's
+     * address blob and a national GroupListing.
+     *
+     * Postcode is the dominant signal:
+     *   - exact full match            -> 1.0
+     *   - same outward code (SL2 ...) -> 0.7
+     * Town is a secondary signal:
+     *   - exact (case-insensitive)    -> 0.6
+     *   - substring containment       -> 0.4
+     * If we can't extract any postcode AND no town match, the result is 0.0.
+     */
+    private function addressSimilarity(string $localAddress, GroupListing $national): float
+    {
+        $localAddr = mb_strtolower($localAddress);
+        $nPostcode = mb_strtolower(trim($national->getPostcode()));
+        $nTown     = mb_strtolower(trim($national->getTown()));
+
+        // ── Postcode signal ─────────────────────────────────────────
+        $postcodeScore = 0.0;
+        if ($nPostcode !== '') {
+            $localPostcodes = $this->extractPostcodes($localAddr);
+            $nNorm          = $this->normalisePostcode($nPostcode);
+            $nOutward       = $this->postcodeOutward($nNorm);
+
+            foreach ($localPostcodes as $lpc) {
+                if ($lpc === $nNorm) {
+                    $postcodeScore = 1.0;
+                    break;
+                }
+                if ($nOutward !== '' && $this->postcodeOutward($lpc) === $nOutward) {
+                    $postcodeScore = max($postcodeScore, 0.7);
+                }
+            }
+        }
+
+        // ── Town signal ─────────────────────────────────────────────
+        $townScore = 0.0;
+        if ($nTown !== '' && $localAddr !== '') {
+            // Token boundary check so "Slough" doesn't match inside "Sloughborough"
+            if (preg_match('/\b' . preg_quote($nTown, '/') . '\b/u', $localAddr)) {
+                $townScore = 0.6;
+            } elseif (str_contains($localAddr, $nTown)) {
+                $townScore = 0.4;
+            }
+        }
+
+        return max($postcodeScore, $townScore);
+    }
+
+    /**
+     * Extract zero or more UK-format postcodes from a free-text address.
+     *
+     * Returns each as a normalised "AB1 2CD" string (uppercase, single space).
+     * Source: GOV.UK BS 7666 simplified pattern.
+     *
+     * @return string[]
+     */
+    private function extractPostcodes(string $haystack): array
+    {
+        $pattern = '/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i';
+        if (!preg_match_all($pattern, $haystack, $m, PREG_SET_ORDER)) {
+            return [];
+        }
+
+        return array_map(
+            fn(array $hit): string => mb_strtoupper($hit[1] . ' ' . $hit[2]),
+            $m
+        );
+    }
+
+    /**
+     * Normalise a known-good postcode string to "OUT IN" uppercase form.
+     */
+    private function normalisePostcode(string $postcode): string
+    {
+        $postcode = mb_strtoupper(trim($postcode));
+        $postcode = preg_replace('/\s+/', ' ', $postcode);
+
+        // If the value lacks a space and is long enough, insert one before the
+        // last 3 characters (the inward code is always 3 chars).
+        if (!str_contains($postcode, ' ') && strlen($postcode) >= 5) {
+            $postcode = substr($postcode, 0, -3) . ' ' . substr($postcode, -3);
+        }
+
+        return $postcode;
+    }
+
+    /**
+     * Return the outward (first-half) code from a normalised postcode,
+     * e.g. "SL2 4HL" -> "SL2".
+     */
+    private function postcodeOutward(string $postcode): string
+    {
+        $parts = explode(' ', $postcode, 2);
+        return $parts[0] ?? '';
+    }
+
+    /**
+     * Whether the gap between two end-time strings exceeds the tolerance.
+     *
+     * Returns false when both are empty or when one side is empty (no signal).
+     */
+    private function endTimeDiscrepancy(string $localEnd, string $nationalEnd): bool
+    {
+        $local    = $this->normaliseTime($localEnd);
+        $national = $this->normaliseTime($nationalEnd);
+
+        if ($local === '' || $national === '') {
+            return false;
+        }
+        if ($local === $national) {
+            return false;
+        }
+
+        $lMinutes = $this->timeToMinutes($local);
+        $nMinutes = $this->timeToMinutes($national);
+
+        if ($lMinutes === null || $nMinutes === null) {
+            return $local !== $national;
+        }
+
+        return abs($lMinutes - $nMinutes) >= self::END_TIME_TOLERANCE_MINUTES;
+    }
+
+    /**
+     * Convert a normalised "HH:MM" time string to total minutes.
+     * Returns null on malformed input.
+     */
+    private function timeToMinutes(string $time): ?int
+    {
+        if (!preg_match('/^(\d{1,2}):(\d{2})/', $time, $m)) {
+            return null;
+        }
+        return ((int) $m[1]) * 60 + (int) $m[2];
+    }
+
+    /**
+     * Whether the given national meetingStatus represents a currently-meeting group.
+     */
+    private function isOpenStatus(string $status): bool
+    {
+        return in_array(mb_strtolower(trim($status)), self::OPEN_STATUSES, true);
     }
 }

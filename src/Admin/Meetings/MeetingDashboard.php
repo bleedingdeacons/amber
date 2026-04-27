@@ -306,6 +306,22 @@ class MeetingDashboard
         echo '</div>';
         echo '</div>';
 
+        // National Address (postcode + town from AAGBDB)
+        echo '<div class="meeting-card-field">';
+        echo '<div class="field-label">National Address</div>';
+        echo '<div class="field-value copyable">';
+        $this->renderNationalAddress($reconStatus);
+        echo '</div>';
+        echo '</div>';
+
+        // National Status (raw AAGBDB meetingStatus, colour-coded)
+        echo '<div class="meeting-card-field">';
+        echo '<div class="field-label">National Status</div>';
+        echo '<div class="field-value">';
+        $this->renderNationalStatus($reconStatus);
+        echo '</div>';
+        echo '</div>';
+
         // Contacts
         echo '<div class="meeting-card-field">';
         echo '<div class="field-label">Contacts</div>';
@@ -336,11 +352,14 @@ class MeetingDashboard
      * dashboard degrades gracefully.
      *
      * Status array shape:
-     *   'type'           => 'matched' | 'possible' | 'local_only'
-     *   'national_name'  => string|null
-     *   'national_id'    => int|null
-     *   'score'          => float|null   (name similarity, matched only)
-     *   'notes'          => string[]     (e.g. "Weak name match", "End time mismatch")
+     *   'type'              => 'matched' | 'closed_national' | 'possible' | 'local_only'
+     *   'national_name'     => string|null
+     *   'national_id'       => int|null
+     *   'national_address'  => string|null   (matched / closed / possible)
+     *   'national_postcode' => string|null   (matched / closed / possible)
+     *   'national_status'   => string|null   (matched / closed / possible)
+     *   'score'             => float|null    (matched / closed only)
+     *   'notes'             => string[]      (e.g. "Weak match", "End time mismatch")
      *
      * @return array<int, array>
      */
@@ -359,14 +378,31 @@ class MeetingDashboard
 
         $lookup = [];
 
-        // Confident matches
+        // Confident matches against open national listings
         foreach ($result->getMatches() as $match) {
             $lookup[$match['local_id']] = [
-                'type'          => 'matched',
-                'national_name' => $match['national_name'],
-                'national_id'   => $match['national_id'],
-                'score'         => $match['score'],
-                'notes'         => $match['notes'],
+                'type'              => 'matched',
+                'national_name'     => $match['national_name'] ?? null,
+                'national_id'       => $match['national_id'] ?? null,
+                'national_address'  => $match['national_address'] ?? null,
+                'national_postcode' => $match['national_postcode'] ?? null,
+                'national_status'   => $match['national_status'] ?? null,
+                'score'             => $match['score'] ?? null,
+                'notes'             => $match['notes'] ?? [],
+            ];
+        }
+
+        // Confident matches against closed/suspended national listings
+        foreach ($this->safeGetClosedMatches($result) as $match) {
+            $lookup[$match['local_id']] = [
+                'type'              => 'closed_national',
+                'national_name'     => $match['national_name'] ?? null,
+                'national_id'       => $match['national_id'] ?? null,
+                'national_address'  => $match['national_address'] ?? null,
+                'national_postcode' => $match['national_postcode'] ?? null,
+                'national_status'   => $match['national_status'] ?? null,
+                'score'             => $match['score'] ?? null,
+                'notes'             => $match['notes'] ?? [],
             ];
         }
 
@@ -375,11 +411,14 @@ class MeetingDashboard
             // A meeting can appear in multiple possible rows; keep the first
             if (!isset($lookup[$possible['local_id']])) {
                 $lookup[$possible['local_id']] = [
-                    'type'          => 'possible',
-                    'national_name' => $possible['national_name'],
-                    'national_id'   => $possible['national_id'],
-                    'score'         => null,
-                    'notes'         => [],
+                    'type'              => 'possible',
+                    'national_name'     => $possible['national_name'] ?? null,
+                    'national_id'       => $possible['national_id'] ?? null,
+                    'national_address'  => $possible['national_address'] ?? null,
+                    'national_postcode' => $possible['national_postcode'] ?? null,
+                    'national_status'   => $possible['national_status'] ?? null,
+                    'score'             => null,
+                    'notes'             => [],
                 ];
             }
         }
@@ -388,16 +427,33 @@ class MeetingDashboard
         foreach ($result->getLocalOnly() as $local) {
             if (!isset($lookup[$local['id']])) {
                 $lookup[$local['id']] = [
-                    'type'          => 'local_only',
-                    'national_name' => null,
-                    'national_id'   => null,
-                    'score'         => null,
-                    'notes'         => [$local['reason']],
+                    'type'              => 'local_only',
+                    'national_name'     => null,
+                    'national_id'       => null,
+                    'national_address'  => null,
+                    'national_postcode' => null,
+                    'national_status'   => null,
+                    'score'             => null,
+                    'notes'             => [$local['reason']],
                 ];
             }
         }
 
         return $lookup;
+    }
+
+    /**
+     * Pull closed_matches from a ReconciliationResult, defending against an
+     * older Concordance/Amber install where the method doesn't exist.
+     *
+     * @return array
+     */
+    private function safeGetClosedMatches(ReconciliationResult $result): array
+    {
+        if (method_exists($result, 'getClosedMatches')) {
+            return $result->getClosedMatches();
+        }
+        return [];
     }
 
     /**
@@ -423,6 +479,17 @@ class MeetingDashboard
                     $label = 'AAGBDB ~';
                     $class = 'recon-partial';
                     $tooltip = implode('; ', $notes);
+                }
+                break;
+
+            case 'closed_national':
+                $statusText = $reconStatus['national_status'] ?? 'Closed';
+                $label = 'AAGBDB · ' . $statusText;
+                $class = 'recon-closed';
+                $tooltip = 'Matched a national listing currently marked '
+                    . $statusText . '. Consider retiring the local meeting.';
+                if (!empty($notes)) {
+                    $tooltip .= ' (' . implode('; ', $notes) . ')';
                 }
                 break;
 
@@ -473,6 +540,13 @@ class MeetingDashboard
                 }
                 break;
 
+            case 'closed_national':
+                echo esc_html($nationalName ?? 'Unknown');
+                echo '<br><span class="recon-note recon-note-closed">'
+                    . esc_html('Closed nationally — review locally')
+                    . '</span>';
+                break;
+
             case 'possible':
                 echo '<span class="recon-note-possible">' . esc_html($nationalName ?? 'Unknown') . '</span>';
                 echo '<br><span class="recon-note">Possible match — name differs</span>';
@@ -486,6 +560,60 @@ class MeetingDashboard
             default:
                 echo '<span class="no-data">—</span>';
         }
+    }
+
+    /**
+     * Render the national address field (address1 / town / postcode).
+     *
+     * @param array|null $reconStatus
+     */
+    private function renderNationalAddress(?array $reconStatus): void
+    {
+        if ($reconStatus === null) {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        $address  = trim((string) ($reconStatus['national_address'] ?? ''));
+        $postcode = trim((string) ($reconStatus['national_postcode'] ?? ''));
+
+        if ($address === '' && $postcode === '') {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        if ($address !== '') {
+            echo esc_html($address);
+        } else {
+            echo esc_html($postcode);
+        }
+    }
+
+    /**
+     * Render the national status field as a small status pill.
+     *
+     * @param array|null $reconStatus
+     */
+    private function renderNationalStatus(?array $reconStatus): void
+    {
+        if ($reconStatus === null) {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        $type   = $reconStatus['type'];
+        $status = trim((string) ($reconStatus['national_status'] ?? ''));
+
+        // For local-only meetings there is no national entry at all
+        if ($type === 'local_only' || $status === '') {
+            echo '<span class="no-data">—</span>';
+            return;
+        }
+
+        $isOpen = in_array(mb_strtolower($status), ['open', 'open again'], true);
+        $class  = $isOpen ? 'status-pill status-open' : 'status-pill status-closed';
+
+        echo '<span class="' . esc_attr($class) . '">' . esc_html($status) . '</span>';
     }
 
     /**
@@ -668,11 +796,9 @@ class MeetingDashboard
                 margin: 0 0 8px 0;
                 border-radius: 3px;
                 cursor: pointer;
-                list-style: none;
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                user-select: none;
+                list-style: none;
             }
 
             .meeting-day-header::-webkit-details-marker {
@@ -863,6 +989,11 @@ class MeetingDashboard
                 color: white;
             }
 
+            .meeting-badge.recon-closed {
+                background: #50575e;
+                color: white;
+            }
+
             .recon-note {
                 font-size: 11px;
                 color: #996800;
@@ -876,6 +1007,31 @@ class MeetingDashboard
             .recon-note-missing {
                 color: #d63638;
                 font-size: 12px;
+            }
+
+            .recon-note-closed {
+                color: #50575e;
+                font-weight: 500;
+            }
+
+            /* Status pills */
+            .status-pill {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+            }
+
+            .status-pill.status-open {
+                background: #edfaef;
+                color: #00692e;
+            }
+
+            .status-pill.status-closed {
+                background: #f0f0f1;
+                color: #50575e;
             }
 
             .meeting-location-address {
