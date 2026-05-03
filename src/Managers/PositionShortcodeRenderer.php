@@ -71,7 +71,7 @@ class PositionShortcodeRenderer
             $view   = $this->positionViewFactory->createFrom($positionId);
             $output = '';
 
-            if ($this->isArchivist($view)) {
+            if ($view->isArchivist($view)) {
                 $output .= '<h1></h1>';
             } elseif ($view->isVacant()) {
                 $output .= '<h1>Vacant!</h1>';
@@ -121,7 +121,7 @@ class PositionShortcodeRenderer
             }
 
             $termLabel = (int) $termYears == 1 ? 'Year' : 'Years';
-            if ($this->isArchivist($view)) {
+            if ($view->isArchivist()) {
                 $output .= '<br>Term Tenure';
             } else {
                 $output .= '<br>Term ' . esc_html($termYears) . ' ' . esc_html($termLabel);
@@ -160,7 +160,7 @@ class PositionShortcodeRenderer
                 $status        = '';
                 $anonymousName = '';
 
-                if ($this->isArchivist($view)) {
+                if ($view->isArchivist()) {
                     $anonymousName = $view->getPublicDisplayName();
                     $status = '';
                 } elseif ($view->isVacant()) {
@@ -220,18 +220,6 @@ class PositionShortcodeRenderer
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
-
-    /**
-     * Check if a position is the Archivist role (permanent tenure, no rotation)
-     *
-     * @param \Unity\Positions\Interfaces\PositionView $view
-     * @return bool
-     */
-    private function isArchivist(\Unity\Positions\Interfaces\PositionView $view): bool
-    {
-        $description = $view->getDescription() ?? '';
-        return strcasecmp(trim($description), 'Archivist') === 0;
-    }
 
     /**
      * Produce a human-readable rotation status string for the given months-until-rotation.

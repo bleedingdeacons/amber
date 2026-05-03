@@ -118,31 +118,35 @@ class IntergroupManager
                 return;
             }
 
-            $view          = $this->positionViewFactory->createFrom($positionId);
-            $showHighlight = 'no';
+            $view = $this->positionViewFactory->createFrom($positionId);
 
-            if ($view->isVacant()) {
-                $showHighlight = 'yes';
-                $this->removePostMeta($positionId, '_email_officer_link');
-            } else {
-                $rotationDate = $view->getRotationDate();
+            if ($view !== null) {
 
-                if (!empty($rotationDate)) {
-                    $months = $view->getMonthsUntilRotation();
-                    if ($months <= AmberConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
+                $showHighlight = 'no';
+
+                if ($view->isVacant() && !$view->isArchivist()) {
+                    $showHighlight = 'yes';
+                    $this->removePostMeta($positionId, '_email_officer_link');
+                } else {
+                    $rotationDate = $view->getRotationDate();
+
+                    if (!empty($rotationDate)) {
+                        $months = $view->getMonthsUntilRotation();
+                        if ($months <= AmberConfiguration::SERVICE_EXPIRE_MONTHS_WARNING) {
+                            $showHighlight = 'yes';
+                        }
+                    } else {
                         $showHighlight = 'yes';
                     }
-                } else {
-                    $showHighlight = 'yes';
-                }
 
-                $genericEmailAddress = $view->getPositionEmail();
+                    $genericEmailAddress = $view->getPositionEmail();
 
-                if (!$genericEmailAddress) {
-                    \Amber\Plugin::logError("Generic email address not found for position ID: $positionId");
-                } else {
-                    $officerEmailAddress = Functions::emailTo($genericEmailAddress, 'I have a Question');
-                    $this->setPostMeta($positionId, '_email_officer_link', $officerEmailAddress);
+                    if (!$genericEmailAddress) {
+                        \Amber\Plugin::logError("Generic email address not found for position ID: $positionId");
+                    } else {
+                        $officerEmailAddress = Functions::emailTo($genericEmailAddress, 'I have a Question');
+                        $this->setPostMeta($positionId, '_email_officer_link', $officerEmailAddress);
+                    }
                 }
             }
 
