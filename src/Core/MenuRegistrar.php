@@ -73,6 +73,14 @@ class MenuRegistrar
             'edit.php?post_type=intergroup-meeting'
         );
 
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Privacy Policy',
+            'Privacy Policy',
+            self::MENU_CAPABILITY,
+            'edit.php?post_type=privacy-policy'
+        );
+
         // Remove the default Intergroup submenu item
         remove_submenu_page(self::MENU_SLUG, self::MENU_SLUG);
     }
