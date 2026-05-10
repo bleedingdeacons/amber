@@ -13,6 +13,7 @@ use Amber\Admin\DeveloperDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
+use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
@@ -25,6 +26,7 @@ use Amber\Core\AmberServiceProvider;
 use Amber\Core\MenuRegistrar;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\PositionShortcodeRenderer;
+use Amber\Services\ShortcodeService;
 use Psr\Container\ContainerInterface;
 use Unity\Core\Interfaces\Container;
 use Unity\Members\Interfaces\MemberChangeTracker;
@@ -86,6 +88,13 @@ class Plugin
         // Initialize shortcode renderer (always needed for front-end shortcodes)
         self::$container->get(PositionShortcodeRenderer::class);
 
+        // Register general-purpose shortcodes on the init hook (same timing as
+        // Confur). Each tag is guarded by shortcode_exists so whichever plugin
+        // registers first wins and the other no-ops — both plugins ship the
+        // same implementation so behaviour is identical either way.
+        $shortcodeService = self::$container->get(ShortcodeService::class);
+        add_action('init', [$shortcodeService, 'registerShortcodes']);
+
         // Initialize admin services
         if (is_admin()) {
             add_action('admin_menu', [MenuRegistrar::class, 'registerMenus']);
@@ -106,6 +115,7 @@ class Plugin
             add_action('admin_init', [self::class, 'maybeRunMigrations']);
             self::$container->get(IntergroupMeetingDashboard::class);
             self::$container->get(IntergroupAttendanceAdmin::class);
+            self::$container->get(ReportsAdmin::class);
             self::$container->get(DeveloperDashboard::class);
         }
 

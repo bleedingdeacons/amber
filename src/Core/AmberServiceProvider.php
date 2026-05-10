@@ -14,6 +14,7 @@ use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
+use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
@@ -26,6 +27,7 @@ use Amber\Managers\IntergroupManager;
 use Amber\Managers\MeetingReconciler;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Managers\PostTitleSyncer;
+use Amber\Services\ShortcodeService;
 use Psr\Container\ContainerInterface;
 use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Core\Interfaces\Configuration;
@@ -91,6 +93,10 @@ class AmberServiceProvider
                 $c->get(Configuration::class),
                 $c->get(PositionViewFactory::class)
             );
+        });
+
+        $container->register(ShortcodeService::class, function (ContainerInterface $c) {
+            return new ShortcodeService();
         });
     }
 
@@ -211,6 +217,17 @@ class AmberServiceProvider
             return new IntergroupMeetingAttendanceDashboard(
                 $c->get(IntergroupMeetingGroupAttendanceRepository::class),
                 $c->get(IntergroupMeetingOfficerAttendanceRepository::class)
+            );
+        });
+
+        $container->register(ReportsAdmin::class, function (ContainerInterface $c) {
+            return new ReportsAdmin(
+                $c->get(IntergroupMeetingGroupAttendanceRepository::class),
+                $c->get(IntergroupMeetingOfficerAttendanceRepository::class),
+                $c->get(PositionRepository::class),
+                $c->get(PositionViewFactory::class),
+                $c->get(GroupRepository::class),
+                $c->get(GroupViewFactory::class)
             );
         });
 

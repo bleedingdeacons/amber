@@ -6,14 +6,16 @@ use Amber\Utils\HtmlHelper;
 use DateTime;
 use DateTimeZone;
 use Throwable;
-use function Confur\Shortcodes\esc_attr;
-use function Confur\Shortcodes\shortcode_atts;
-use function Confur\Shortcodes\wp_timezone;
 
 /**
  * General purpose shortcodes
+ *
+ * Both Amber and Confur ship this class. The guard below ensures
+ * we don't re-declare the Amber\Shortcodes\GeneralShortcodes class
+ * if (somehow) this file is included twice. The two plugins' copies
+ * live in different namespaces so they never collide with each other.
  */
-if (!class_exists('GeneralShortcodes')) {
+if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
     class GeneralShortcodes
     {
         /**
