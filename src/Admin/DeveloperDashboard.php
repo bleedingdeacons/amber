@@ -62,9 +62,17 @@ class DeveloperDashboard
      *
      * Visible only to users with the manage_options capability (Administrators).
      * An additional explicit role check is enforced when handling actions.
+     *
+     * Hidden entirely when the PRODUCTION constant is true. PRODUCTION
+     * defaults to true when not defined, so the submenu is only shown
+     * when wp-config.php explicitly sets `define('PRODUCTION', false);`.
      */
     public function registerSubmenuPage(): void
     {
+        if (!defined('PRODUCTION') || PRODUCTION) {
+            return;
+        }
+
         add_submenu_page(
             'intergroup',
             'Developer',
