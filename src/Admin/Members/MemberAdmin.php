@@ -111,6 +111,7 @@ class MemberAdmin
                 $newColumns['rotation_date'] = 'Rotation Date';
                 $newColumns['gsr_status'] = 'Is GSR?';
                 $newColumns['homegroup'] = 'Homegroup';
+                $newColumns['twelfth'] = 'Twelfth';
             } else {
                 $newColumns[$key] = $value;
             }
@@ -187,6 +188,11 @@ class MemberAdmin
                     echo '<span style="color: gray;">N/A</span>';
                 }
 
+                break;
+
+            case 'twelfth':
+                $isTwelfthStepper = $member->isTwelfthStepper();
+                echo $isTwelfthStepper ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
                 break;
         }
     }
