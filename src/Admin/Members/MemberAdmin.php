@@ -112,6 +112,7 @@ class MemberAdmin
                 $newColumns['gsr_status'] = 'Is GSR?';
                 $newColumns['homegroup'] = 'Homegroup';
                 $newColumns['twelfth'] = 'Twelfth';
+                $newColumns['responder'] = 'Responder';
             } else {
                 $newColumns[$key] = $value;
             }
@@ -193,6 +194,11 @@ class MemberAdmin
             case 'twelfth':
                 $isTwelfthStepper = $member->isTwelfthStepper();
                 echo $isTwelfthStepper ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
+                break;
+
+            case 'responder':
+                $isTelephoneResponder = $member->isTelephoneResponder();
+                echo $isTelephoneResponder ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
                 break;
         }
     }
