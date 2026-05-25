@@ -28,6 +28,7 @@ use Amber\Managers\MeetingReconciler;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Services\ShortcodeService;
+use Amber\Shortcodes\TodaysMeetingsShortcode;
 use Psr\Container\ContainerInterface;
 use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Core\Interfaces\Configuration;
@@ -97,6 +98,12 @@ class AmberServiceProvider
 
         $container->register(ShortcodeService::class, function (ContainerInterface $c) {
             return new ShortcodeService();
+        });
+
+        $container->register(TodaysMeetingsShortcode::class, function (ContainerInterface $c) {
+            return new TodaysMeetingsShortcode(
+                $c->get(MeetingRepository::class)
+            );
         });
     }
 
