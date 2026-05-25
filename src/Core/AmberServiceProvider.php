@@ -23,6 +23,7 @@ use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
+use Amber\Managers\FrontPageManager;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\MeetingReconciler;
 use Amber\Managers\PositionShortcodeRenderer;
@@ -100,8 +101,8 @@ class AmberServiceProvider
             return new ShortcodeService();
         });
 
-        $container->register(TodaysMeetingsShortcode::class, function (ContainerInterface $c) {
-            return new TodaysMeetingsShortcode(
+        $container->register(FrontPageManager::class, function (ContainerInterface $c) {
+            return new FrontPageManager(
                 $c->get(MeetingRepository::class)
             );
         });

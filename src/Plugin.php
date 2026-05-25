@@ -24,6 +24,7 @@ use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Core\AmberServiceProvider;
 use Amber\Core\MenuRegistrar;
+use Amber\Managers\FrontPageManager;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Services\ShortcodeService;
@@ -86,6 +87,10 @@ class Plugin
         // Initialize IntergroupManager (hooks and meta updates)
         self::$container->get(IntergroupManager::class);
 
+        // Initialize FrontPageManager (hooks and meta updates)
+        self::$container->get(FrontPageManager::class);
+
+
         // Initialize shortcode renderer (always needed for front-end shortcodes)
         self::$container->get(PositionShortcodeRenderer::class);
 
@@ -95,12 +100,6 @@ class Plugin
         // same implementation so behaviour is identical either way.
         $shortcodeService = self::$container->get(ShortcodeService::class);
         add_action('init', [$shortcodeService, 'registerShortcodes']);
-
-        // Register the [todays_meetings] shortcode (migrated from Trumpet).
-        // Also guarded by shortcode_exists so an old Trumpet install still
-        // running alongside Amber during a transition will not double-register.
-        $todaysMeetings = self::$container->get(TodaysMeetingsShortcode::class);
-        add_action('init', [$todaysMeetings, 'register']);
 
         // Initialize admin services
         if (is_admin()) {
