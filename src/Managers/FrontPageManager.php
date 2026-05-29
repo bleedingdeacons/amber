@@ -85,8 +85,8 @@ class FrontPageManager
      * Render the attendance option cell for a meeting.
      *
      * Online meetings display the word "Online". In-person meetings display the
-     * location name linked to its permalink when available; meetings with no
-     * resolvable location render an empty string.
+     * location name as plain text; meetings with no resolvable location render
+     * an empty string.
      *
      * @param Meeting $meeting Meeting to render attendance for.
      * @return string HTML fragment (safe to embed; values are escaped).
@@ -102,17 +102,6 @@ class FrontPageManager
             return '';
         }
 
-        $name = $location->getName();
-        $link = $location->getLink();
-
-        if ($link !== '') {
-            return sprintf(
-                '<a href="%s">%s</a>',
-                esc_url($link),
-                esc_html($name)
-            );
-        }
-
-        return esc_html($name);
+        return esc_html($location->getName());
     }
 }
