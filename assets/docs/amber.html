@@ -297,6 +297,53 @@
             color: var(--danger); font-size: 12px; margin-top: 4px;
         }
 
+        /* ── ACF form mockup (member record groups & fields) ── */
+        .screen-mock .acf-groups { display: flex; flex-direction: column; gap: 16px; }
+        .screen-mock .acf-group {
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 14px 16px; background: #FCFCFB;
+        }
+        .screen-mock .acf-group-head {
+            font-size: 14px; font-weight: 700; color: var(--accent-dark);
+            padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
+        }
+        .screen-mock .acf-fields { display: flex; flex-wrap: wrap; align-items: flex-start; }
+        .screen-mock .acf-field { box-sizing: border-box; padding-right: 16px; margin-bottom: 12px; }
+        .screen-mock .acf-field:last-child { margin-bottom: 0; }
+        .screen-mock .acf-label {
+            display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px;
+        }
+        .screen-mock .acf-req { color: var(--danger); }
+        .screen-mock .acf-lock { font-size: 10px; }
+        .screen-mock .acf-ctrl { display: inline-block; font-size: 12px; vertical-align: middle; }
+        .screen-mock .acf-text, .screen-mock .acf-select {
+            background: #fff; border: 1px solid #8c8f94; border-radius: 4px;
+            padding: 3px 8px; color: var(--text-secondary); width: 100%; box-sizing: border-box;
+        }
+        .screen-mock .acf-select::after { content: ' \25BE'; }
+        .screen-mock .acf-area {
+            display: block; background: #fff; border: 1px solid #8c8f94;
+            border-radius: 4px; height: 30px; width: 100%;
+        }
+        .screen-mock .acf-toggle {
+            display: inline-block; width: 34px; height: 18px; border-radius: 10px;
+            background: #c3c4c7; position: relative;
+        }
+        .screen-mock .acf-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 14px; height: 14px; border-radius: 50%; background: #fff;
+        }
+        .screen-mock .acf-toggle.on { background: var(--success); }
+        .screen-mock .acf-toggle.on::after { left: auto; right: 2px; }
+        .screen-mock .acf-checks { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+        .screen-mock .acf-checks .chk {
+            font-size: 11px; padding: 2px 8px; border: 1px solid #8c8f94;
+            border-radius: 12px; color: var(--text-secondary); background: #fff;
+        }
+        .screen-mock .acf-checks .chk.on {
+            background: var(--success-bg); border-color: var(--success); color: var(--success);
+        }
+
         /* ── Overlay ── */
         .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 80; }
 
@@ -314,6 +361,10 @@
                the white work area beside it, the way the real admin looks. */
             .screen-mock.wp-mock .mock-body { flex-direction: row; }
             .screen-mock.wp-mock .mock-sidebar { width: 150px; border-right: none; border-bottom: none; }
+            .screen-mock.wp-mock .mock-content { background: #fff; }
+        }
+        @media (max-width: 600px) {
+            .screen-mock .acf-field { width: 100% !important; padding-right: 0; }
         }
         @media print {
             .site-header, .sidebar, .hamburger, .overlay { display: none !important; }
@@ -615,6 +666,71 @@
         <div class="callout purple">
             <span class="callout-icon">🔒</span>
             <div><strong>Anonymous names only.</strong> Members are stored using their AA service name — not their legal name. Every anonymous name must be unique across all members. The system checks this in real time as you type.</div>
+        </div>
+
+        <p>The member record is an <strong>Advanced Custom Fields</strong> form organised into four field
+        groups — <strong>About</strong>, <strong>Home</strong>, <strong>Service</strong> and
+        <strong>GDPR Compliance</strong>. A <span class="acf-toggle on" style="vertical-align:middle"></span>
+        switch is a yes/no toggle, and <span class="acf-req">*</span> marks a required field:</p>
+
+        <div class="screen-mock">
+            <div class="mock-bar">
+                <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                <div class="url">https://aa-bristol.org/wp-admin/post.php?post=123&amp;action=edit</div>
+            </div>
+            <div class="mock-content">
+                <div class="mock-title">Edit Member — Sarah T.</div>
+                <div class="acf-groups">
+                    <div class="acf-group">
+                        <div class="acf-group-head">About</div>
+                        <div class="acf-fields">
+                            <div class="acf-field" style="width:35%"><span class="acf-label">Anonymous Name <span class="acf-req">*</span></span><span class="acf-ctrl acf-text">Sarah T.</span></div>
+                            <div class="acf-field" style="width:40%"><span class="acf-label">Display Anonymous Name</span><span class="acf-ctrl acf-toggle on"></span></div>
+                            <div class="acf-field" style="width:50%"><span class="acf-label">Personal Email <span class="acf-lock">🔒</span></span><span class="acf-ctrl acf-text">sarah@…</span></div>
+                            <div class="acf-field" style="width:50%"><span class="acf-label">Mobile Number <span class="acf-lock">🔒</span></span><span class="acf-ctrl acf-text">07700 900123</span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Show Member Profile</span><span class="acf-ctrl acf-toggle"></span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Anonymous Profile</span><span class="acf-ctrl acf-area"></span></div>
+                        </div>
+                    </div>
+                    <div class="acf-group">
+                        <div class="acf-group-head">Home</div>
+                        <div class="acf-fields">
+                            <div class="acf-field" style="width:60%"><span class="acf-label">Home Group</span><span class="acf-ctrl acf-select">Clifton Vale</span></div>
+                            <div class="acf-field" style="width:25%"><span class="acf-label">Is GSR?</span><span class="acf-ctrl acf-toggle"></span></div>
+                            <div class="acf-field" style="width:25%"><span class="acf-label">Is Twelfth Stepper?</span><span class="acf-ctrl acf-toggle on"></span></div>
+                            <div class="acf-field" style="width:45%"><span class="acf-label">Areas <span class="acf-req">*</span></span><span class="acf-ctrl acf-text">BS15|Kingswood</span></div>
+                            <div class="acf-field" style="width:25%"><span class="acf-label">Accepts <span class="acf-req">*</span></span><span class="acf-ctrl acf-checks"><span class="chk on">Male</span><span class="chk">Female</span><span class="chk">Non-Binary</span></span></div>
+                        </div>
+                    </div>
+                    <div class="acf-group">
+                        <div class="acf-group-head">Service</div>
+                        <div class="acf-fields">
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Telephone Responder</span><span class="acf-ctrl acf-toggle on"></span></div>
+                            <div class="acf-field" style="width:60%"><span class="acf-label">Intergroup Position</span><span class="acf-ctrl acf-select">— Select —</span></div>
+                            <div class="acf-field" style="width:20%"><span class="acf-label">Position Rotates On <span class="acf-req">*</span></span><span class="acf-ctrl acf-text">dd/mm/yyyy</span></div>
+                        </div>
+                    </div>
+                    <div class="acf-group">
+                        <div class="acf-group-head">GDPR Compliance</div>
+                        <div class="acf-fields">
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Accepted</span><span class="acf-ctrl acf-toggle on"></span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Accepted At</span><span class="acf-ctrl acf-text">12/01/2026 9:30 am</span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Policy Version</span><span class="acf-ctrl acf-text">1.2</span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Acceptance Method</span><span class="acf-ctrl acf-text">web-form</span></div>
+                            <div class="acf-field" style="width:100%"><span class="acf-label">Statement</span><span class="acf-ctrl acf-area"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div><span class="acf-lock">🔒</span> fields (Personal Email, Mobile Number) are private and gated by
+            Scrutiny's personal-data capabilities. Some fields appear only once a related one is set — for
+            example <strong>Areas</strong> and <strong>Accepts</strong> show only when
+            <strong>Is Twelfth Stepper?</strong> is on, and <strong>Position Rotates On</strong> only after an
+            <strong>Intergroup Position</strong> is chosen.</div>
         </div>
 
         <ol class="steps">
