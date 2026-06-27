@@ -329,7 +329,7 @@ if (!defined('ABSPATH')) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 </button>
                 <a href="#" class="logo">
-                    <span>🟠</span> Amber <span>Admin Guide</span>
+                    <span>Intergroup Admin</span>
                 </a>
                 <span class="version">v1.9.10 · Bristol &amp; District Intergroup</span>
             </header>
@@ -358,6 +358,8 @@ if (!defined('ABSPATH')) {
                         <a href="#ahp-member-edit" class="nav-link">Editing a Member</a>
                         <a href="#ahp-member-contacts" class="nav-link">Updating Contacts</a>
                         <a href="#ahp-member-gsr" class="nav-link">Setting GSR Status</a>
+                        <a href="#ahp-member-responder" class="nav-link">Telephone Responder</a>
+                        <a href="#ahp-member-12th" class="nav-link">12th Stepper</a>
                     </div>
                     <div class="nav-section">
                         <div class="nav-section-title">Positions</div>
@@ -383,12 +385,11 @@ if (!defined('ABSPATH')) {
                 <main class="ahp-main">
 
                     <section id="ahp-overview">
-                        <h1><span class="emoji">🟠</span> Amber Admin Guide</h1>
+                        <h1>Intergroup Admin</h1>
                         <p class="subtitle">Step-by-step directions for every task in the WordPress admin — managing intergroup meetings, members, positions, groups, and the public directory.</p>
                         <div class="card">
-                            <h3>What Amber adds to WordPress</h3>
-                            <p>Amber installs a top-level <strong>Intergroup</strong> menu in the WordPress admin sidebar and adds three dashboard widgets. Everything you need to run Bristol &amp; District Intergroup is in that menu — positions, members, group meetings, and intergroup business meeting records.</p>
-                            <p style="margin-bottom:0;">Changes made through the admin update the public-facing website automatically. There is no separate publishing step when updating an officer or fixing a meeting time.</p>
+                            <h3>What is Amber?</h3>
+                            <p style="margin-bottom:0;">Everything you need to run Bristol &amp; District Intergroup positions, members, group meetings, and intergroup business meeting records.</p>
                         </div>
                         <div class="callout warning">
                             <span class="callout-icon">⚠️</span>
@@ -581,6 +582,51 @@ if (!defined('ABSPATH')) {
                             <li>Click <strong>Update</strong>.</li>
                         </ol>
                         <p>After saving, the GSR's name will appear in brackets next to their home group when you next open an intergroup meeting record. If there is an intergroup meeting today, the attendance record is updated immediately.</p>
+                    </section>
+
+                    <section id="ahp-member-responder">
+                        <h2>Setting up a Telephone Responder</h2>
+                        <div class="path"><span class="crumb">Intergroup</span><span class="sep">›</span><span class="crumb final">Members</span><span class="sep">›</span><span class="crumb final">[Member name]</span></div>
+                        <p>A <strong>telephone responder</strong> takes inbound calls to the intergroup helpline. This is a single toggle in the member's <strong>Service</strong> field group and is independent of their 12th-step status — a member can be a responder, a 12th stepper, both, or neither.</p>
+                        <div class="callout warning"><span class="callout-icon">⚠️</span><div><strong>Check contact details first.</strong> A responder is only useful if they can be reached. Before turning the toggle on, make sure the member's <strong>Mobile Number</strong> and <strong>Personal Email</strong> are set (see <a href="#ahp-member-contacts">Updating Contacts</a>).</div></div>
+                        <ol class="steps">
+                            <li>Open the member record (see <a href="#ahp-member-edit">Editing a Member</a>).</li>
+                            <li>Confirm the <strong>Mobile Number</strong> and <strong>Personal Email</strong> are filled in — these are how the helpline rota will reach them.</li>
+                            <li>In the <strong>Service</strong> group, switch <strong>Telephone Responder</strong> on.</li>
+                            <li>Click <strong>Update</strong>.</li>
+                        </ol>
+                        <table class="field-table">
+                            <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+                            <tbody>
+                            <tr><td><span class="field-name">Telephone responder</span></td><td>Toggle on to mark the member as available to take inbound helpline calls. No other fields are required.</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info"><span class="callout-icon">💡</span><div>A telephone responder is <em>not</em> the same as a 12th stepper. A responder handles inbound helpline calls; a 12th stepper is available to go out and meet a newcomer. The two toggles are separate — set whichever roles apply. See <a href="#ahp-member-12th">Setting up a 12th Stepper</a>.</div></div>
+                    </section>
+
+                    <section id="ahp-member-12th">
+                        <h2>Setting up a 12th Stepper</h2>
+                        <div class="path"><span class="crumb">Intergroup</span><span class="sep">›</span><span class="crumb final">Members</span><span class="sep">›</span><span class="crumb final">[Member name]</span></div>
+                        <p>A <strong>12th stepper</strong> is a member willing to take a 12th-step call — going out to meet a newcomer in their area. Marking a member as a 12th stepper reveals two extra fields in the <strong>Home</strong> group that say <em>where</em> they can cover and <em>who</em> they will see.</p>
+                        <div class="callout warning"><span class="callout-icon">⚠️</span><div><strong>Set the Home Group first.</strong> The <strong>Is Twelfth Stepper?</strong> toggle only appears once a <strong>Home Group</strong> has been selected — the same as the <strong>Is GSR?</strong> toggle beside it. If you cannot see the toggle, pick a home group and the field will appear.</div></div>
+                        <ol class="steps">
+                            <li>Open the member record (see <a href="#ahp-member-edit">Editing a Member</a>).</li>
+                            <li>In the <strong>Home</strong> group, make sure a <strong>Home Group</strong> is selected so the toggle is shown.</li>
+                            <li>Switch <strong>Is Twelfth Stepper?</strong> on. Two more fields appear below it — <strong>Areas</strong> and <strong>Accepts</strong>.</li>
+                            <li>In <strong>Areas</strong>, enter the areas the member can cover. The format is postcode and place name separated by a pipe, e.g. <code>BS15|Kingswood</code>. List several by repeating the pattern.</li>
+                            <li>Under <strong>Accepts</strong>, tick which callers the member is willing to see — <strong>Male</strong>, <strong>Female</strong>, and/or <strong>Non-Binary</strong>.</li>
+                            <li>Confirm the <strong>Mobile Number</strong> and <strong>Personal Email</strong> are filled in so the member can be contacted for a call.</li>
+                            <li>Click <strong>Update</strong>.</li>
+                        </ol>
+                        <table class="field-table">
+                            <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+                            <tbody>
+                            <tr><td><span class="field-name">Is twelfth stepper?</span></td><td>Toggle on to mark the member as available for 12th-step calls. Appears only once a <strong>Home Group</strong> is set.</td></tr>
+                            <tr><td><span class="field-name">Areas</span><span class="req">*</span></td><td>The areas the member can cover for a call. Postcode and place name separated by a pipe, e.g. <code>BS15|Kingswood</code>. Shown only when <em>Is Twelfth Stepper?</em> is on.</td></tr>
+                            <tr><td><span class="field-name">Accepts</span><span class="req">*</span></td><td>The callers the member will see — any combination of <em>Male</em>, <em>Female</em>, and <em>Non-Binary</em>. Shown only when <em>Is Twelfth Stepper?</em> is on.</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout info"><span class="callout-icon">💡</span><div>A member can be both a 12th stepper and a telephone responder, or one without the other. The 12th-stepper fields drive who is offered to a newcomer based on area and the callers they accept, so keep <strong>Areas</strong> and <strong>Accepts</strong> accurate.</div></div>
                     </section>
 
                     <section id="ahp-position-create">

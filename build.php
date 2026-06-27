@@ -242,6 +242,9 @@ class PluginBuilder
         // Stamp the build date into the main plugin header
         $this->syncBuildDate();
 
+        // Stamp the plugin version into the bundled HTML docs
+        $this->syncDocsVersion();
+
         // Create ZIP archive
         $this->createZip($archiveName, $excludes);
 
@@ -473,6 +476,54 @@ class PluginBuilder
             $this->log("Updated README.md version to {$this->version}");
         } else {
             $this->log("No **Version:** line found in README.md — skipping version sync");
+        }
+    }
+
+    /**
+     * Update the version chip in the bundled HTML documentation.
+     *
+     * Replaces the version token inside <span class="version">…</span> with the
+     * current plugin version (prefixed with "v"), leaving any trailing text —
+     * such as " · Bristol & District Intergroup" — untouched. Applies to both
+     * the standalone guide (assets/docs/amber.html) and the in-admin help page
+     * (templates/help-page.php).
+     */
+    private function syncDocsVersion(): void
+    {
+        $docs = [
+            'assets' . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'amber.html',
+            'templates' . DIRECTORY_SEPARATOR . 'help-page.php',
+        ];
+
+        foreach ($docs as $relative) {
+            $docFile = $this->pluginDir . DIRECTORY_SEPARATOR . $relative;
+            if (!file_exists($docFile)) {
+                $this->log("No {$relative} found — skipping doc version sync");
+                continue;
+            }
+
+            $content = file_get_contents($docFile);
+            if ($content === false) {
+                $this->error("Failed to read {$relative}");
+                continue;
+            }
+
+            // Match the version token immediately after the opening span tag,
+            // preserving the rest of the chip (e.g. " · Bristol & District…").
+            $updated = preg_replace(
+                '/(<span class="version">\s*)v?[0-9][\w.\-]*/',
+                '${1}v' . $this->version,
+                $content,
+                1,
+                $count
+            );
+
+            if ($count > 0 && $updated !== null) {
+                file_put_contents($docFile, $updated);
+                $this->log("Updated {$relative} version to v{$this->version}");
+            } else {
+                $this->log("No version chip found in {$relative} — skipping doc version sync");
+            }
         }
     }
 
