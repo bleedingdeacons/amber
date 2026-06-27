@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amber — Admin UI Guide</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="/wp-includes/css/dashicons.min.css" rel="stylesheet">
     <style>
         :root {
             --bg: #FAFAF8;
@@ -235,29 +236,38 @@
         .screen-mock .mock-body {
             display: flex; min-height: 200px;
         }
+        /* WordPress-style dark admin menu. */
         .screen-mock .mock-sidebar {
-            width: 180px; background: #F8F8F8; border-right: 1px solid var(--border);
-            padding: 16px 0; flex-shrink: 0;
+            width: 184px; background: #1d2327; padding: 0; flex-shrink: 0;
+            font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
         }
         .screen-mock .mock-sidebar .mock-menu-item {
-            padding: 6px 16px; font-size: 13px; color: var(--text-secondary);
-            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; font-size: 13px; color: #f0f0f1;
+            display: flex; align-items: center; gap: 9px; line-height: 1.3;
         }
+        .screen-mock .mock-sidebar .mock-menu-item .mock-ico {
+            font-size: 17px; width: 18px; height: 18px; color: #a7aaad; flex-shrink: 0;
+        }
+        .screen-mock .mock-sidebar .mock-menu-item.active .mock-ico,
+        .screen-mock .mock-sidebar .mock-menu-item.parent .mock-ico { color: #fff; }
+        /* Highlighted (current) top-level item — WP blue. */
         .screen-mock .mock-sidebar .mock-menu-item.active {
-            background: var(--accent-bg); color: var(--accent-dark); font-weight: 600;
-            border-left: 3px solid var(--accent);
+            background: #2271b1; color: #fff; font-weight: 400;
         }
+        /* The open parent whose submenu is showing — darker panel, white text. */
         .screen-mock .mock-sidebar .mock-menu-item.parent {
-            font-weight: 600; color: var(--text); font-size: 13px;
+            background: #2c3338; color: #fff; font-weight: 600;
         }
+        .screen-mock .mock-sidebar .mock-submenu { background: #2c3338; padding: 4px 0 6px; }
         .screen-mock .mock-sidebar .mock-sub-item {
-            padding: 5px 16px 5px 32px; font-size: 12px; color: var(--text-secondary);
+            padding: 5px 12px 5px 37px; font-size: 12px; color: #c3c4c7;
         }
-        .screen-mock .mock-sidebar .mock-sub-item.active {
-            color: var(--accent-dark); font-weight: 500;
+        .screen-mock .mock-sidebar .mock-sub-item.active { color: #72aee6; font-weight: 600; }
+        .screen-mock .mock-sidebar .mock-menu-sep {
+            height: 0; border-top: 1px solid #3c434a; margin: 6px 0;
         }
         .screen-mock .mock-content {
-            flex: 1; padding: 20px 24px;
+            flex: 1; padding: 20px 24px; background: #fff;
         }
         .screen-mock .mock-content .mock-title {
             font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--text);
@@ -300,6 +310,10 @@
             h1 { font-size: 28px; } h2 { font-size: 20px; }
             .screen-mock .mock-body { flex-direction: column; }
             .screen-mock .mock-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            /* The WordPress admin mock stays side-by-side: a dark menu column with
+               the white work area beside it, the way the real admin looks. */
+            .screen-mock.wp-mock .mock-body { flex-direction: row; }
+            .screen-mock.wp-mock .mock-sidebar { width: 150px; border-right: none; border-bottom: none; }
         }
         @media print {
             .site-header, .sidebar, .hamburger, .overlay { display: none !important; }
@@ -407,22 +421,29 @@
         <h2>Menu Structure</h2>
         <p>The <strong>Intergroup</strong> top-level menu contains four sub-pages:</p>
 
-        <div class="screen-mock">
+        <div class="screen-mock wp-mock">
             <div class="mock-bar">
                 <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
                 <div class="url">https://aa-bristol.org/wp-admin/</div>
             </div>
             <div class="mock-body">
                 <div class="mock-sidebar">
-                    <div class="mock-menu-item" style="margin-bottom:4px;">🏠 Dashboard</div>
-                    <div class="mock-menu-item parent">🟠 Intergroup</div>
-                    <div class="mock-sub-item active">Positions</div>
-                    <div class="mock-sub-item">Members</div>
-                    <div class="mock-sub-item">Groups / Meetings</div>
-                    <div class="mock-sub-item">Intergroup Meetings</div>
-                    <div class="mock-sub-item">Attendance</div>
-                    <div class="mock-menu-item" style="margin-top:8px;">📝 Posts</div>
-                    <div class="mock-menu-item">📄 Pages</div>
+                    <div class="mock-menu-item"><span class="mock-ico dashicons dashicons-dashboard"></span> Dashboard</div>
+                    <div class="mock-menu-item"><span class="mock-ico dashicons dashicons-admin-post"></span> Posts</div>
+                    <div class="mock-menu-item"><span class="mock-ico dashicons dashicons-admin-page"></span> Pages</div>
+                    <div class="mock-menu-sep"></div>
+                    <div class="mock-menu-item parent"><span class="mock-ico dashicons dashicons-admin-multisite"></span> Intergroup</div>
+                    <div class="mock-submenu">
+                        <div class="mock-sub-item active">Positions</div>
+                        <div class="mock-sub-item">Members</div>
+                        <div class="mock-sub-item">Groups / Meetings</div>
+                        <div class="mock-sub-item">Intergroup Meetings</div>
+                        <div class="mock-sub-item">Attendance</div>
+                        <div class="mock-sub-item">Help</div>
+                    </div>
+                    <div class="mock-menu-sep"></div>
+                    <div class="mock-menu-item"><span class="mock-ico dashicons dashicons-admin-plugins"></span> Plugins</div>
+                    <div class="mock-menu-item"><span class="mock-ico dashicons dashicons-admin-settings"></span> Settings</div>
                 </div>
                 <div class="mock-content">
                     <div class="mock-title">Positions</div>
