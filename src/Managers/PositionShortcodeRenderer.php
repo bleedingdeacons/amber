@@ -30,6 +30,8 @@ use function wp_kses_post;
  *  - [position_header]  — title, sobriety, term, email link
  *  - [directory_list]   — full directory table
  *  - [position_summary] — rich-text summary field
+ *  - [vacant_positions] — list of vacant positions, each linking to its
+ *                         description page
  */
 class PositionShortcodeRenderer
 {
@@ -48,6 +50,7 @@ class PositionShortcodeRenderer
         add_shortcode('position_header', [$this, 'renderPositionHeader']);
         add_shortcode('directory_list', [$this, 'renderDirectoryTable']);
         add_shortcode('position_summary', [$this, 'renderPositionSummary']);
+        add_shortcode('vacant_positions', [$this, 'renderVacantPositions']);
     }
 
     // -----------------------------------------------------------------------
@@ -214,6 +217,43 @@ class PositionShortcodeRenderer
         } catch (Exception $ex) {
             \Amber\Plugin::logError('Error in renderPositionSummary: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
             return '<div>Error loading position summary.</div>';
+        }
+    }
+
+    /**
+     * [vacant_positions]
+     *
+     * Lists every currently vacant position, with the position name linked
+     * to that position's description page.
+     */
+    public function renderVacantPositions(array $atts = [], ?string $content = null): string
+    {
+        try {
+            $items = '';
+
+            foreach ($this->positionViewFactory->createAll() as $view) {
+                if (!$view->isVacant()) {
+                    continue;
+                }
+
+                $name = $view->getDescription();
+                if ($name === null || $name === '') {
+                    $name = $view->getPosition()->getLongName();
+                }
+
+                $link = $view->getPosition()->getLink();
+
+                $items .= '<li><a class="link-button" href="' . esc_url($link) . '">' . esc_html($name) . '</a></li>';
+            }
+
+            if ($items === '') {
+                return '<p class="vacant-positions vacant-positions--none">There are currently no vacant positions.</p>';
+            }
+
+            return '<ul class="vacant-positions">' . $items . '</ul>';
+        } catch (Exception $ex) {
+            \Amber\Plugin::logError('Error in renderVacantPositions: ' . $ex->getMessage(), ['exception' => $ex->getMessage(), 'trace' => $ex->getTraceAsString()]);
+            return '<p>Error building vacant positions list.</p>';
         }
     }
 
