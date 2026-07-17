@@ -44,8 +44,8 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceReposito
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceFactory;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 use Unity\Meetings\Interfaces\MeetingRepository;
-use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\Interfaces\MemberRevisor;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\PositionViewFactory;
@@ -242,7 +242,7 @@ class AmberServiceProvider
         $container->register(DeveloperDashboard::class, function (ContainerInterface $c) {
             return new DeveloperDashboard(
                 $c->get(MemberRepository::class),
-                $c->get(MemberFactory::class)
+                $c->get(MemberRevisor::class)
             );
         });
     }

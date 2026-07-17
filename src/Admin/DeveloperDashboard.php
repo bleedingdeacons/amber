@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 use TsmlForUnity\IntergroupMeetings\TsmlIntergroupMeetingGroupAttendanceTable;
 use TsmlForUnity\IntergroupMeetings\TsmlIntergroupMeetingOfficerAttendanceTable;
 use Unity\Members\Interfaces\Member;
-use Unity\Members\Interfaces\MemberFactory;
+use Unity\Members\Interfaces\MemberRevisor;
 use Unity\Members\Interfaces\MemberRepository;
 
 use function add_action;
@@ -45,12 +45,12 @@ class DeveloperDashboard
     private const NONCE_FIELD = '_amber_developer_nonce';
 
     private MemberRepository $memberRepository;
-    private MemberFactory $memberFactory;
+    private MemberRevisor $memberRevisor;
 
-    public function __construct(MemberRepository $memberRepository, MemberFactory $memberFactory)
+    public function __construct(MemberRepository $memberRepository, MemberRevisor $memberRevisor)
     {
         $this->memberRepository = $memberRepository;
-        $this->memberFactory = $memberFactory;
+        $this->memberRevisor = $memberRevisor;
 
         add_action('admin_menu', [$this, 'registerSubmenuPage']);
         add_action('admin_init', [$this, 'handleActions']);
@@ -367,38 +367,17 @@ class DeveloperDashboard
                 continue;
             }
 
-            // Named arguments throughout: createNew() has 21 optional
-            // parameters, so a positional call silently rebinds every
-            // argument after any parameter that is later inserted into
-            // the middle of the signature.
-            $cleaned = $this->memberFactory->createNew(
-                id: $member->getId(),
-                anonymousName: $member->getAnonymousName(),
-                showAnonymousName: $member->showAnonymousName(),
-                showMemberProfile: $member->showMemberProfile(),
-                anonymousProfile: $member->getAnonymousProfile(),
-                intergroupPosition: $member->getIntergroupPosition(),
-                intergroupPositionRotation: $member->getIntergroupPositionRotation(),
-                homeGroup: $member->getHomeGroup(),
-                isGSR: $member->isGSR(),
-                meetingPO: $member->getMeetingPO(),
-                personalEmail: $member->getPersonalEmail(),
-                mobileNumber: $member->getMobileNumber(),
-                twelfthStepper: $member->isTwelfthStepper(),
-                telephoneResponder: $member->isTelephoneResponder(),
-                area: $member->getArea(),
-                accepts: $member->getAccepts(),
-                // Every parameter above is copied across; only the GDPR
-                // block below is reset. Omitting a parameter here would
-                // not preserve it — createNew() would substitute its own
-                // default, and updateFields() writes every field
-                // unconditionally, so the omission would persist as a delete.
+            // Only the GDPR block is named, so only the GDPR block changes.
+            // Every other field is carried over by revise() — there is
+            // nothing to restate, and therefore nothing to drop by
+            // forgetting to restate it.
+            $cleaned = $this->memberRevisor->revise(
+                $member,
                 gdprAccepted: false,
                 gdprAcceptedAt: '',
                 gdprAcceptanceVersion: '',
                 gdprAcceptanceMethod: '',
-                gdprAcceptanceStatement: '',
-                updated: $member->getUpdated()
+                gdprAcceptanceStatement: ''
             );
 
             if ($this->memberRepository->save($cleaned)) {
