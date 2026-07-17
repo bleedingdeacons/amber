@@ -367,24 +367,38 @@ class DeveloperDashboard
                 continue;
             }
 
+            // Named arguments throughout: createNew() has 21 optional
+            // parameters, so a positional call silently rebinds every
+            // argument after any parameter that is later inserted into
+            // the middle of the signature.
             $cleaned = $this->memberFactory->createNew(
-                $member->getId(),
-                $member->getAnonymousName(),
-                $member->showAnonymousName(),
-                $member->showMemberProfile(),
-                $member->getAnonymousProfile(),
-                $member->getIntergroupPosition(),
-                $member->getIntergroupPositionRotation(),
-                $member->getHomeGroup(),
-                $member->isGSR(),
-                $member->getMeetingPO(),
-                $member->getPersonalEmail(),
-                $member->getMobileNumber(),
-                false, // gdprAccepted
-                '',    // gdprAcceptedAt
-                '',    // gdprAcceptanceVersion
-                '',    // gdprAcceptanceMethod
-                ''     // gdprAcceptanceStatement
+                id: $member->getId(),
+                anonymousName: $member->getAnonymousName(),
+                showAnonymousName: $member->showAnonymousName(),
+                showMemberProfile: $member->showMemberProfile(),
+                anonymousProfile: $member->getAnonymousProfile(),
+                intergroupPosition: $member->getIntergroupPosition(),
+                intergroupPositionRotation: $member->getIntergroupPositionRotation(),
+                homeGroup: $member->getHomeGroup(),
+                isGSR: $member->isGSR(),
+                meetingPO: $member->getMeetingPO(),
+                personalEmail: $member->getPersonalEmail(),
+                mobileNumber: $member->getMobileNumber(),
+                twelfthStepper: $member->isTwelfthStepper(),
+                telephoneResponder: $member->isTelephoneResponder(),
+                area: $member->getArea(),
+                accepts: $member->getAccepts(),
+                // Every parameter above is copied across; only the GDPR
+                // block below is reset. Omitting a parameter here would
+                // not preserve it — createNew() would substitute its own
+                // default, and updateFields() writes every field
+                // unconditionally, so the omission would persist as a delete.
+                gdprAccepted: false,
+                gdprAcceptedAt: '',
+                gdprAcceptanceVersion: '',
+                gdprAcceptanceMethod: '',
+                gdprAcceptanceStatement: '',
+                updated: $member->getUpdated()
             );
 
             if ($this->memberRepository->save($cleaned)) {
