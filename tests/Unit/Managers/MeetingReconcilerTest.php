@@ -48,6 +48,11 @@ class MeetingReconcilerTest extends TestCase
         $meeting->shouldReceive('getTime')->andReturn($time);
         $meeting->shouldReceive('getEndTime')->andReturn($endTime);
         $meeting->shouldReceive('isOnline')->andReturn($online);
+        // extractLocalAddress() reads the location to build the string used for
+        // postcode extraction and fuzzy town matching. null is a valid Meeting
+        // location and the reconciler handles it, so these fixtures are
+        // location-less unless a test needs otherwise.
+        $meeting->shouldReceive('getLocation')->andReturn(null)->byDefault();
 
         return $meeting;
     }
@@ -100,7 +105,6 @@ class MeetingReconcilerTest extends TestCase
         // Use reflection to test the core matching algorithm directly.
         $reflection = new \ReflectionClass(MeetingReconciler::class);
         $method = $reflection->getMethod('nameSimilarity');
-        $method->setAccessible(true);
 
         $score = $method->invoke($this->reconciler, 'Serenity Group', 'Serenity Group');
 
@@ -196,7 +200,6 @@ class MeetingReconcilerTest extends TestCase
     {
         $method = (new \ReflectionClass(MeetingReconciler::class))
             ->getMethod('normaliseTime');
-        $method->setAccessible(true);
 
         $this->assertEquals('07:00', $method->invoke($this->reconciler, '7:00'));
         $this->assertEquals('19:30', $method->invoke($this->reconciler, '19:30'));
@@ -212,7 +215,6 @@ class MeetingReconcilerTest extends TestCase
     {
         $method = (new \ReflectionClass(MeetingReconciler::class))
             ->getMethod('normaliseDayFromMeeting');
-        $method->setAccessible(true);
 
         $meeting = $this->mockMeeting(1, 'Test', 0, '10:00'); // 0 = Sunday
 
@@ -227,22 +229,14 @@ class MeetingReconcilerTest extends TestCase
     public function reconcile_returns_correct_summary_structure_with_no_data(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
+
+        // An empty API response passes through GroupListing::collectionFromResponse
+        // as an empty collection, so no partial mock is needed to get an empty
+        // national list — stubbing the injected ApiCache is enough, and it
+        // exercises the real fetchNationalGroups().
         $this->apiCache->shouldReceive('getGroups')->andReturn([]);
 
-        // GroupListing::collectionFromResponse on empty array returns empty
-        // We need to handle this carefully — the reconciler calls
-        // GroupListing::collectionFromResponse which is a static method.
-        // For this test we verify the structure when both lists are empty.
-
-        // Use partial mock to bypass the API call
-        $reconciler = Mockery::mock(MeetingReconciler::class, [$this->meetingRepo, $this->apiCache])
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
-
-        // Mock fetchNationalGroups to return empty array
-        $reconciler->shouldReceive('fetchNationalGroups')->andReturn([]);
-
-        $result = $reconciler->reconcile();
+        $result = $this->reconciler->reconcile();
         $summary = $result->getSummary();
 
         $this->assertArrayHasKey('local_total', $summary);
@@ -264,13 +258,13 @@ class MeetingReconcilerTest extends TestCase
      */
     public function reconcile_result_has_all_list_accessors(): void
     {
-        $reconciler = Mockery::mock(MeetingReconciler::class, [$this->meetingRepo, $this->apiCache])
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
-        $reconciler->shouldReceive('fetchNationalGroups')->andReturn([]);
+        // Stub the injected ApiCache rather than partial-mocking the reconciler:
+        // an empty API response yields no national groups, and this exercises
+        // the real fetchNationalGroups() instead of replacing it.
+        $this->apiCache->shouldReceive('getGroups')->andReturn([]);
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
 
-        $result = $reconciler->reconcile();
+        $result = $this->reconciler->reconcile();
 
         $this->assertIsArray($result->getMatches());
         $this->assertIsArray($result->getPossibles());
@@ -292,13 +286,9 @@ class MeetingReconcilerTest extends TestCase
         ];
 
         $this->meetingRepo->shouldReceive('findAll')->andReturn($local);
+        $this->apiCache->shouldReceive('getGroups')->andReturn([]);
 
-        $reconciler = Mockery::mock(MeetingReconciler::class, [$this->meetingRepo, $this->apiCache])
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
-        $reconciler->shouldReceive('fetchNationalGroups')->andReturn([]);
-
-        $result = $reconciler->reconcile();
+        $result = $this->reconciler->reconcile();
 
         $this->assertCount(2, $result->getLocalOnly());
         $this->assertEmpty($result->getMatches());
@@ -343,7 +333,6 @@ class MeetingReconcilerTest extends TestCase
     {
         $method = (new \ReflectionClass(MeetingReconciler::class))
             ->getMethod('nameSimilarity');
-        $method->setAccessible(true);
 
         return $method->invoke($this->reconciler, $a, $b);
     }
