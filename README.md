@@ -1,11 +1,14 @@
 # Amber
 
+[![CI](https://github.com/bleedingdeacons/amber/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bleedingdeacons/amber/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-1.23.24-blue)
+![PHP](https://img.shields.io/badge/php-8.1%2B-777bb4)
+![Licence](https://img.shields.io/badge/licence-MIT%20(Modified)-green)
+
 **Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.**
 
 Amber provides the WordPress admin interface layer for the [Unity](https://github.com/bleeding-deacons/unity) intergroup management framework. It adds admin menus, dashboard widgets, column customisations, shortcodes, and data-validation hooks for managing members, positions, meetings, and intergroup meetings — all backed by Unity's service container and Scrutiny's audit logging.
 
-**Version:** 1.23.24
-**Requires:** WordPress 6.0+ · PHP 8.1+
 **Dependencies:** Unity, Scrutiny
 **License:** MIT (Modified — see [License](#license))
 **Author:** [The Bleeding Deacons](mailto:thebleedingdeacons@gmail.com)
