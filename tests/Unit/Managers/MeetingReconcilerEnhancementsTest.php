@@ -208,15 +208,24 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     /**
      * Build a Mockery GroupListing with the given fields.
      *
+     * postcode, address1 and meetingStatus are not promoted to getters on
+     * GroupListing — they live in the raw API payload behind getRawValue().
+     * This helper used to stub getPostcode()/getAddress1()/getMeetingStatus()
+     * instead, which Mockery is happy to invent even though the real class has
+     * no such methods. That is exactly what hid the fatal: the tests passed
+     * against methods that do not exist, while production died with "Call to
+     * undefined method" on any national match. Stub the real accessor so these
+     * fixtures cannot diverge from the class again.
+     *
      * @param array<string, string> $fields
      */
     private function stubListing(array $fields): GroupListing
     {
         $listing = Mockery::mock(GroupListing::class);
-        $listing->shouldReceive('getPostcode')->andReturn($fields['postcode'] ?? '');
         $listing->shouldReceive('getTown')->andReturn($fields['town'] ?? '');
-        $listing->shouldReceive('getAddress1')->andReturn($fields['address1'] ?? '');
-        $listing->shouldReceive('getMeetingStatus')->andReturn($fields['meetingStatus'] ?? '');
+        $listing->shouldReceive('getRawValue')
+            ->andReturnUsing(static fn (string $key, mixed $default = null): mixed => $fields[$key] ?? $default);
+
         return $listing;
     }
 }

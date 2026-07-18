@@ -60,7 +60,13 @@ class MeetingReconcilerTest extends TestCase
     /**
      * Create a mock national GroupListing.
      */
-    private function mockGroupListing(string $id, string $name, string $day, string $startTime, string $endTime = '', string $town = ''): GroupListing|Mockery\MockInterface
+    /**
+     * @param array<string, string> $rawFields Extra AAGBDB payload fields
+     *                                         (meetingStatus, postcode, address1)
+     *                                         which GroupListing exposes only
+     *                                         through getRawValue().
+     */
+    private function mockGroupListing(string $id, string $name, string $day, string $startTime, string $endTime = '', string $town = '', array $rawFields = []): GroupListing|Mockery\MockInterface
     {
         $listing = Mockery::mock(GroupListing::class);
         $listing->shouldReceive('getId')->andReturn($id);
@@ -69,6 +75,10 @@ class MeetingReconcilerTest extends TestCase
         $listing->shouldReceive('getStartTime')->andReturn($startTime);
         $listing->shouldReceive('getEndTime')->andReturn($endTime);
         $listing->shouldReceive('getTown')->andReturn($town);
+        // Status/postcode/address1 are not promoted to getters on GroupListing;
+        // the reconciler reads them out of the raw payload.
+        $listing->shouldReceive('getRawValue')
+            ->andReturnUsing(static fn (string $key, mixed $default = null): mixed => $rawFields[$key] ?? $default);
 
         return $listing;
     }
@@ -335,5 +345,81 @@ class MeetingReconcilerTest extends TestCase
             ->getMethod('nameSimilarity');
 
         return $method->invoke($this->reconciler, $a, $b);
+    }
+
+    // ── Match rows ─────────────────────────────────────────────────────
+
+    /**
+     * Drives reconcile() all the way to a confident match, which builds a
+     * result row from the national listing's status, postcode and address.
+     *
+     * Nothing covered that path before: every existing test supplied an empty
+     * national list, so reconcile() never reached the row builder. That gap is
+     * why the reconciler could call getMeetingStatus(), getPostcode() and
+     * getAddress1() — none of which exist on GroupListing — and still show a
+     * green suite, while any real reconcile that found a match died with
+     * "Call to undefined method".
+     *
+     * @test
+     */
+    public function a_confident_match_builds_a_row_from_the_national_listing(): void
+    {
+        $this->meetingRepo->shouldReceive('findAll')->andReturn([
+            $this->mockMeeting(1, 'Serenity Group', 1, '19:00', '20:00'),
+        ]);
+
+        $this->apiCache->shouldReceive('getGroups')->andReturn([
+            [
+                'id'            => 501,
+                'groupName'     => 'Serenity Group',
+                'day'           => 'monday',
+                'startTime'     => '19:00',
+                'endTime'       => '20:00',
+                'town'          => 'Bristol',
+                'meetingStatus' => 'Open',
+                'postcode'      => 'BS1 4DJ',
+                'address1'      => '1 Church Road',
+            ],
+        ]);
+
+        $result  = $this->reconciler->reconcile();
+        $matches = $result->getMatches();
+
+        $this->assertCount(1, $matches, 'The listing should match the local meeting.');
+
+        $row = $matches[0];
+        $this->assertSame('Serenity Group', $row['national_name']);
+        $this->assertSame('Open', $row['national_status']);
+        $this->assertSame('BS1 4DJ', $row['national_postcode']);
+        $this->assertSame('1 Church Road, Bristol, BS1 4DJ', $row['national_address']);
+    }
+
+    /**
+     * A listing whose national status is not "open" is reported separately
+     * rather than as a live match — which also reads the status field.
+     *
+     * @test
+     */
+    public function a_match_closed_nationally_is_not_reported_as_a_live_match(): void
+    {
+        $this->meetingRepo->shouldReceive('findAll')->andReturn([
+            $this->mockMeeting(1, 'Serenity Group', 1, '19:00', '20:00'),
+        ]);
+
+        $this->apiCache->shouldReceive('getGroups')->andReturn([
+            [
+                'id'            => 502,
+                'groupName'     => 'Serenity Group',
+                'day'           => 'monday',
+                'startTime'     => '19:00',
+                'endTime'       => '20:00',
+                'meetingStatus' => 'Closed',
+            ],
+        ]);
+
+        $result = $this->reconciler->reconcile();
+
+        $this->assertEmpty($result->getMatches(), 'A closed listing is not a live match.');
+        $this->assertEmpty($result->getLocalOnly(), 'It still matched, so it is not local-only.');
     }
 }
