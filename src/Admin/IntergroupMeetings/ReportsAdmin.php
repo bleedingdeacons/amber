@@ -356,10 +356,18 @@ class ReportsAdmin
         // UTF-8 BOM so Excel renders accented characters correctly
         fwrite($output, "\xEF\xBB\xBF");
 
-        fputcsv($output, $headers);
+        // escape: '' writes RFC 4180 CSV, which is what Excel and Sheets read.
+        // PHP's legacy escape does not double a quote that follows a
+        // backslash — a note containing \"quoted\" was written as
+        // "says \"hi\"", which an RFC 4180 reader parses as `says \hi\""`.
+        // The field ended early and the rest of the row was mangled. Doubling
+        // the quotes ("says \""hi\""") round-trips correctly. It is also the
+        // PHP 9 default, so this no longer relies on a default that is
+        // changing underneath us.
+        fputcsv($output, $headers, ',', '"', '');
 
         foreach ($rows as $row) {
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '');
         }
 
         fclose($output);
