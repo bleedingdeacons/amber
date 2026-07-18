@@ -202,7 +202,6 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     private function invoke(string $method, array $args)
     {
         $ref = (new \ReflectionClass(MeetingReconciler::class))->getMethod($method);
-        $ref->setAccessible(true);
         return $ref->invoke($this->reconciler, ...$args);
     }
 

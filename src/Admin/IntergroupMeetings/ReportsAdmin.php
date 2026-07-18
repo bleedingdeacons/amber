@@ -356,22 +356,44 @@ class ReportsAdmin
         // UTF-8 BOM so Excel renders accented characters correctly
         fwrite($output, "\xEF\xBB\xBF");
 
-        // escape: '' writes RFC 4180 CSV, which is what Excel and Sheets read.
-        // PHP's legacy escape does not double a quote that follows a
-        // backslash — a note containing \"quoted\" was written as
-        // "says \"hi\"", which an RFC 4180 reader parses as `says \hi\""`.
-        // The field ended early and the rest of the row was mangled. Doubling
-        // the quotes ("says \""hi\""") round-trips correctly. It is also the
-        // PHP 9 default, so this no longer relies on a default that is
-        // changing underneath us.
-        fputcsv($output, $headers, ',', '"', '');
+        self::writeCsvRow($output, $headers);
 
         foreach ($rows as $row) {
-            fputcsv($output, $row, ',', '"', '');
+            self::writeCsvRow($output, $row);
         }
 
         fclose($output);
         exit;
+    }
+
+    /**
+     * Escape character for the report CSV.
+     *
+     * '' writes RFC 4180 CSV, which is what Excel and Sheets read. PHP's legacy
+     * escape does not double a quote that follows a backslash — a note
+     * containing \"quoted\" was written as "says \"hi\"", which an RFC 4180
+     * reader parses as `says \hi\""`: the field ends early and the rest of the
+     * row is mangled. Doubling the quotes ("says \""hi\""") round-trips
+     * correctly. It is also the PHP 9 default, so this no longer relies on a
+     * default that is changing underneath us.
+     */
+    private const CSV_ESCAPE = '';
+
+    /**
+     * Write one CSV record.
+     *
+     * Extracted so the escape is declared once rather than repeated at each
+     * call site — repeating it is how the header and body rows could drift
+     * apart — and so the escaping is reachable from a test. streamCsv() itself
+     * sends headers, writes to php://output and exits, so it cannot be driven
+     * directly.
+     *
+     * @param resource          $handle
+     * @param array<int, mixed> $fields
+     */
+    private static function writeCsvRow($handle, array $fields): void
+    {
+        fputcsv($handle, $fields, ',', '"', self::CSV_ESCAPE);
     }
 
     /**
