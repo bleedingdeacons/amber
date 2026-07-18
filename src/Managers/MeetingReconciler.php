@@ -171,9 +171,9 @@ class MeetingReconciler
                     'local_id'         => $local->getId(),
                     'national_name'    => $national->getGroupName(),
                     'national_id'      => $national->getId(),
-                    'national_status'  => $national->getMeetingStatus(),
+                    'national_status'  => $this->nationalStatus($national),
                     'national_address' => $this->formatNationalAddress($national),
-                    'national_postcode'=> $national->getPostcode(),
+                    'national_postcode'=> $this->nationalPostcode($national),
                     'day'              => $local->getDayOfWeek(),
                     'start_time'       => $local->getTime(),
                     'local_end'        => $local->getEndTime(),
@@ -185,11 +185,11 @@ class MeetingReconciler
                     'notes'            => $notes,
                 ];
 
-                if ($this->isOpenStatus($national->getMeetingStatus())) {
+                if ($this->isOpenStatus($this->nationalStatus($national))) {
                     $matches[] = $row;
                 } else {
                     $row['notes'] = array_merge(
-                        ['Closed nationally: ' . ($national->getMeetingStatus() ?: 'unknown')],
+                        ['Closed nationally: ' . ($this->nationalStatus($national) ?: 'unknown')],
                         $notes
                     );
                     $closedMatches[] = $row;
@@ -227,9 +227,9 @@ class MeetingReconciler
                         'local_id'         => $local->getId(),
                         'national_name'    => $national->getGroupName(),
                         'national_id'      => $national->getId(),
-                        'national_status'  => $national->getMeetingStatus(),
+                        'national_status'  => $this->nationalStatus($national),
                         'national_address' => $this->formatNationalAddress($national),
-                        'national_postcode'=> $national->getPostcode(),
+                        'national_postcode'=> $this->nationalPostcode($national),
                         'day'              => $local->getDayOfWeek(),
                         'start_time'       => $local->getTime(),
                         'local_end'        => $local->getEndTime(),
@@ -266,7 +266,7 @@ class MeetingReconciler
             // National-only listings that are themselves closed are noise —
             // they're neither local nor currently meeting, so excluding them
             // keeps the report focused on actionable discrepancies.
-            if (!$this->isOpenStatus($national->getMeetingStatus())) {
+            if (!$this->isOpenStatus($this->nationalStatus($national))) {
                 continue;
             }
 
@@ -277,7 +277,7 @@ class MeetingReconciler
                 'start_time' => $national->getStartTime(),
                 'end_time'   => $national->getEndTime(),
                 'town'       => $national->getTown(),
-                'postcode'   => $national->getPostcode(),
+                'postcode'   => $this->nationalPostcode($national),
                 'reason'     => 'Missing from local list',
             ];
         }
@@ -444,14 +444,46 @@ class MeetingReconciler
     }
 
     /**
+     * Read a field the AAGBDB API returns but GroupListing has no accessor for.
+     *
+     * GroupListing promotes only a subset of the response to named getters
+     * (id, groupName, town, day, times, intergroup, lastUpdate) and keeps the
+     * rest in its raw payload, reachable via getRawValue(). Meeting status,
+     * postcode and the address lines are in that remainder — they are declared
+     * GroupListing fields in Concordance's own whitelist
+     * (ConcordanceConfiguration::DASHBOARD_FIELDS), just not promoted.
+     *
+     * This previously called getMeetingStatus() / getPostcode() /
+     * getAddress1(), which have never existed on GroupListing and have no
+     * __call to catch them, so every reconcile that found a national match
+     * died with "Call to undefined method". The reconciler's own tests missed
+     * it because they only ever supplied an empty national list, which never
+     * reaches the match-row builder.
+     */
+    private function nationalField(GroupListing $national, string $key): string
+    {
+        return (string) $national->getRawValue($key, '');
+    }
+
+    private function nationalStatus(GroupListing $national): string
+    {
+        return $this->nationalField($national, 'meetingStatus');
+    }
+
+    private function nationalPostcode(GroupListing $national): string
+    {
+        return $this->nationalField($national, 'postcode');
+    }
+
+    /**
      * Format the national listing's address into a single display string.
      */
     private function formatNationalAddress(GroupListing $national): string
     {
         $parts = array_filter([
-            $national->getAddress1(),
+            $this->nationalField($national, 'address1'),
             $national->getTown(),
-            $national->getPostcode(),
+            $this->nationalPostcode($national),
         ], static fn(string $p): bool => $p !== '');
 
         return implode(', ', $parts);
@@ -472,7 +504,7 @@ class MeetingReconciler
     private function addressSimilarity(string $localAddress, GroupListing $national): float
     {
         $localAddr = mb_strtolower($localAddress);
-        $nPostcode = mb_strtolower(trim($national->getPostcode()));
+        $nPostcode = mb_strtolower(trim($this->nationalPostcode($national)));
         $nTown     = mb_strtolower(trim($national->getTown()));
 
         // ── Postcode signal ─────────────────────────────────────────
