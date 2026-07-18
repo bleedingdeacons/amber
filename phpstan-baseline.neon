@@ -1,0 +1,176 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Method Amber\\\\Admin\\\\IntergroupMeetings\\\\IntergroupMeetingAdmin\\:\\:addGsrsName\\(\\) should return int but returns string\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Method Amber\\\\Admin\\\\IntergroupMeetings\\\\IntergroupMeetingAdmin\\:\\:findTodaysIntergroupMeeting\\(\\) is unused\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Negated boolean expression is always false\\.$#"
+			count: 2
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Property Amber\\\\Admin\\\\IntergroupMeetings\\\\IntergroupMeetingAdmin\\:\\:\\$meetingRepository is never read, only written\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Property Amber\\\\Admin\\\\IntergroupMeetings\\\\IntergroupMeetingAdmin\\:\\:\\$positionFactory is never read, only written\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Used constant DOING_AJAX not found\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Used constant DOING_AUTOSAVE not found\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingAdmin.php
+
+		-
+			message: "#^Variable \\$entries in empty\\(\\) always exists and is not falsy\\.$#"
+			count: 1
+			path: src/Admin/IntergroupMeetings/IntergroupMeetingDashboard.php
+
+		-
+			message: "#^Expression on left side of \\?\\? is not nullable\\.$#"
+			count: 7
+			path: src/Admin/IntergroupMeetings/ReportsAdmin.php
+
+		-
+			message: "#^Unreachable statement \\- code above always terminates\\.$#"
+			count: 1
+			path: src/Admin/Members/AnonymousNameValidator.php
+
+		-
+			message: "#^Expression on left side of \\?\\? is not nullable\\.$#"
+			count: 2
+			path: src/Admin/Members/DirectoryDashboard.php
+
+		-
+			message: "#^Property Amber\\\\Admin\\\\Members\\\\DirectoryDashboard\\:\\:\\$member_config is never read, only written\\.$#"
+			count: 1
+			path: src/Admin/Members/DirectoryDashboard.php
+
+		-
+			message: "#^Used constant DOING_AJAX not found\\.$#"
+			count: 1
+			path: src/Admin/Members/MemberAdmin.php
+
+		-
+			message: "#^Used constant DOING_AUTOSAVE not found\\.$#"
+			count: 1
+			path: src/Admin/Members/MemberAdmin.php
+
+		-
+			message: "#^Variable \\$allMatchIds in empty\\(\\) always exists and is not falsy\\.$#"
+			count: 1
+			path: src/Admin/Members/MemberAdmin.php
+
+		-
+			message: "#^Strict comparison using \\=\\=\\= between int\\<4, max\\> and 1 will always evaluate to false\\.$#"
+			count: 1
+			path: src/Admin/Positions/PositionAdmin.php
+
+		-
+			message: "#^Used constant DOING_AJAX not found\\.$#"
+			count: 1
+			path: src/Admin/Positions/PositionAdmin.php
+
+		-
+			message: "#^Used constant DOING_AUTOSAVE not found\\.$#"
+			count: 1
+			path: src/Admin/Positions/PositionAdmin.php
+
+		-
+			message: "#^Used function get_field not found\\.$#"
+			count: 1
+			path: src/Admin/Positions/PositionAdmin.php
+
+		-
+			message: "#^Unreachable statement \\- code above always terminates\\.$#"
+			count: 1
+			path: src/Admin/Positions/PositionNameValidator.php
+
+		-
+			message: "#^Constant AMBER_PLUGIN_DIR not found\\.$#"
+			count: 1
+			path: src/Core/HelpPage.php
+
+		-
+			message: "#^Call to static method logError\\(\\) on an unknown class Trumpet\\\\Plugin\\.$#"
+			count: 1
+			path: src/Managers/FrontPageManager.php
+
+		-
+			message: "#^Else branch is unreachable because ternary operator condition is always true\\.$#"
+			count: 1
+			path: src/Managers/FrontPageManager.php
+
+		-
+			message: "#^Instanceof between array\\<Unity\\\\Meetings\\\\Interfaces\\\\Meeting\\> and Traversable will always evaluate to false\\.$#"
+			count: 1
+			path: src/Managers/FrontPageManager.php
+
+		-
+			message: "#^Variable \\$showHighlight might not be defined\\.$#"
+			count: 1
+			path: src/Managers/IntergroupManager.php
+
+		-
+			message: "#^Method Unity\\\\Positions\\\\Interfaces\\\\PositionView\\:\\:isArchivist\\(\\) invoked with 1 parameter, 0 required\\.$#"
+			count: 1
+			path: src/Managers/PositionShortcodeRenderer.php
+
+		-
+			message: "#^Parameter \\#1 \\$text of function esc_html expects string, \\(float\\|int\\) given\\.$#"
+			count: 1
+			path: src/Managers/PositionShortcodeRenderer.php
+
+		-
+			message: "#^Parameter \\#1 \\$text of function esc_html expects string, int given\\.$#"
+			count: 2
+			path: src/Managers/PositionShortcodeRenderer.php
+
+		-
+			message: "#^Used function get_field not found\\.$#"
+			count: 1
+			path: src/Managers/PositionShortcodeRenderer.php
+
+		-
+			message: "#^Call to function is_wp_error\\(\\) with int\\<0, max\\> will always evaluate to false\\.$#"
+			count: 1
+			path: src/Managers/PostTitleSyncer.php
+
+		-
+			message: "#^Used function get_field not found\\.$#"
+			count: 1
+			path: src/Managers/PostTitleSyncer.php
+
+		-
+			message: "#^is_wp_error\\(int\\<0, max\\>\\) will always evaluate to false\\.$#"
+			count: 1
+			path: src/Managers/PostTitleSyncer.php
+
+		-
+			message: "#^Static property Amber\\\\Plugin\\:\\:\\$memberChangeTracker is never read, only written\\.$#"
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: "#^Offset 'name' on array\\{url\\: string, name\\: string\\} on left side of \\?\\? always exists and is not nullable\\.$#"
+			count: 1
+			path: src/Shortcodes/GeneralShortcodes.php
+
+		-
+			message: "#^Offset 'url' on array\\{url\\: string, name\\: string\\} on left side of \\?\\? always exists and is not nullable\\.$#"
+			count: 1
+			path: src/Shortcodes/GeneralShortcodes.php
