@@ -65,7 +65,6 @@ class Plugin
     public const MENU_SLUG = MenuRegistrar::MENU_SLUG;
     public const MENU_CAPABILITY = MenuRegistrar::MENU_CAPABILITY;
 
-    private static ?MemberChangeTracker $memberChangeTracker = null;
 
     /**
      * Initialize the plugin

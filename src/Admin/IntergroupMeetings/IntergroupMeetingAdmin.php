@@ -39,7 +39,7 @@ use function get_post_type;
 use function is_admin;
 use function update_post_meta;
 use function delete_post_meta;
-use const DOING_AJAX;
+use function wp_doing_ajax;
 use const DOING_AUTOSAVE;
 use const WP_DEBUG;
 
@@ -651,7 +651,7 @@ class IntergroupMeetingAdmin
         }
 
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (defined('DOING_AJAX') && DOING_AJAX) return;
+        if (wp_doing_ajax()) return;
 
         $this->updateIntergroupMeetingMetadata($postId);
     }

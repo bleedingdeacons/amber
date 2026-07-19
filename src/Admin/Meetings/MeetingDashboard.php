@@ -443,17 +443,18 @@ class MeetingDashboard
     }
 
     /**
-     * Pull closed_matches from a ReconciliationResult, defending against an
-     * older Concordance/Amber install where the method doesn't exist.
+     * Pull closed_matches from a ReconciliationResult.
+     *
+     * Previously guarded with method_exists(), to defend against "an older
+     * Concordance/Amber install where the method doesn't exist". That cannot
+     * happen: ReconciliationResult is Amber's own model, versioned and shipped
+     * with this caller, so the method is always present.
      *
      * @return array
      */
     private function safeGetClosedMatches(ReconciliationResult $result): array
     {
-        if (method_exists($result, 'getClosedMatches')) {
-            return $result->getClosedMatches();
-        }
-        return [];
+        return $result->getClosedMatches();
     }
 
     /**

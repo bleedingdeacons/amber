@@ -13,6 +13,7 @@ use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\ResponderCertification;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -25,6 +26,7 @@ use WP_Query;
 use function add_action;
 use function add_filter;
 use function delete_post_meta;
+use function esc_attr;
 use function esc_html;
 use function esc_url;
 use function get_current_screen;
@@ -33,7 +35,7 @@ use function is_admin;
 use function sanitize_text_field;
 use function update_post_meta;
 use function wp_unslash;
-use const DOING_AJAX;
+use function wp_doing_ajax;
 use const DOING_AUTOSAVE;
 
 /**
@@ -113,6 +115,7 @@ class MemberAdmin
                 $newColumns['homegroup'] = 'Homegroup';
                 $newColumns['twelfth'] = 'Twelfth';
                 $newColumns['responder'] = 'Responder';
+                $newColumns['certification'] = 'Certification';
             } else {
                 $newColumns[$key] = $value;
             }
@@ -200,7 +203,45 @@ class MemberAdmin
                 $isTelephoneResponder = $member->isTelephoneResponder();
                 echo $isTelephoneResponder ? '<span style="color: green;">✓ Yes</span>' : '<span style="color: gray;">✗ No</span>';
                 break;
+
+            case 'certification':
+                // The backing ACF field is hidden for non-responders, so
+                // every one of them reads as None. Showing "None" there
+                // would imply a responder who has not started, so a
+                // non-responder gets a dash instead.
+                if (!$member->isTelephoneResponder()) {
+                    echo '<span style="color: gray;">—</span>';
+                    break;
+                }
+
+                $certification = $member->getResponderCertification();
+                echo '<span style="color: ' . esc_attr($this->certificationColour($certification)) . ';">'
+                    . esc_html($certification->label())
+                    . '</span>';
+                break;
         }
+    }
+
+    /**
+     * Colour for a certification stage in the members list.
+     *
+     * Green only for a current certification: Recertification Required is a
+     * lapsed one, so it reads as an action needed rather than a pass.
+     *
+     * @param ResponderCertification $certification Stage to colour
+     * @return string CSS colour keyword or hex value
+     */
+    private function certificationColour(ResponderCertification $certification): string
+    {
+        return match ($certification) {
+            ResponderCertification::Certified => 'green',
+            ResponderCertification::Applied,
+            ResponderCertification::InTraining,
+            ResponderCertification::CertificationPending => '#996800',
+            ResponderCertification::RecertificationRequired,
+            ResponderCertification::Denied => '#b32d2e',
+            ResponderCertification::None => 'gray',
+        };
     }
 
     /**
@@ -510,7 +551,7 @@ class MemberAdmin
     public function updateMemberMetadataOnSave(int $postId, WP_Post $post, bool $update): void
     {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (defined('DOING_AJAX') && DOING_AJAX) return;
+        if (wp_doing_ajax()) return;
 
         $this->updateMemberMetadata($postId);
     }

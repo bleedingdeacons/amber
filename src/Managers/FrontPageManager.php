@@ -45,12 +45,9 @@ class FrontPageManager
             $current_day = intval(current_time('w'));
             $meetings = $this->repository->findByDay($current_day);
 
-            // Normalise to an array so we can sort (repository may return a Traversable).
-            if ($meetings instanceof \Traversable) {
-                $meetings = iterator_to_array($meetings, false);
-            } else {
-                $meetings = is_array($meetings) ? array_values($meetings) : [];
-            }
+            // Re-index for sorting. MeetingRepository::findByDay() is declared
+            // `: array`, so there is no Traversable case to normalise.
+            $meetings = array_values($meetings);
 
             // Sort by start time ascending. Times are zero-padded "HH:MM"
             // strings (see MeetingReconciler::normaliseTime), so a string

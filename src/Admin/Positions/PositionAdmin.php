@@ -29,7 +29,7 @@ use function get_field;
 use function is_admin;
 use function maybe_unserialize;
 use function update_post_meta;
-use const DOING_AJAX;
+use function wp_doing_ajax;
 use const DOING_AUTOSAVE;
 
 /**
@@ -418,7 +418,7 @@ class PositionAdmin
     public function updatePositionMetadataOnSave(int $postId, WP_Post $post, bool $update): void
     {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (defined('DOING_AJAX') && DOING_AJAX) return;
+        if (wp_doing_ajax()) return;
         
         $this->updatePositionMetadata($postId);
     }
@@ -433,7 +433,7 @@ class PositionAdmin
     public function updateMemberPositionMetadata(int $postId, WP_Post $post, bool $update): void
     {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (defined('DOING_AJAX') && DOING_AJAX) return;
+        if (wp_doing_ajax()) return;
 
         $positionId = get_field($this->member_config['FIELD_INTERGROUP_POSITION'], $postId);
         
