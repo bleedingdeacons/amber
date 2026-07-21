@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
- * Version: 1.23.29
+ * Version: 1.23.30
  * Build date: 2026/05/31
  * Requires at least: 6.0
  * Requires PHP: 8.1
