@@ -225,8 +225,8 @@ class MemberAdmin
     /**
      * Colour for a certification stage in the members list.
      *
-     * Green only for a current certification: Recertification Required is a
-     * lapsed one, so it reads as an action needed rather than a pass.
+     * Green only for a current certification: every earlier stage is still
+     * in progress, so it reads amber (an action pending) rather than a pass.
      *
      * @param ResponderCertification $certification Stage to colour
      * @return string CSS colour keyword or hex value
@@ -237,9 +237,7 @@ class MemberAdmin
             ResponderCertification::Certified => 'green',
             ResponderCertification::Applied,
             ResponderCertification::InTraining,
-            ResponderCertification::CertificationPending => '#996800',
-            ResponderCertification::RecertificationRequired,
-            ResponderCertification::Denied => '#b32d2e',
+            ResponderCertification::Pending => '#996800',
             ResponderCertification::None => 'gray',
         };
     }
