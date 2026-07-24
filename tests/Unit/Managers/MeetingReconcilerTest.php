@@ -422,4 +422,99 @@ class MeetingReconcilerTest extends TestCase
         $this->assertEmpty($result->getMatches(), 'A closed listing is not a live match.');
         $this->assertEmpty($result->getLocalOnly(), 'It still matched, so it is not local-only.');
     }
+
+    // ── Possible match (day + time, name diverges) ─────────────────────
+
+    /**
+     * A listing that shares a local meeting's day and time but whose name is
+     * unrelated is reported as a "possible" — the day/time-only fallback that
+     * builds its own result row from the national listing.
+     *
+     * @test
+     */
+    public function a_day_and_time_coincidence_with_a_different_name_is_a_possible_match(): void
+    {
+        $this->meetingRepo->shouldReceive('findAll')->andReturn([
+            $this->mockMeeting(1, 'Serenity Group', 1, '19:00', '20:00'),
+        ]);
+
+        $this->apiCache->shouldReceive('getGroups')->andReturn([
+            [
+                'id'            => 601,
+                'groupName'     => 'Completely Different Fellowship',
+                'day'           => 'monday',
+                'startTime'     => '19:00',
+                'endTime'       => '20:00',
+                'town'          => 'Bath',
+                'meetingStatus' => 'Open',
+                'postcode'      => 'BA1 1AA',
+                'address1'      => '2 Abbey Lane',
+            ],
+        ]);
+
+        $result    = $this->reconciler->reconcile();
+        $possibles = $result->getPossibles();
+
+        $this->assertCount(1, $possibles);
+        $this->assertEmpty($result->getMatches(), 'Names differ, so it is not a confident match.');
+        $this->assertEmpty($result->getLocalOnly(), 'The day/time coincidence took it out of local-only.');
+        $this->assertSame('Completely Different Fellowship', $possibles[0]['national_name']);
+        $this->assertSame(1, $possibles[0]['local_id']);
+    }
+
+    // ── National-only detection ────────────────────────────────────────
+
+    /**
+     * An open national listing that matches nothing locally is surfaced as a
+     * national-only discrepancy so it can be added to the local list.
+     *
+     * @test
+     */
+    public function an_unmatched_open_national_listing_is_reported_as_national_only(): void
+    {
+        $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
+
+        $this->apiCache->shouldReceive('getGroups')->andReturn([
+            [
+                'id'            => 701,
+                'groupName'     => 'Lone National Group',
+                'day'           => 'tuesday',
+                'startTime'     => '18:30',
+                'endTime'       => '19:30',
+                'town'          => 'Wells',
+                'meetingStatus' => 'Open',
+                'postcode'      => 'BA5 2AA',
+            ],
+        ]);
+
+        $result       = $this->reconciler->reconcile();
+        $nationalOnly = $result->getNationalOnly();
+
+        $this->assertCount(1, $nationalOnly);
+        $this->assertSame('Lone National Group', $nationalOnly[0]['name']);
+        $this->assertStringContainsString('Missing from local list', $nationalOnly[0]['reason']);
+    }
+
+    /**
+     * A closed national listing that matches nothing locally is deliberately
+     * left out of the national-only report — it is neither actionable nor live.
+     *
+     * @test
+     */
+    public function an_unmatched_closed_national_listing_is_not_reported(): void
+    {
+        $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
+
+        $this->apiCache->shouldReceive('getGroups')->andReturn([
+            [
+                'id'            => 702,
+                'groupName'     => 'Closed National Group',
+                'day'           => 'tuesday',
+                'startTime'     => '18:30',
+                'meetingStatus' => 'Closed',
+            ],
+        ]);
+
+        $this->assertEmpty($this->reconciler->reconcile()->getNationalOnly());
+    }
 }
