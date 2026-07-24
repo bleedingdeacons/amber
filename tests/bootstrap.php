@@ -50,13 +50,24 @@ $registerSibling = static function (string $prefix, string $pluginDir): void {
 
 $registerSibling('Unity\\', 'unity');
 $registerSibling('Concordance\\', 'concordance');
+$registerSibling('Scrutiny\\', 'scrutiny');
+$registerSibling('TsmlForUnity\\', 'tsml-for-unity');
+
+// WordPress stand-ins. The admin classes call WordPress directly from inside
+// long render methods, so the only practical way to exercise them is to make
+// those functions real and back them with a store the tests control. See
+// tests/stubs/wordpress.php and Amber\Tests\WpState.
+//
+// Loaded before is_wp_error() below so WP_Error exists for the instanceof.
+require_once __DIR__ . '/stubs/wordpress.php';
 
 // MeetingReconciler checks WP_Error results from the Concordance API client.
-// WP_Error itself is never constructed in these tests, and instanceof against
-// an undefined class is simply false, which is the behaviour we want.
 if (!function_exists('is_wp_error')) {
     function is_wp_error(mixed $thing): bool
     {
         return $thing instanceof \WP_Error;
     }
 }
+
+// Several admin screens query custom tables through the global $wpdb.
+$GLOBALS['wpdb'] = new \Amber\Tests\FakeWpdb();
