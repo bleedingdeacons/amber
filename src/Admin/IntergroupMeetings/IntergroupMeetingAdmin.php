@@ -143,6 +143,14 @@ class IntergroupMeetingAdmin
     /**
      * add name of position in relationship list.
      *
+     * Callback for ACF's acf/fields/relationship/result filter. Typed in
+     * PHPDoc rather than natively: ACF calls this directly, so a native
+     * signature would turn an unexpected argument into a fatal TypeError.
+     *
+     * @param string $title
+     * @param \WP_Post $post
+     * @param array<string, mixed> $field
+     * @param int|string $post_id
      * @return string Modified title
      */
     public function addPositionName($title, $post, $field, $post_id) {
@@ -176,6 +184,10 @@ class IntergroupMeetingAdmin
      * if multiple members share the latest rotation date all their names
      * are shown.
      *
+     * @param string $title
+     * @param \WP_Post $post
+     * @param array<string, mixed> $field
+     * @param int|string $post_id
      * @return string Modified title
      */
     public function addMemberNameToPosition($title, $post, $field, $post_id) {
@@ -203,7 +215,11 @@ class IntergroupMeetingAdmin
     /**
      * add name of gsr's in relationship list.
      *
-     * @return int Number of meetings updated
+     * @param string $title
+     * @param \WP_Post $post
+     * @param array<string, mixed> $field
+     * @param int|string $post_id
+     * @return string Modified title
      */
     public function addGsrsName($title, $post, $field, $post_id) {
 
