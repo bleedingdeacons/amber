@@ -55,8 +55,11 @@ class MemberAdmin
     private PositionFactory $positionFactory;
     private MemberRepository $memberRepository;
     private GroupFactory $groupFactory;
+    /** @var array<string, mixed> */
     private readonly array $member_config;
+    /** @var array<string, mixed> */
     private readonly array $position_config;
+    /** @var array<string, mixed> */
     private readonly array $group_config;
 
     /**
@@ -99,8 +102,8 @@ class MemberAdmin
     /**
      * Add custom columns to the admin table
      *
-     * @param array $columns Existing columns
-     * @return array Modified columns
+     * @param array<string, string> $columns Existing columns
+     * @return array<string, string> Modified columns
      */
     public function addCustomColumns(array $columns): array
     {
@@ -245,8 +248,8 @@ class MemberAdmin
     /**
      * Make columns sortable
      *
-     * @param array $columns Sortable columns
-     * @return array Modified sortable columns
+     * @param array<string, mixed> $columns Sortable columns
+     * @return array<string, mixed> Modified sortable columns
      */
     public function makeSortableColumns(array $columns): array
     {

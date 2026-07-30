@@ -63,14 +63,18 @@ class IntergroupMeetingAdmin
     private PositionViewFactory $positionViewFactory;
     private MeetingRepository $meetingRepository;
     private GroupViewFactory $groupViewFactory;
+    /** @var array<string, mixed> */
     private readonly array $intergroupMeetingConfig;
+    /** @var array<string, mixed> */
     private readonly array $groupConfig;
+    /** @var array<string, mixed> */
     private readonly array $memberConfig;
 
     /** @var array<int, array<int>> Per-request cache for resolveGroupGsrs */
     private array $groupGsrCache = [];
 
     /** @var array<int, array{positionName: string, officerDisplayName: string, memberIds: array<int>}|null> Per-request cache for resolvePositionOfficers */
+    /** @var array<int, array{positionName: string, officerDisplayName: string, memberIds: array<int>}|null> */
     private array $positionOfficerCache = [];
 
     /**
@@ -391,8 +395,8 @@ class IntergroupMeetingAdmin
     /**
      * Add custom columns to the intergroup meetings admin table
      *
-     * @param array $columns Current admin columns
-     * @return array Modified admin columns
+     * @param array<string, string> $columns Current admin columns
+     * @return array<string, string> Modified admin columns
      */
     public function addCustomColumns(array $columns): array
     {
@@ -448,8 +452,8 @@ class IntergroupMeetingAdmin
     /**
      * Make certain columns sortable
      *
-     * @param array $columns Current sortable columns
-     * @return array Modified sortable columns
+     * @param array<string, mixed> $columns Current sortable columns
+     * @return array<string, mixed> Modified sortable columns
      */
     public function makeColumnsSortable(array $columns): array
     {

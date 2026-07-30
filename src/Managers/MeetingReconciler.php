@@ -97,7 +97,7 @@ class MeetingReconciler
     /**
      * Run the full reconciliation.
      *
-     * @param array $apiQueryArgs Optional query-string params forwarded to getGroups().
+     * @param array<string, mixed> $apiQueryArgs Optional query-string params forwarded to getGroups().
      * @return ReconciliationResult
      *
      * @throws \RuntimeException If the AAGBDB API call fails.
@@ -334,7 +334,7 @@ class MeetingReconciler
     /**
      * Fetch national group listings from the AAGBDB API via the Concordance cache.
      *
-     * @param array $queryArgs
+     * @param array<string, mixed> $queryArgs
      * @return GroupListing[]
      *
      * @throws \RuntimeException

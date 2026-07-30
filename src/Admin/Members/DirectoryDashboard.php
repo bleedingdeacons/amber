@@ -39,6 +39,7 @@ class DirectoryDashboard
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
     private PersonalDataPolicy $policy;
+    /** @var array<string, mixed> */
     private readonly array $member_config;
 
     /**

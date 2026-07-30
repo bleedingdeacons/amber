@@ -34,8 +34,11 @@ class IntergroupManager
 {
     private PositionViewFactory $positionViewFactory;
     private PostTitleSyncer $titleSyncer;
+    /** @var array<string, mixed> */
     private readonly array $member_config;
+    /** @var array<string, mixed> */
     private readonly array $position_config;
+    /** @var array<string, mixed> */
     private readonly array $intergroup_meeting_config;
 
     public function __construct(

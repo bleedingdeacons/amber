@@ -39,9 +39,11 @@ class MeetingAdmin
     private GroupRepository $groupRepository;
     private GroupViewFactory $groupViewFactory;
     private MemberRepository $memberRepository;
+    /** @var array<string, mixed> */
     private readonly array $meeting_config;
 
     /** @var array<int, array<int>> Per-request cache of groupId => [gsrMemberId, ...] */
+    /** @var array<int, array<int>> */
     private array $groupGsrCache = [];
 
     /**
@@ -93,9 +95,9 @@ class MeetingAdmin
     /**
      * Ensure the group column is not hidden by default
      *
-     * @param array $hidden List of hidden column names
+     * @param array<int, string> $hidden List of hidden column names
      * @param \WP_Screen $screen Current screen object
-     * @return array Modified list of hidden columns
+     * @return array<int, string> Modified list of hidden columns
      */
     public function setDefaultHiddenColumns(array $hidden, \WP_Screen $screen): array
     {
@@ -110,8 +112,8 @@ class MeetingAdmin
     /**
      * Add custom columns to the admin table
      *
-     * @param array $columns Existing columns
-     * @return array Modified columns
+     * @param array<string, string> $columns Existing columns
+     * @return array<string, string> Modified columns
      */
     public function addCustomColumns(array $columns): array
     {
@@ -319,8 +321,8 @@ class MeetingAdmin
     /**
      * Make columns sortable
      *
-     * @param array $columns Sortable columns
-     * @return array Modified sortable columns
+     * @param array<string, mixed> $columns Sortable columns
+     * @return array<string, mixed> Modified sortable columns
      */
     public function makeSortableColumns(array $columns): array
     {

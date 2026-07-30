@@ -32,6 +32,7 @@ class PositionDashboard
 {
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
+    /** @var array<string, mixed> */
     private readonly array $member_config;
 
     /**

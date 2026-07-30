@@ -41,7 +41,9 @@ class PositionAdmin
 {
     private PositionViewFactory $positionViewFactory;
     private PositionRepository $positionRepository;
+    /** @var array<string, mixed> */
     private readonly array $member_config;
+    /** @var array<string, mixed> */
     private readonly array $position_config;
 
     /**
@@ -93,8 +95,8 @@ class PositionAdmin
     /**
      * Add custom columns to the positions admin table
      * 
-     * @param array $columns Current admin columns
-     * @return array Modified admin columns
+     * @param array<string, string> $columns Current admin columns
+     * @return array<string, string> Modified admin columns
      */
     public function addCustomColumns(array $columns): array
     {
@@ -150,8 +152,8 @@ class PositionAdmin
     /**
      * Make certain columns sortable
      * 
-     * @param array $columns Current sortable columns
-     * @return array Modified sortable columns
+     * @param array<string, mixed> $columns Current sortable columns
+     * @return array<string, mixed> Modified sortable columns
      */
     public function makeColumnsSortable(array $columns): array
     {

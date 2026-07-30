@@ -21,7 +21,7 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
         /**
          * Open link in new tab
          *
-         * @param array $atts Shortcode attributes
+         * @param array<string, mixed> $atts Shortcode attributes
          * @param string|null $content Shortcode content
          * @return string Rendered HTML
          */
@@ -51,7 +51,7 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
         /**
          * Create email link
          *
-         * @param array $atts Shortcode attributes
+         * @param array<string, mixed> $atts Shortcode attributes
          * @param string|null $content Shortcode content
          * @return string Rendered HTML
          */
@@ -85,7 +85,7 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
         /**
          * Generate PDF link
          *
-         * @param array $atts Shortcode attributes
+         * @param array<string, mixed> $atts Shortcode attributes
          * @param string|null $content Shortcode content
          * @return string Rendered HTML
          */
@@ -119,7 +119,7 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
         /**
          * Generate days remaining
          *
-         * @param array $atts Shortcode attributes
+         * @param array<string, mixed> $atts Shortcode attributes
          * @return string Rendered HTML
          */
         public function generateDaysRemaining(array $atts = []): string

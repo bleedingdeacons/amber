@@ -36,6 +36,7 @@ use function wp_kses_post;
 class PositionShortcodeRenderer
 {
     private PositionViewFactory $positionViewFactory;
+    /** @var array<string, mixed> */
     private readonly array $position_config;
 
     public function __construct(
@@ -62,6 +63,8 @@ class PositionShortcodeRenderer
      *
      * Shows the rotation status and an "Email Service Officer" pseudo-link
      * for the current position post.
+     *
+     * @param array<string, mixed> $atts Shortcode attributes
      */
     public function renderPositionState(array $atts = [], ?string $content = null): string
     {
@@ -102,6 +105,8 @@ class PositionShortcodeRenderer
      *
      * Renders the position title, sobriety requirement, term length,
      * and (for filled positions) an email link.
+     *
+     * @param array<string, mixed> $atts Shortcode attributes
      */
     public function renderPositionHeader(array $atts = [], ?string $content = null): string
     {
@@ -148,6 +153,8 @@ class PositionShortcodeRenderer
      *
      * Generates an HTML table of all positions with holder name,
      * email, rotation status, and a link to the position detail page.
+     *
+     * @param array<string, mixed> $atts Shortcode attributes
      */
     public function renderDirectoryTable(array $atts = [], ?string $content = null): string
     {
@@ -202,6 +209,8 @@ class PositionShortcodeRenderer
      * [position_summary]
      *
      * Outputs the rich-text summary field for the current position.
+     *
+     * @param array<string, mixed> $atts Shortcode attributes
      */
     public function renderPositionSummary(array $atts = [], ?string $content = null): string
     {
@@ -225,6 +234,8 @@ class PositionShortcodeRenderer
      *
      * Lists every currently vacant position, with the position name linked
      * to that position's description page.
+     *
+     * @param array<string, mixed> $atts Shortcode attributes
      */
     public function renderVacantPositions(array $atts = [], ?string $content = null): string
     {
