@@ -39,6 +39,7 @@ use function wp_send_json_success;
  */
 class AnonymousNameValidator
 {
+    /** @var array<string, mixed> */
     private readonly array $memberConfig;
 
     public function __construct(Configuration $configuration)
@@ -129,7 +130,7 @@ class AnonymousNameValidator
      *
      * @param bool|string $valid   Current validity.
      * @param mixed       $value   Submitted field value.
-     * @param array       $field   ACF field array.
+     * @param array<string, mixed>       $field   ACF field array.
      * @param string      $input   Input name attribute.
      *
      * @return bool|string

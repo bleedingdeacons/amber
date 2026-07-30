@@ -14,16 +14,25 @@ use JsonSerializable;
 /**
  * Immutable value object representing the result of reconciling
  * local Unity meetings against national AAGBDB GroupListings.
+ *
+ * @phpstan-type ReconciliationArray array{
+ *     matches: array<int, array<string, mixed>>,
+ *     possibles: array<int, array<string, mixed>>,
+ *     local_only: array<int, array<string, mixed>>,
+ *     national_only: array<int, array<string, mixed>>,
+ *     closed_matches: array<int, array<string, mixed>>,
+ *     summary: array<string, mixed>
+ * }
  */
 class ReconciliationResult implements JsonSerializable
 {
     /**
-     * @param array $matches        Confident matches against open national listings.
-     * @param array $possibles      Possible matches (day + start time only, names diverge).
-     * @param array $localOnly      Meetings present only in the local Unity data.
-     * @param array $nationalOnly   Open national groups unmatched locally.
-     * @param array $summary        Aggregate counts and match-rate percentages.
-     * @param array $closedMatches  Confident matches whose national listing is
+     * @param array<int, array<string, mixed>> $matches        Confident matches against open national listings.
+     * @param array<int, array<string, mixed>> $possibles      Possible matches (day + start time only, names diverge).
+     * @param array<int, array<string, mixed>> $localOnly      Meetings present only in the local Unity data.
+     * @param array<int, array<string, mixed>> $nationalOnly   Open national groups unmatched locally.
+     * @param array<string, mixed> $summary        Aggregate counts and match-rate percentages.
+     * @param array<int, array<string, mixed>> $closedMatches  Confident matches whose national listing is
      *                              currently closed/suspended. Surfaced as a
      *                              distinct status so users can decide whether
      *                              to retire the local meeting.
@@ -38,42 +47,45 @@ class ReconciliationResult implements JsonSerializable
     ) {
     }
 
-    /** @return array Confident matches against open national listings. */
+    /** @return array<int, array<string, mixed>> Confident matches against open national listings. */
     public function getMatches(): array
     {
         return $this->matches;
     }
 
-    /** @return array Possible matches (day + start time only, names diverge). */
+    /** @return array<int, array<string, mixed>> Possible matches (day + start time only, names diverge). */
     public function getPossibles(): array
     {
         return $this->possibles;
     }
 
-    /** @return array Meetings present only in the local Unity data. */
+    /** @return array<int, array<string, mixed>> Meetings present only in the local Unity data. */
     public function getLocalOnly(): array
     {
         return $this->localOnly;
     }
 
-    /** @return array Open national groups unmatched locally. */
+    /** @return array<int, array<string, mixed>> Open national groups unmatched locally. */
     public function getNationalOnly(): array
     {
         return $this->nationalOnly;
     }
 
-    /** @return array Aggregate counts and match-rate percentages. */
+    /** @return array<string, mixed> Aggregate counts and match-rate percentages. */
     public function getSummary(): array
     {
         return $this->summary;
     }
 
-    /** @return array Confident matches against closed/suspended national listings. */
+    /** @return array<int, array<string, mixed>> Confident matches against closed/suspended national listings. */
     public function getClosedMatches(): array
     {
         return $this->closedMatches;
     }
 
+    /**
+     * @return ReconciliationArray
+     */
     public function toArray(): array
     {
         return [
@@ -86,6 +98,9 @@ class ReconciliationResult implements JsonSerializable
         ];
     }
 
+    /**
+     * @return ReconciliationArray
+     */
     public function jsonSerialize(): array
     {
         return $this->toArray();

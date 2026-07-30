@@ -183,8 +183,8 @@ class MeetingDashboard
      * Render a day section with all meetings for that day
      *
      * @param int   $day         Day of week (0-6)
-     * @param array $rows        Array of meeting/group pairs
-     * @param array $reconLookup Reconciliation status keyed by meeting ID
+     * @param array<int, array<string, mixed>> $rows        Array of meeting/group pairs
+     * @param array<int, array<string, mixed>> $reconLookup Reconciliation status keyed by meeting ID
      */
     private function renderDaySection(int $day, array $rows, array $reconLookup): void
     {
@@ -234,7 +234,7 @@ class MeetingDashboard
      *
      * @param Meeting    $meeting     Meeting object
      * @param Group|null $group       Group object or null
-     * @param array|null $reconStatus Reconciliation status for this meeting, or null if unavailable
+     * @param array<string, mixed>|null $reconStatus Reconciliation status for this meeting, or null if unavailable
      */
     private function renderMeetingCard(Meeting $meeting, ?Group $group, ?array $reconStatus): void
     {
@@ -361,7 +361,7 @@ class MeetingDashboard
      *   'score'             => float|null    (matched / closed only)
      *   'notes'             => string[]      (e.g. "Weak match", "End time mismatch")
      *
-     * @return array<int, array>
+     * @return array<int, array<string, mixed>>
      */
     private function buildReconciliationLookup(): array
     {
@@ -450,7 +450,7 @@ class MeetingDashboard
      * happen: ReconciliationResult is Amber's own model, versioned and shipped
      * with this caller, so the method is always present.
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     private function safeGetClosedMatches(ReconciliationResult $result): array
     {
@@ -460,7 +460,7 @@ class MeetingDashboard
     /**
      * Render a small reconciliation status badge next to the meeting name.
      *
-     * @param array|null $reconStatus Status entry from the lookup, or null
+     * @param array<string, mixed>|null $reconStatus Status entry from the lookup, or null
      */
     private function renderReconciliationBadge(?array $reconStatus): void
     {
@@ -520,7 +520,7 @@ class MeetingDashboard
     /**
      * Render the national listing field value inside a meeting card.
      *
-     * @param array|null $reconStatus Status entry from the lookup, or null
+     * @param array<string, mixed>|null $reconStatus Status entry from the lookup, or null
      */
     private function renderNationalMatch(?array $reconStatus): void
     {
@@ -566,7 +566,7 @@ class MeetingDashboard
     /**
      * Render the national address field (address1 / town / postcode).
      *
-     * @param array|null $reconStatus
+     * @param array<string, mixed>|null $reconStatus
      */
     private function renderNationalAddress(?array $reconStatus): void
     {
@@ -593,7 +593,7 @@ class MeetingDashboard
     /**
      * Render the national status field as a small status pill.
      *
-     * @param array|null $reconStatus
+     * @param array<string, mixed>|null $reconStatus
      */
     private function renderNationalStatus(?array $reconStatus): void
     {
