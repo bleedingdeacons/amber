@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\Members;
 
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -126,12 +126,12 @@ class MemberAdminTest extends AmberTestCase
     /** @test */
     public function it_registers_its_list_table_hooks(): void
     {
-        $this->assertNotEmpty($this->hooksFor('manage_' . self::MEMBER_TYPE . '_posts_columns'));
-        $this->assertNotEmpty($this->hooksFor('manage_' . self::MEMBER_TYPE . '_posts_custom_column'));
-        $this->assertNotEmpty($this->hooksFor('manage_edit-' . self::MEMBER_TYPE . '_sortable_columns'));
-        $this->assertNotEmpty($this->hooksFor('save_post_' . self::MEMBER_TYPE));
-        $this->assertNotEmpty($this->hooksFor('restrict_manage_posts'));
-        $this->assertNotEmpty($this->hooksFor('pre_get_posts'));
+        $this->assertHookAdded('manage_' . self::MEMBER_TYPE . '_posts_columns');
+        $this->assertHookAdded('manage_' . self::MEMBER_TYPE . '_posts_custom_column');
+        $this->assertHookAdded('manage_edit-' . self::MEMBER_TYPE . '_sortable_columns');
+        $this->assertHookAdded('save_post_' . self::MEMBER_TYPE);
+        $this->assertHookAdded('restrict_manage_posts');
+        $this->assertHookAdded('pre_get_posts');
     }
 
     // ── columns ──────────────────────────────────────────────────────

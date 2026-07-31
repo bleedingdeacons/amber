@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\Members;
 
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;

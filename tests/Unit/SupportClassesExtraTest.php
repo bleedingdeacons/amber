@@ -8,7 +8,7 @@ use Amber\Common\Functions;
 use Amber\Core\HelpPage;
 use Amber\Managers\FrontPageManager;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Unity\Locations\Interfaces\Location;
 use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;

@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;

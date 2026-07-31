@@ -7,7 +7,7 @@ namespace Amber\Tests\Unit\Shortcodes;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\GeneralShortcodes;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use DateTimeZone;
 

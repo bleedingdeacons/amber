@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\Positions;
 
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
@@ -103,8 +103,8 @@ class PositionDashboardTest extends AmberTestCase
     /** @test */
     public function it_registers_the_dashboard_widget_hooks(): void
     {
-        $this->assertNotEmpty($this->hooksFor('wp_dashboard_setup'));
-        $this->assertNotEmpty($this->hooksFor('admin_head'));
+        $this->assertHookAdded('wp_dashboard_setup');
+        $this->assertHookAdded('admin_head');
     }
 
     /** @test */

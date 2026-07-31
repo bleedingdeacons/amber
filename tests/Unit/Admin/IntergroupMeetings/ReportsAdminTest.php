@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
 use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpDieException;
+use BleedingDeacons\WpMocks\Exceptions\WpDieException;
 use DateTime;
 use ReflectionMethod;
 use Unity\Groups\Interfaces\Group;

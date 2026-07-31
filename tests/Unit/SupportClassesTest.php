@@ -7,7 +7,7 @@ namespace Amber\Tests\Unit;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Models\ReconciliationResult;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Amber\Utils\HtmlHelper;
 use WP_Error;
 

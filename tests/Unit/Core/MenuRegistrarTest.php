@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Core;
 
 use Amber\Core\MenuRegistrar;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 
 /**
  * Tests for the admin menu structure.
@@ -90,6 +90,6 @@ class MenuRegistrarTest extends AmberTestCase
 
         $this->assertCount(1, $help);
         // The help tab also wires a footer script to open the manual in a tab.
-        $this->assertNotEmpty($this->hooksFor('admin_footer'));
+        $this->assertHookAdded('admin_footer');
     }
 }

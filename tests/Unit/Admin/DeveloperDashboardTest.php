@@ -6,8 +6,8 @@ namespace Amber\Tests\Unit\Admin;
 
 use Amber\Admin\DeveloperDashboard;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpDieException;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\Exceptions\WpDieException;
+use BleedingDeacons\WpMocks\WpState;
 use ReflectionMethod;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
