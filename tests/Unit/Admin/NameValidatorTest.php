@@ -7,8 +7,8 @@ namespace Amber\Tests\Unit\Admin;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\JsonResponseException;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\Exceptions\JsonResponseException;
+use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Positions\Interfaces\Position;
@@ -69,13 +69,13 @@ class NameValidatorTest extends AmberTestCase
     /** @test */
     public function both_validators_register_an_ajax_endpoint_and_a_save_filter(): void
     {
-        $this->assertNotEmpty($this->hooksFor('wp_ajax_amber_validate_anonymous_name'));
-        $this->assertNotEmpty($this->hooksFor('wp_ajax_amber_validate_position_name'));
+        $this->assertHookAdded('wp_ajax_amber_validate_anonymous_name');
+        $this->assertHookAdded('wp_ajax_amber_validate_position_name');
         // Server-side validation is keyed to the ACF field, so a save that
         // skips the browser is still checked.
-        $this->assertNotEmpty($this->hooksFor('acf/validate_value/key=field_66461796ab271'));
-        $this->assertNotEmpty($this->hooksFor('acf/validate_value/key=field_66720958da8b5'));
-        $this->assertNotEmpty($this->hooksFor('acf/input/admin_enqueue_scripts'));
+        $this->assertHookAdded('acf/validate_value/key=field_66461796ab271');
+        $this->assertHookAdded('acf/validate_value/key=field_66720958da8b5');
+        $this->assertHookAdded('acf/input/admin_enqueue_scripts');
     }
 
     // ── script enqueuing ─────────────────────────────────────────────

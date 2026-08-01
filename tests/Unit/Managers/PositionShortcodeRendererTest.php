@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Managers;
 
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Positions\Interfaces\Position;

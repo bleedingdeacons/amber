@@ -7,7 +7,7 @@ namespace Amber\Tests\Unit;
 use Amber\Core\MenuRegistrar;
 use Amber\Plugin;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use ReflectionProperty;
 use RuntimeException;
 
@@ -67,10 +67,9 @@ class PluginTest extends AmberTestCase
 
         // The admin menu is attached at both the normal and the late (Help)
         // priority; is_admin() is true under test so this branch always runs.
-        $adminMenuHooks = $this->hooksFor('admin_menu');
-        $this->assertNotEmpty($adminMenuHooks);
-        $this->assertNotEmpty($this->hooksFor('admin_init'));
-        $this->assertNotEmpty($this->hooksFor('init'));
+        $this->assertHookAdded('admin_menu');
+        $this->assertHookAdded('admin_init');
+        $this->assertHookAdded('init');
     }
 
     /** @test */

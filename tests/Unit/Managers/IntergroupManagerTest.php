@@ -7,7 +7,7 @@ namespace Amber\Tests\Unit\Managers;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
@@ -90,10 +90,10 @@ class IntergroupManagerTest extends AmberTestCase
     /** @test */
     public function it_registers_its_save_and_render_hooks(): void
     {
-        $this->assertNotEmpty($this->hooksFor('template_redirect'));
-        $this->assertNotEmpty($this->hooksFor('unity/member_before_save'));
-        $this->assertNotEmpty($this->hooksFor('unity/position_before_save'));
-        $this->assertNotEmpty($this->hooksFor('unity/intergroup_meeting_before_save'));
+        $this->assertHookAdded('template_redirect');
+        $this->assertHookAdded('unity/member_before_save');
+        $this->assertHookAdded('unity/position_before_save');
+        $this->assertHookAdded('unity/intergroup_meeting_before_save');
     }
 
     // ── title sync delegation ────────────────────────────────────────

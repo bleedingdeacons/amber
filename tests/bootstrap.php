@@ -4,18 +4,38 @@ declare(strict_types=1);
 
 // PHPUnit bootstrap.
 //
-// Amber sits on top of two sibling plugins: Unity (whose interfaces it
-// consumes) and Concordance (whose API client MeetingReconciler reconciles
-// against). Both are loaded from the adjacent plugin directories — the same
-// thing WordPress does at runtime — rather than from hand-copied stubs, so a
-// change to either contract fails this suite immediately instead of going
-// unnoticed until production.
+// WordPress stand-ins come from bleedingdeacons/wp-mocks, shared across the
+// plugin suite — and largely factored out of the stubs that used to live in
+// this directory. Its bootstrap loads Patchwork before anything patchable, so
+// anything below that defines WordPress functions of its own must stay after
+// the Bootstrap::load() call, not before it.
+//
+// The `acf` group is loaded because Amber's admin screens read and write ACF
+// fields throughout. The `sentinel` group is not: Amber\Logger\HasLogger is
+// written to no-op when wp_log() is absent, and that is the branch these tests
+// run.
+//
+// Amber sits on top of sibling plugins: Unity (whose interfaces it consumes)
+// and Concordance (whose API client MeetingReconciler reconciles against),
+// plus Scrutiny and TSML for Unity. All are loaded from the adjacent plugin
+// directories — the same thing WordPress does at runtime — rather than from
+// hand-copied stubs, so a change to any contract fails this suite immediately
+// instead of going unnoticed until production.
 //
 // Deliberately not Composer path repositories: those would be hard
 // require-dev entries, and `composer install` — a CI gate — fails outright
-// when the sibling is absent. CI checks both out alongside before installing.
+// when the sibling is absent. CI checks them out alongside before installing.
+
+use BleedingDeacons\WpMocks\Bootstrap;
+use BleedingDeacons\WpMocks\Doubles\FakeWpdb;
+use BleedingDeacons\WpMocks\WpState;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+Bootstrap::load(['wordpress', 'acf']);
+
+// Makes plugins_url()/plugin_dir_url() answer with Amber's own path.
+WpState::$pluginSlug = 'amber';
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', sys_get_temp_dir() . '/amber-test-wp/');
@@ -53,21 +73,5 @@ $registerSibling('Concordance\\', 'concordance');
 $registerSibling('Scrutiny\\', 'scrutiny');
 $registerSibling('TsmlForUnity\\', 'tsml-for-unity');
 
-// WordPress stand-ins. The admin classes call WordPress directly from inside
-// long render methods, so the only practical way to exercise them is to make
-// those functions real and back them with a store the tests control. See
-// tests/stubs/wordpress.php and Amber\Tests\WpState.
-//
-// Loaded before is_wp_error() below so WP_Error exists for the instanceof.
-require_once __DIR__ . '/stubs/wordpress.php';
-
-// MeetingReconciler checks WP_Error results from the Concordance API client.
-if (!function_exists('is_wp_error')) {
-    function is_wp_error(mixed $thing): bool
-    {
-        return $thing instanceof \WP_Error;
-    }
-}
-
 // Several admin screens query custom tables through the global $wpdb.
-$GLOBALS['wpdb'] = new \Amber\Tests\FakeWpdb();
+$GLOBALS['wpdb'] = new FakeWpdb();

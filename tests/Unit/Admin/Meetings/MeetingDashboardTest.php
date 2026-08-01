@@ -8,7 +8,7 @@ use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Managers\MeetingReconciler;
 use Amber\Models\ReconciliationResult;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use Unity\Contacts\Interfaces\Contact;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;

@@ -6,7 +6,7 @@ namespace Amber\Tests\Unit\Admin\Positions;
 
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Tests\AmberTestCase;
-use Amber\Tests\WpState;
+use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
@@ -115,11 +115,11 @@ class PositionAdminTest extends AmberTestCase
     /** @test */
     public function it_registers_its_list_table_hooks(): void
     {
-        $this->assertNotEmpty($this->hooksFor('manage_' . self::POSITION_TYPE . '_posts_columns'));
-        $this->assertNotEmpty($this->hooksFor('save_post_' . self::POSITION_TYPE));
+        $this->assertHookAdded('manage_' . self::POSITION_TYPE . '_posts_columns');
+        $this->assertHookAdded('save_post_' . self::POSITION_TYPE);
         // A member save also refreshes the position they hold.
-        $this->assertNotEmpty($this->hooksFor('save_post_' . self::MEMBER_TYPE));
-        $this->assertNotEmpty($this->hooksFor('admin_head'));
+        $this->assertHookAdded('save_post_' . self::MEMBER_TYPE);
+        $this->assertHookAdded('admin_head');
     }
 
     /** @test */

@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Amber\Tests;
 
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\Doubles\FakeWpdb;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Actions;
+use Brain\Monkey\Filters;
 
 /**
  * Base case for tests that touch the WordPress stubs.
  *
- * Resets the shared state between tests — it lives in statics and a global,
- * because the stubs are plain functions with nowhere else to keep it — and
- * offers the handful of helpers every admin test needs: seeding options,
- * fields and posts, and capturing what a render method echoes.
+ * The stubs, the state store and the $wpdb double now come from
+ * bleedingdeacons/wp-mocks — they were largely factored out of this plugin's
+ * own copies — so the shared TestCase handles resetting them, along with the
+ * Brain Monkey lifecycle and Mockery integration. What is left here is the
+ * handful of helpers every admin test needs: seeding options, fields and
+ * posts, and capturing what a render method echoes.
  */
 abstract class AmberTestCase extends TestCase
 {
@@ -21,8 +27,6 @@ abstract class AmberTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        WpState::reset();
 
         $this->wpdb = $GLOBALS['wpdb'];
         $this->wpdb->reset();
@@ -146,10 +150,24 @@ abstract class AmberTestCase extends TestCase
         return $output;
     }
 
-    /** Hooks registered for a given WordPress action/filter. */
-    protected function hooksFor(string $hook): array
+    /**
+     * Whether anything is hooked to a given name, as an action or a filter.
+     *
+     * Brain Monkey keeps actions and filters in separate stores, and WordPress
+     * itself does not care which a caller used � several of the names these
+     * tests assert on are filters (manage_*_posts_columns) sitting alongside
+     * actions (save_post_*). This asks the question the old
+     * WpState::$hooks[$hook] lookup asked: is *something* registered here.
+     *
+     * Actions\has()/Filters\has() answer with a priority � an int, possibly
+     * 0 � or false, so the test is against false rather than truthiness.
+     */
+    protected function assertHookAdded(string $hook, string $message = ''): void
     {
-        return WpState::$hooks[$hook] ?? [];
+        self::assertTrue(
+            Actions\has($hook) !== false || Filters\has($hook) !== false,
+            $message !== '' ? $message : sprintf('Failed asserting that "%s" was hooked.', $hook)
+        );
     }
 
     /** Menu entries registered via add_menu_page()/add_submenu_page(). */
