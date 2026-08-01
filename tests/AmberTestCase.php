@@ -9,6 +9,7 @@ use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Brain\Monkey\Actions;
 use Brain\Monkey\Filters;
+use Unity\Testing\Doubles\FakeContainer;
 
 /**
  * Base case for tests that touch the WordPress stubs.
@@ -105,9 +106,9 @@ abstract class AmberTestCase extends TestCase
      * built for real; any repository's findAll() answers with an empty array
      * so migration sweeps iterate cleanly; everything else is a bare mock.
      */
-    protected function mockContainer(): RecordingContainer
+    protected function mockContainer(): FakeContainer
     {
-        return new RecordingContainer(function (string $id) {
+        return new FakeContainer([], function (string $id) {
             if ($id === \Unity\Core\Interfaces\Configuration::class) {
                 $config = $this->createMock(\Unity\Core\Interfaces\Configuration::class);
                 $config->method('getConfig')->willReturn([
