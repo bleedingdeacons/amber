@@ -14,7 +14,7 @@ declare(strict_types=1);
  * GitHub Branch: main
  * Author: The Bleeding Deacons
  * Author URI: https://github.com/bleedingdeacons/amber
- * Contact: thebleedingdeacons@gmail.com, scrutiny
+ * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
 
