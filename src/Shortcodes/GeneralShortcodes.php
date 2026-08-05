@@ -7,15 +7,15 @@ use DateTime;
 use DateTimeZone;
 use Throwable;
 
-/**
- * General purpose shortcodes
- *
- * Both Amber and Confur ship this class. The guard below ensures
- * we don't re-declare the Amber\Shortcodes\GeneralShortcodes class
- * if (somehow) this file is included twice. The two plugins' copies
- * live in different namespaces so they never collide with each other.
- */
 if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
+    /**
+     * General purpose shortcodes
+     *
+     * Both Amber and Confur ship this class. The guard around it ensures
+     * we don't re-declare the Amber\Shortcodes\GeneralShortcodes class
+     * if (somehow) this file is included twice. The two plugins' copies
+     * live in different namespaces so they never collide with each other.
+     */
     class GeneralShortcodes
     {
         /**
@@ -102,10 +102,10 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
                 }
 
                 return '<div>' . HtmlHelper::generatePdfLink(
-                        $atts['url'],
-                        $atts['name'],
-                        $content
-                    ) . '</div>';
+                    $atts['url'],
+                    $atts['name'],
+                    $content
+                ) . '</div>';
             } catch (Throwable $e) {
                 return sprintf(
                     '[generatePdfLink error: %s | url="%s", name="%s"]',
@@ -264,6 +264,5 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
             $unit = $extendBy === 1 ? 'day' : 'days';
             return " (extended by $extendBy $unit)";
         }
-
     }
 }

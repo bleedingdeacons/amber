@@ -93,9 +93,15 @@ class IntergroupMeetingDashboard
             $dateA = $a->getDate();
             $dateB = $b->getDate();
 
-            if (empty($dateA) && empty($dateB)) return 0;
-            if (empty($dateA)) return 1;
-            if (empty($dateB)) return -1;
+            if (empty($dateA) && empty($dateB)) {
+                return 0;
+            }
+            if (empty($dateA)) {
+                return 1;
+            }
+            if (empty($dateB)) {
+                return -1;
+            }
 
             return strcmp($dateB, $dateA);
         });

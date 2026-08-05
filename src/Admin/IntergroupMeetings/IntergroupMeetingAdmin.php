@@ -137,11 +137,10 @@ class IntergroupMeetingAdmin
         add_filter('pre_get_posts', [$this, 'handleCustomColumnSorting']);
         add_action('acf/save_post', [$this, 'updateIntergroupMeetingMetadataOnSave'], 20);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
-        add_filter('acf/fields/relationship/result',[$this, 'addPositionName'],10, 4);
-        add_filter('acf/fields/relationship/result',[$this, 'addMemberNameToPosition'],10, 4);
-        add_filter('acf/fields/relationship/result',[$this, 'addGsrsName'],10, 4);
+        add_filter('acf/fields/relationship/result', [$this, 'addPositionName'], 10, 4);
+        add_filter('acf/fields/relationship/result', [$this, 'addMemberNameToPosition'], 10, 4);
+        add_filter('acf/fields/relationship/result', [$this, 'addGsrsName'], 10, 4);
         add_action('unity/member_changing', [$this, 'onMemberPositionChanged'], 10, 2);
-
     }
 
     /**
@@ -157,7 +156,8 @@ class IntergroupMeetingAdmin
      * @param int|string $post_id
      * @return string Modified title
      */
-    public function addPositionName($title, $post, $field, $post_id) {
+    public function addPositionName($title, $post, $field, $post_id)
+    {
 
         if ($post->post_type !== $this->memberConfig['POST_TYPE']) {
             return $title;
@@ -171,14 +171,17 @@ class IntergroupMeetingAdmin
 
         $intergroupPosition = $member->getIntergroupPosition();
 
-        if ($intergroupPosition === 0) { return $title; }
+        if ($intergroupPosition === 0) {
+            return $title;
+        }
 
         $position = $this->positionRepository->findById($intergroupPosition);
 
-        if ($position === null) { return $title; }
+        if ($position === null) {
+            return $title;
+        }
 
         return $title . ' (' . $position->getLongName() . ')';
-
     }
 
     /**
@@ -194,7 +197,8 @@ class IntergroupMeetingAdmin
      * @param int|string $post_id
      * @return string Modified title
      */
-    public function addMemberNameToPosition($title, $post, $field, $post_id) {
+    public function addMemberNameToPosition($title, $post, $field, $post_id)
+    {
 
         if ($post->post_type !== 'intergroup-position') {
             return $title;
@@ -213,7 +217,6 @@ class IntergroupMeetingAdmin
         }
 
         return $title . ' (' . $officerName . ')';
-
     }
 
     /**
@@ -225,7 +228,8 @@ class IntergroupMeetingAdmin
      * @param int|string $post_id
      * @return string Modified title
      */
-    public function addGsrsName($title, $post, $field, $post_id) {
+    public function addGsrsName($title, $post, $field, $post_id)
+    {
 
         if ($post->post_type !== $this->groupConfig['POST_TYPE']) {
             return $title;
@@ -252,7 +256,6 @@ class IntergroupMeetingAdmin
         } else {
             return $title;
         }
-
     }
 
     /**
@@ -670,8 +673,12 @@ class IntergroupMeetingAdmin
             return;
         }
 
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (wp_doing_ajax()) return;
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (wp_doing_ajax()) {
+            return;
+        }
 
         $this->updateIntergroupMeetingMetadata($postId);
     }
