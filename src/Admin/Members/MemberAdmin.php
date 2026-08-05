@@ -551,8 +551,12 @@ class MemberAdmin
      */
     public function updateMemberMetadataOnSave(int $postId, WP_Post $post, bool $update): void
     {
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (wp_doing_ajax()) return;
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (wp_doing_ajax()) {
+            return;
+        }
 
         $this->updateMemberMetadata($postId);
     }

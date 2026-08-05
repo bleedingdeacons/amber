@@ -68,8 +68,6 @@ class MeetingAdmin
         // Register hooks immediately - unity/loaded fires during plugins_loaded,
         // which is before admin_init when the list table columns are set up
         $this->registerHooks();
-
-
     }
 
     /**

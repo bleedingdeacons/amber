@@ -42,13 +42,15 @@ class MenuRegistrarTest extends AmberTestCase
             'slug'
         );
 
-        foreach ([
+        foreach (
+            [
             'edit.php?post_type=intergroup-position',
             'edit.php?post_type=intergroup-member',
             'edit.php?post_type=tsml_meeting',
             'edit.php?post_type=intergroup-meeting',
             'edit.php?post_type=privacy-policy',
-        ] as $expected) {
+            ] as $expected
+        ) {
             $this->assertContains($expected, $submenuTargets);
         }
     }

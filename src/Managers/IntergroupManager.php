@@ -124,7 +124,6 @@ class IntergroupManager
             $view = $this->positionViewFactory->createFrom($positionId);
 
             if ($view !== null) {
-
                 $showHighlight = 'no';
 
                 if ($view->isVacant() && !$view->isArchivist()) {

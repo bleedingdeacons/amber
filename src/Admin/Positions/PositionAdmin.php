@@ -34,7 +34,7 @@ use const DOING_AUTOSAVE;
 
 /**
  * Position Admin
- * 
+ *
  * Adds custom columns to the admin table view for positions.
  */
 class PositionAdmin
@@ -48,7 +48,7 @@ class PositionAdmin
 
     /**
      * Constructor
-     * 
+     *
      * @param PositionViewFactory $positionViewFactory Position view factory
      * @param PositionRepository $positionRepository Position repository
      */
@@ -72,39 +72,39 @@ class PositionAdmin
         add_action('save_post_' . $this->member_config['POST_TYPE'], [$this, 'updateMemberPositionMetadata'], 10, 3);
         add_action('admin_head', [$this, 'addAdminColumnStyles']);
     }
-    
+
     /**
      * Set up metadata for all positions
-     * 
+     *
      * @return int Number of positions updated
      */
     public function setupAllPositionsMetadata(): int
     {
         $positions = $this->positionRepository->findAll();
         $count = 0;
-        
+
         foreach ($positions as $position) {
             $positionId = $position->getId();
             $this->updatePositionMetadata($positionId);
             $count++;
         }
-        
+
         return $count;
     }
 
     /**
      * Add custom columns to the positions admin table
-     * 
+     *
      * @param array<string, string> $columns Current admin columns
      * @return array<string, string> Modified admin columns
      */
     public function addCustomColumns(array $columns): array
     {
         $newColumns = [];
-        
+
         foreach ($columns as $key => $value) {
             $newColumns[$key] = $value;
-            
+
             if ($key === 'title') {
                 $newColumns['position_email'] = 'Position Email';
                 $newColumns['position_member'] = 'Current Member';
@@ -112,29 +112,29 @@ class PositionAdmin
                 $newColumns['rotation_date'] = 'Rotation Date';
             }
         }
-        
+
         return $newColumns;
     }
-    
+
     /**
      * Populate the custom columns with data
-     * 
+     *
      * @param string $columnName Name of the column
      * @param int $postId Post ID
      */
     public function populateCustomColumns(string $columnName, int $postId): void
     {
         $positionView = $this->positionViewFactory->createFrom($postId);
-        
+
         if (!$positionView) {
             return;
         }
-        
+
         switch ($columnName) {
             case 'position_member':
                 $this->displayPositionMember($positionView);
                 break;
-                
+
             case 'position_email':
                 $this->displayPositionEmail($positionView);
                 break;
@@ -142,7 +142,7 @@ class PositionAdmin
             case 'rotation_date':
                 $this->displayRotationDate($positionView);
                 break;
-                
+
             case 'rotation_status':
                 $this->displayRotationStatus($positionView);
                 break;
@@ -151,7 +151,7 @@ class PositionAdmin
 
     /**
      * Make certain columns sortable
-     * 
+     *
      * @param array<string, mixed> $columns Current sortable columns
      * @return array<string, mixed> Modified sortable columns
      */
@@ -166,13 +166,13 @@ class PositionAdmin
 
     /**
      * Display the current member(s) assigned to the position
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function displayPositionMember(PositionView $positionView): void
     {
         $members = $positionView->getMembers();
-        
+
         if ($positionView->isVacant() || empty($members)) {
             echo '-';
             return;
@@ -183,7 +183,7 @@ class PositionAdmin
             $memberId = $member->getId();
             $displayName = $member->getAnonymousName();
             $editLink = get_edit_post_link($memberId);
-            
+
             if ($editLink) {
                 $links[] = '<a href="' . esc_url($editLink) . '">' . esc_html($displayName) . '</a>';
             } else {
@@ -196,25 +196,25 @@ class PositionAdmin
 
     /**
      * Display the position email address as a mailto link
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function displayPositionEmail(PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
-        
+
         if (empty($positionEmail)) {
             echo '-';
             return;
         }
-        
-        echo '<a href="mailto:' . esc_attr($positionEmail) . '">' . 
+
+        echo '<a href="mailto:' . esc_attr($positionEmail) . '">' .
              esc_html($positionEmail) . '</a>';
     }
 
     /**
      * Check if a position is the Archivist role (permanent tenure, no rotation)
-     * 
+     *
      * @param PositionView $positionView Position view object
      * @return bool
      */
@@ -226,7 +226,7 @@ class PositionAdmin
 
     /**
      * Display the rotation date for the position
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function displayRotationDate(PositionView $positionView): void
@@ -237,18 +237,18 @@ class PositionAdmin
         }
 
         $rotationDate = $positionView->getRotationDate();
-        
+
         if (!$rotationDate) {
             echo '<em>Not set</em>';
             return;
         }
-        
+
         echo esc_html(wp_date('d/m/Y', $rotationDate->getTimestamp()));
     }
 
     /**
      * Display the rotation status with color coding and icons
-     * 
+     *
      * @param PositionView $positionView Position view object
      */
     private function displayRotationStatus(PositionView $positionView): void
@@ -262,29 +262,29 @@ class PositionAdmin
             echo '<span class="status-vacant"><span class="dashicons dashicons-warning"></span> Vacant Position</span>';
             return;
         }
-        
+
         $rotationDate = $positionView->getRotationDate();
         if (!$rotationDate) {
             echo '<span class="status-unknown"><span class="dashicons dashicons-editor-help"></span> No Rotation Date</span>';
             return;
         }
-        
+
         $months = $positionView->getMonthsUntilRotation();
 
         if ($months < 0) {
             $absMonths = abs($months);
             $monthText = $absMonths === 1 ? 'month' : 'months';
-            echo '<span class="status-overdue"><span class="dashicons dashicons-no-alt"></span> Overdue by ' . 
+            echo '<span class="status-overdue"><span class="dashicons dashicons-no-alt"></span> Overdue by ' .
                  esc_html($absMonths . ' ' . $monthText) . '</span>';
         } elseif ($months === 0) {
             echo '<span class="status-due"><span class="dashicons dashicons-clock"></span> Due Now</span>';
         } elseif ($months <= 3) {
             $monthText = $months === 1 ? 'month' : 'months';
-            echo '<span class="status-soon"><span class="dashicons dashicons-flag"></span> Due in ' . 
+            echo '<span class="status-soon"><span class="dashicons dashicons-flag"></span> Due in ' .
                  esc_html($months . ' ' . $monthText) . '</span>';
         } else {
             $monthText = $months === 1 ? 'month' : 'months';
-            echo '<span class="status-normal"><span class="dashicons dashicons-yes-alt"></span> ' . 
+            echo '<span class="status-normal"><span class="dashicons dashicons-yes-alt"></span> ' .
                  esc_html($months . ' ' . $monthText) . ' remaining</span>';
         }
     }
@@ -309,7 +309,7 @@ class PositionAdmin
 
     /**
      * Handle custom column sorting
-     * 
+     *
      * @param WP_Query $query The WordPress query object
      * @return WP_Query The modified query
      */
@@ -318,15 +318,15 @@ class PositionAdmin
         if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== $this->position_config['POST_TYPE']) {
             return $query;
         }
-        
+
         $orderby = $query->get('orderby');
-        
+
         switch ($orderby) {
             case 'position_member':
                 $query->set('meta_key', '_position_member_name');
                 $query->set('orderby', 'meta_value');
                 break;
-                
+
             case 'position_email':
                 $query->set('meta_key', '_position_email');
                 $query->set('orderby', 'meta_value');
@@ -336,17 +336,17 @@ class PositionAdmin
                 $query->set('meta_key', '_rotation_date_sortable');
                 $query->set('orderby', 'meta_value');
                 break;
-                
+
             case 'rotation_status':
                 $query->set('meta_key', '_rotation_sort_key');
                 $query->set('orderby', 'meta_value_num');
                 $query->set('order', $query->get('order') ?: 'ASC');
                 break;
         }
-        
+
         return $query;
     }
-    
+
     /**
      * Extend search to include current member name
      *
@@ -412,38 +412,46 @@ class PositionAdmin
 
     /**
      * Update position metadata when a position is saved
-     * 
+     *
      * @param int $postId The position post ID
      * @param WP_Post $post The position post object
      * @param bool $update Whether this is an update or a new post
      */
     public function updatePositionMetadataOnSave(int $postId, WP_Post $post, bool $update): void
     {
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (wp_doing_ajax()) return;
-        
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (wp_doing_ajax()) {
+            return;
+        }
+
         $this->updatePositionMetadata($postId);
     }
-    
+
     /**
      * Update position metadata when a member is saved
-     * 
+     *
      * @param int $postId The member post ID
      * @param WP_Post $post The member post object
      * @param bool $update Whether this is an update or a new post
      */
     public function updateMemberPositionMetadata(int $postId, WP_Post $post, bool $update): void
     {
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        if (wp_doing_ajax()) return;
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (wp_doing_ajax()) {
+            return;
+        }
 
         $positionId = get_field($this->member_config['FIELD_INTERGROUP_POSITION'], $postId);
-        
+
         if ($positionId) {
             if (is_string($positionId) && strpos($positionId, 'a:') === 0) {
                 $positionId = maybe_unserialize($positionId);
             }
-            
+
             if (is_array($positionId)) {
                 foreach ($positionId as $pid) {
                     $this->updatePositionMetadata((int)$pid);
@@ -453,10 +461,10 @@ class PositionAdmin
             }
         }
     }
-    
+
     /**
      * Update all metadata for a position
-     * 
+     *
      * @param int $positionId The position ID
      */
     public function updatePositionMetadata(int $positionId): void
@@ -475,28 +483,28 @@ class PositionAdmin
         delete_post_meta($positionId, '_has_rotation_date');
         delete_post_meta($positionId, '_rotation_date_sortable');
         delete_post_meta($positionId, '_months_until_rotation');
-        
+
         $this->updateMemberNameMetadata($positionId, $positionView);
         $this->updatePositionEmailMetadata($positionId, $positionView);
         $this->updateRotationStatusMetadata($positionId, $positionView);
     }
-    
+
     /**
      * Update member name metadata for a position (for alphabetical sorting)
-     * 
+     *
      * @param int $positionId The position ID
      * @param PositionView $positionView The position view object
      */
     private function updateMemberNameMetadata(int $positionId, PositionView $positionView): void
     {
         $members = $positionView->getMembers();
-        
+
         if ($positionView->isVacant() || empty($members)) {
             update_post_meta($positionId, '_position_member_name', 'zzz_vacant');
             delete_post_meta($positionId, '_position_member_id');
             return;
         }
-        
+
         $names = [];
         $ids = [];
         foreach ($members as $member) {
@@ -508,17 +516,17 @@ class PositionAdmin
         update_post_meta($positionId, '_position_member_name', strtolower($names[0]));
         update_post_meta($positionId, '_position_member_id', implode(',', $ids));
     }
-    
+
     /**
      * Update position email metadata for sortability
-     * 
+     *
      * @param int $positionId The position ID
      * @param PositionView $positionView The position view object
      */
     private function updatePositionEmailMetadata(int $positionId, PositionView $positionView): void
     {
         $positionEmail = $positionView->getPositionEmail();
-        
+
         if ($positionEmail) {
             update_post_meta($positionId, '_position_email', strtolower($positionEmail));
         } else {
@@ -528,7 +536,7 @@ class PositionAdmin
 
     /**
      * Update rotation status metadata for a position
-     * 
+     *
      * @param int $positionId The position ID
      * @param PositionView $positionView The position view object
      */
@@ -551,7 +559,7 @@ class PositionAdmin
             delete_post_meta($positionId, '_months_until_rotation');
             return;
         }
-        
+
         $rotationDate = $positionView->getRotationDate();
         if (!$rotationDate) {
             update_post_meta($positionId, '_rotation_status', 'unknown');
@@ -561,12 +569,12 @@ class PositionAdmin
             delete_post_meta($positionId, '_months_until_rotation');
             return;
         }
-        
+
         update_post_meta($positionId, '_has_rotation_date', '1');
         update_post_meta($positionId, '_rotation_date_sortable', $rotationDate->format('Y-m-d'));
-        
+
         $months = $positionView->getMonthsUntilRotation();
-        
+
         if ($months < 0) {
             update_post_meta($positionId, '_rotation_status', 'overdue');
             // Overdue: sort by how overdue (more overdue = lower number = higher in list)
@@ -583,7 +591,7 @@ class PositionAdmin
             // Normal: 100 + months so 12 months = 112, 24 months = 124
             update_post_meta($positionId, '_rotation_sort_key', 100 + $months);
         }
-        
+
         update_post_meta($positionId, '_months_until_rotation', $months);
     }
 }

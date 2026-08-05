@@ -4,10 +4,10 @@ namespace Amber\Utils;
 
 use Confur\Config\Constants;
 
-/**
- * HTML helper utilities
- */
 if (!class_exists('HtmlHelper')) {
+    /**
+     * HTML helper utilities
+     */
     class HtmlHelper
     {
         /**

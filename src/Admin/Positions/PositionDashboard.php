@@ -94,7 +94,7 @@ class PositionDashboard
         }
 
         // Sort by position title
-        usort($positionViews, function($a, $b) {
+        usort($positionViews, function ($a, $b) {
             return strcasecmp($a->getTitle() ?? '', $b->getTitle() ?? '');
         });
 
@@ -221,7 +221,7 @@ class PositionDashboard
 
     /**
      * Check if a position is the Archivist role (permanent tenure, no rotation)
-     * 
+     *
      * @param PositionView $positionView Position view object
      * @return bool
      */

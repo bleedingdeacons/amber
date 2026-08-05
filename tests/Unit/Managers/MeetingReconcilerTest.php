@@ -326,7 +326,8 @@ class MeetingReconcilerTest extends TestCase
 
         // is_wp_error needs to return true for WP_Error instances
         if (!function_exists('is_wp_error')) {
-            function is_wp_error($thing) {
+            function is_wp_error($thing)
+            {
                 return $thing instanceof \WP_Error || (is_object($thing) && method_exists($thing, 'get_error_message'));
             }
         }
