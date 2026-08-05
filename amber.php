@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Plugin Name: Amber
  * Description: Admin components for the Unity intergroup management plugin. Requires Scrutiny for GDPR compliance.
@@ -17,6 +15,8 @@ declare(strict_types=1);
  * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
+
+declare(strict_types=1);
 
 if (!defined('ABSPATH')) {
     exit;
@@ -68,12 +68,13 @@ spl_autoload_register(function ($class) {
  * @return \Psr\Container\ContainerInterface
  * @throws \RuntimeException If Amber is not initialized
  */
-function amber(): \Psr\Container\ContainerInterface {
+function amber(): \Psr\Container\ContainerInterface
+{
     return \Amber\Plugin::getContainer();
 }
 
 // Initialize the plugin after Unity is loaded
-add_action('unity/loaded', function($unityContainer) {
+add_action('unity/loaded', function ($unityContainer) {
     try {
         // Check if Scrutiny is active - Amber requires Scrutiny for GDPR compliance
         if (!function_exists('scrutiny')) {
@@ -87,14 +88,13 @@ add_action('unity/loaded', function($unityContainer) {
         \Amber\Plugin::init($unityContainer);
 
         do_action('amber/loaded', \Amber\Plugin::getContainer());
-
     } catch (\Exception $e) {
         function_exists('wp_log')
             ? wp_log('amber')->error('Amber Plugin Initialization Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
             : error_log('Amber Plugin Initialization Error: ' . $e->getMessage());
 
         if (is_admin()) {
-            add_action('admin_notices', function() use ($e) {
+            add_action('admin_notices', function () use ($e) {
                 $message = sprintf(
                     '<strong>Amber Plugin Error:</strong> %s',
                     esc_html($e->getMessage())
@@ -104,14 +104,13 @@ add_action('unity/loaded', function($unityContainer) {
         }
 
         return;
-
     } catch (\Throwable $e) {
         function_exists('wp_log')
             ? wp_log('amber')->critical('Amber Plugin Fatal Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
             : error_log('Amber Plugin Fatal Error: ' . $e->getMessage());
 
         if (is_admin()) {
-            add_action('admin_notices', function() {
+            add_action('admin_notices', function () {
                 echo '<div class="notice notice-error is-dismissible"><p><strong>Amber Plugin Fatal Error:</strong> Plugin failed to load. Check error logs.</p></div>';
             });
         }
@@ -121,7 +120,7 @@ add_action('unity/loaded', function($unityContainer) {
 }, 10);
 
 // Show admin notice if Unity plugin is not active
-add_action('admin_notices', function() {
+add_action('admin_notices', function () {
     if (!function_exists('unity') && !did_action('unity/loaded')) {
         echo '<div class="notice notice-warning is-dismissible"><p><strong>Amber:</strong> This plugin requires the Unity plugin to be installed and activated.</p></div>';
     } elseif (!function_exists('scrutiny') && function_exists('unity')) {
@@ -142,10 +141,10 @@ register_activation_hook(__FILE__, function () {
 });
 
 // Show warning if Scrutiny gets deactivated while Amber is active
-add_action('admin_init', function() {
+add_action('admin_init', function () {
     if (is_plugin_active(plugin_basename(__FILE__)) && !function_exists('scrutiny')) {
         deactivate_plugins(plugin_basename(__FILE__));
-        add_action('admin_notices', function() {
+        add_action('admin_notices', function () {
             echo '<div class="notice notice-error"><p><strong>Amber has been deactivated:</strong> The Scrutiny plugin is required for GDPR compliance but is not active.</p></div>';
         });
     }
