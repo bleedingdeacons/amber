@@ -142,6 +142,10 @@ jobs:
       # --- Advisory --------------------------------------------------------
       # Reported but not yet enforced. Promote to a gate once a repo is green.
 
+      - name: PHPCS (advisory)
+        run: composer phpcs
+        continue-on-error: true
+
       - name: PHPStan
         # A gate. phpstan.neon.dist is committed so CI actually has a config
         # — it previously ran with none at all, analysing nothing. Existing
