@@ -45,6 +45,7 @@ parameters:
         - ../concordance/src
         - ../sentinel/src
     ignoreErrors:
-        - '#Function get_plugin_data not found#'
+        # The get_plugin_data entry was removed from here once wordpress-stubs
+        # resolved it and it stopped matching.
         - '#Function get_field not found#'
         - '#Function concordance not found#'
