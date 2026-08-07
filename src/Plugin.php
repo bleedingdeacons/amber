@@ -97,8 +97,13 @@ class Plugin
         // Confur). Each tag is guarded by shortcode_exists so whichever plugin
         // registers first wins and the other no-ops — both plugins ship the
         // same implementation so behaviour is identical either way.
+        // The container returns mixed, so the callable array is unverifiable
+        // without narrowing first — and a mis-bound service would otherwise
+        // fail at hook time, not here.
         $shortcodeService = self::$container->get(ShortcodeService::class);
-        add_action('init', [$shortcodeService, 'registerShortcodes']);
+        if ($shortcodeService instanceof ShortcodeService) {
+            add_action('init', [$shortcodeService, 'registerShortcodes']);
+        }
 
         // Initialize admin services
         if (is_admin()) {

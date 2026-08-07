@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 use Unity\Core\Interfaces\Configuration;
+use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Groups\Interfaces\GroupViewFactory;
 
@@ -168,23 +169,12 @@ class MeetingAdmin
             return;
         }
 
-        // Try different methods to get the group name
-        $name = null;
-        if (method_exists($group, 'getName')) {
-            $name = $group->getName();
-        } elseif (method_exists($group, 'name')) {
-            $name = $group->name();
-        } elseif (method_exists($group, 'getTitle')) {
-            $name = $group->getTitle();
-        } elseif (method_exists($group, 'title')) {
-            $name = $group->title();
-        } elseif (property_exists($group, 'name')) {
-            $name = $group->name;
-        } elseif (property_exists($group, 'post_title')) {
-            $name = $group->post_title;
-        } elseif ($group instanceof \WP_Post) {
-            $name = $group->post_title;
-        }
+        // getTitle() is the only name accessor Unity's Group interface has, so
+        // the ladder of method_exists()/property_exists() fallbacks that used
+        // to stand here — getName, name, title, ->name, ->post_title — could
+        // never fire. It was written while getGroupForMeeting() was annotated
+        // `mixed`; now that it says ?Group, the contract answers the question.
+        $name = $group->getTitle();
 
         if ($name) {
             echo esc_html($name);
@@ -303,9 +293,9 @@ class MeetingAdmin
      * Get the group associated with a meeting
      *
      * @param int $postId Meeting post ID
-     * @return mixed|null Group object or null
+     * @return Group|null The group, or null if the meeting has none
      */
-    private function getGroupForMeeting(int $postId)
+    private function getGroupForMeeting(int $postId): ?Group
     {
         $groupId = get_post_meta($postId, $this->meeting_config['GROUP_META_KEY'], true);
 

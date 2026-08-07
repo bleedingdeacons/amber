@@ -353,6 +353,12 @@ class ReportsAdmin
 
         $output = fopen('php://output', 'w');
 
+        // Nothing can be streamed if the output wrapper won't open. The headers
+        // are already sent, so an empty download is the only graceful exit.
+        if ($output === false) {
+            exit;
+        }
+
         // UTF-8 BOM so Excel renders accented characters correctly
         fwrite($output, "\xEF\xBB\xBF");
 

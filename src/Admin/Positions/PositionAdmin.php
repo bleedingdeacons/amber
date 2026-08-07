@@ -243,7 +243,16 @@ class PositionAdmin
             return;
         }
 
-        echo esc_html(wp_date('d/m/Y', $rotationDate->getTimestamp()));
+        // wp_date() is string|false. Reuse the "not set" branch above rather
+        // than printing an empty cell.
+        $formatted = wp_date('d/m/Y', $rotationDate->getTimestamp());
+
+        if ($formatted === false) {
+            echo '<em>Not set</em>';
+            return;
+        }
+
+        echo esc_html($formatted);
     }
 
     /**

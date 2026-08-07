@@ -198,6 +198,15 @@ class AnonymousNameValidator
 
         $ids = $query->posts;
 
-        return !empty($ids) ? (int) $ids[0] : null;
+        if (empty($ids)) {
+            return null;
+        }
+
+        // 'fields' => 'ids' above means these really are ints, but WP_Query
+        // types ->posts as int|WP_Post either way; read the ID off an object
+        // rather than casting one.
+        $first = $ids[0];
+
+        return is_object($first) ? (int) $first->ID : (int) $first;
     }
 }
