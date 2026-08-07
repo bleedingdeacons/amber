@@ -207,6 +207,14 @@ class PositionNameValidator
 
         $ids = $query->posts;
 
-        return !empty($ids) ? (int) $ids[0] : null;
+        if (empty($ids)) {
+            return null;
+        }
+
+        // See AnonymousNameValidator: WP_Query types ->posts as int|WP_Post
+        // whatever 'fields' asked for.
+        $first = $ids[0];
+
+        return is_object($first) ? (int) $first->ID : (int) $first;
     }
 }

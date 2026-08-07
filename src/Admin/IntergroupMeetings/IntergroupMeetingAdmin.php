@@ -481,7 +481,9 @@ class IntergroupMeetingAdmin
 
         $timestamp = strtotime($date);
         if ($timestamp !== false) {
-            echo esc_html(wp_date('F j, Y', $timestamp));
+            // wp_date() is string|false; fall back to the raw value, which is
+            // what the unparseable branch below already prints.
+            echo esc_html(wp_date('F j, Y', $timestamp) ?: $date);
         } else {
             echo esc_html($date);
         }

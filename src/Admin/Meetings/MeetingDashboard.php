@@ -653,7 +653,9 @@ class MeetingDashboard
         if ($timestamp === false) {
             return $time;
         }
-        return wp_date('g:i A', $timestamp);
+        // wp_date() is string|false. Return the input unformatted if it fails,
+        // exactly as the unparseable-input branch above does.
+        return wp_date('g:i A', $timestamp) ?: $time;
     }
 
     /**

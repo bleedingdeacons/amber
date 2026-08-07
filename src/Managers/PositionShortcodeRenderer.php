@@ -111,8 +111,14 @@ class PositionShortcodeRenderer
     public function renderPositionHeader(array $atts = [], ?string $content = null): string
     {
         try {
+            // get_the_ID() is int|false outside the loop or without a post.
+            // There is no position to render in that case.
             $positionId = get_the_ID();
-            $view       = $this->positionViewFactory->createFrom($positionId);
+            if ($positionId === false) {
+                return '';
+            }
+
+            $view = $this->positionViewFactory->createFrom($positionId);
 
             $positionTitle  = $view->getTitle();
             $sobrietyMonths = $view->getPosition()->getMinimumSobriety();
