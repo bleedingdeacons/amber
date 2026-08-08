@@ -60,8 +60,8 @@ class PositionAdmin
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository = $positionRepository;
 
-        $this->member_config = $configuration->getConfig(Member::class);
-        $this->position_config = $configuration->getConfig(Position::class);
+        $this->member_config = $configuration->getConfig(Member::class) ?? [];
+        $this->position_config = $configuration->getConfig(Position::class) ?? [];
 
         add_filter('manage_' . $this->position_config['POST_TYPE'] . '_posts_columns', [$this, 'addCustomColumns']);
         add_action('manage_' . $this->position_config['POST_TYPE'] . '_posts_custom_column', [$this, 'populateCustomColumns'], 10, 2);

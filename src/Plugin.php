@@ -151,11 +151,11 @@ class Plugin
 
         try {
             /** @var PositionAdmin $positionAdmin */
-            $positionAdmin = self::$container->get(PositionAdmin::class);
+            $positionAdmin = self::getContainer()->get(PositionAdmin::class);
             $positionCount = $positionAdmin->setupAllPositionsMetadata();
 
             /** @var MemberAdmin $memberAdmin */
-            $memberAdmin = self::$container->get(MemberAdmin::class);
+            $memberAdmin = self::getContainer()->get(MemberAdmin::class);
             $memberCount = $memberAdmin->setupAllMembersMetadata();
 
             self::logInfo('Amber migration complete', [

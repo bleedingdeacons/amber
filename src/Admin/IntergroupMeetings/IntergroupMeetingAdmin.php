@@ -112,10 +112,10 @@ class IntergroupMeetingAdmin
         GroupViewFactory $groupViewFactory
     ) {
 
-        $this->intergroupMeetingConfig = $configuration->getConfig(IntergroupMeeting::class);
+        $this->intergroupMeetingConfig = $configuration->getConfig(IntergroupMeeting::class) ?? [];
 
-        $this->groupConfig = $configuration->getConfig(Group::class);
-        $this->memberConfig = $configuration->getConfig(Member::class);
+        $this->groupConfig = $configuration->getConfig(Group::class) ?? [];
+        $this->memberConfig = $configuration->getConfig(Member::class) ?? [];
 
         $this->intergroupMeetingFactory = $intergroupMeetingFactory;
         $this->intergroupMeetingRepository = $intergroupMeetingRepository;

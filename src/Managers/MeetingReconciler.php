@@ -392,8 +392,11 @@ class MeetingReconciler
     {
         $normalise = static function (string $s): string {
             $s = mb_strtolower(trim($s));
-            $s = preg_replace('/[^a-z0-9 ]/', ' ', $s);
-            return trim(preg_replace('/\s+/', ' ', $s));
+            // preg_replace() returns null on a PCRE failure; keep the value as
+            // it stands rather than comparing against an empty string, which
+            // would score every pair as completely dissimilar.
+            $s = preg_replace('/[^a-z0-9 ]/', ' ', $s) ?? $s;
+            return trim(preg_replace('/\s+/', ' ', $s) ?? $s);
         };
 
         $stopLookup = array_flip(self::STOP_WORDS);
@@ -566,7 +569,9 @@ class MeetingReconciler
     private function normalisePostcode(string $postcode): string
     {
         $postcode = mb_strtoupper(trim($postcode));
-        $postcode = preg_replace('/\s+/', ' ', $postcode);
+        // preg_replace() returns null on a PCRE failure; keep the upper-cased
+        // value rather than losing the postcode entirely.
+        $postcode = preg_replace('/\s+/', ' ', $postcode) ?? $postcode;
 
         // If the value lacks a space and is long enough, insert one before the
         // last 3 characters (the inward code is always 3 chars).

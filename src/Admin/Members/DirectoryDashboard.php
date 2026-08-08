@@ -65,7 +65,7 @@ class DirectoryDashboard
         $this->positionViewFactory = $positionViewFactory;
         $this->positionRepository  = $positionRepository;
         $this->policy              = $policy;
-        $this->member_config       = $configuration->getConfig(Member::class);
+        $this->member_config       = $configuration->getConfig(Member::class) ?? [];
 
         // Register hooks
         add_action('wp_dashboard_setup', [$this, 'registerDashboardWidget']);

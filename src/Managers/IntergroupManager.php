@@ -46,9 +46,9 @@ class IntergroupManager
         PositionViewFactory $positionViewFactory,
         PostTitleSyncer $titleSyncer
     ) {
-        $this->member_config              = $configuration->getConfig(Member::class);
-        $this->position_config            = $configuration->getConfig(Position::class);
-        $this->intergroup_meeting_config  = $configuration->getConfig(IntergroupMeeting::class);
+        $this->member_config              = $configuration->getConfig(Member::class) ?? [];
+        $this->position_config            = $configuration->getConfig(Position::class) ?? [];
+        $this->intergroup_meeting_config  = $configuration->getConfig(IntergroupMeeting::class) ?? [];
         $this->positionViewFactory        = $positionViewFactory;
         $this->titleSyncer                = $titleSyncer;
 

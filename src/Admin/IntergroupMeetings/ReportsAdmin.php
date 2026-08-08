@@ -423,7 +423,7 @@ class ReportsAdmin
         $suffix = preg_replace('/[^A-Za-z0-9_.-]/u', '', $suffix ?? '');
 
         // Collapse repeated underscores and trim them from the ends
-        $suffix = trim(preg_replace('/_+/', '_', $suffix ?? ''), '_');
+        $suffix = trim(preg_replace('/_+/', '_', $suffix ?? '') ?? '', '_');
 
         return $suffix === ''
             ? $baseName . '.csv'
