@@ -104,7 +104,9 @@ if (!class_exists(__NAMESPACE__ . '\\GeneralShortcodes')) {
                 return '<div>' . HtmlHelper::generatePdfLink(
                     $atts['url'],
                     $atts['name'],
-                    $content
+                    // WordPress passes null for a self-closing shortcode,
+                    // which is the usual way to write this one.
+                    $content ?? ''
                 ) . '</div>';
             } catch (Throwable $e) {
                 return sprintf(

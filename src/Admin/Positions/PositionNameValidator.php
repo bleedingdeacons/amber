@@ -51,7 +51,7 @@ class PositionNameValidator
 
     public function __construct(Configuration $configuration)
     {
-        $this->positionConfig = $configuration->getConfig(Position::class);
+        $this->positionConfig = $configuration->getConfig(Position::class) ?? [];
 
         // Enqueue the validator script on position edit screens.
         // Use both hooks: ACF-specific for classic editor, standard for block editor.

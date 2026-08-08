@@ -44,7 +44,7 @@ class AnonymousNameValidator
 
     public function __construct(Configuration $configuration)
     {
-        $this->memberConfig = $configuration->getConfig(Member::class);
+        $this->memberConfig = $configuration->getConfig(Member::class) ?? [];
 
         // Enqueue the front-end validator script on member edit screens.
         add_action('acf/input/admin_enqueue_scripts', [$this, 'enqueueScripts']);

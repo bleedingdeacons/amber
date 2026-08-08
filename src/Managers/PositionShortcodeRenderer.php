@@ -43,7 +43,7 @@ class PositionShortcodeRenderer
         Configuration $configuration,
         PositionViewFactory $positionViewFactory
     ) {
-        $this->position_config    = $configuration->getConfig(Position::class);
+        $this->position_config    = $configuration->getConfig(Position::class) ?? [];
         $this->positionViewFactory = $positionViewFactory;
 
         add_shortcode('position_state', [$this, 'renderPositionState']);
@@ -74,7 +74,11 @@ class PositionShortcodeRenderer
                 throw new Exception('Invalid position ID in renderPositionState.');
             }
 
-            $view   = $this->positionViewFactory->createFrom($positionId);
+            $view = $this->positionViewFactory->createFrom($positionId);
+            if ($view === null) {
+                throw new Exception('No position view for post ' . $positionId . ' in renderPositionState.');
+            }
+
             $output = '';
 
             if ($view->isArchivist($view)) {
@@ -119,8 +123,13 @@ class PositionShortcodeRenderer
             }
 
             $view = $this->positionViewFactory->createFrom($positionId);
+            if ($view === null) {
+                throw new Exception('No position view for post ' . $positionId . ' in renderPositionHeader.');
+            }
 
-            $positionTitle  = $view->getTitle();
+            // PositionView's string getters are all nullable; an absent value
+            // renders as empty rather than stopping the shortcode.
+            $positionTitle  = $view->getTitle() ?? '';
             $sobrietyMonths = $view->getPosition()->getMinimumSobriety();
             $termYears      = $view->getPosition()->getTermYears();
 
@@ -169,20 +178,22 @@ class PositionShortcodeRenderer
             $output = '<table class="directory" id="service_positions"><thead></thead><tbody>';
 
             foreach ($views as $view) {
-                $email         = $view->getPositionEmail();
+                // PositionView's string getters are all nullable; an absent
+                // value renders as an empty cell.
+                $email         = $view->getPositionEmail() ?? '';
                 $emailLink     = Functions::createEmailAnchor($email, '', '', $email);
-                $description   = esc_html($view->getDescription());
+                $description   = esc_html($view->getDescription() ?? '');
                 $positionLink  = '<a class="more" href="' . esc_url($view->getPosition()->getLink()) . '">About</a>';
                 $status        = '';
                 $anonymousName = '';
 
                 if ($view->isArchivist()) {
-                    $anonymousName = $view->getPublicDisplayName();
+                    $anonymousName = $view->getPublicDisplayName() ?? '';
                     $status = '';
                 } elseif ($view->isVacant()) {
                     $status = '<strong>Position Vacant</strong>';
                 } else {
-                    $anonymousName = $view->getPublicDisplayName();
+                    $anonymousName = $view->getPublicDisplayName() ?? '';
                     $rotationDate  = $view->getRotationDate();
 
                     if (!empty($rotationDate)) {

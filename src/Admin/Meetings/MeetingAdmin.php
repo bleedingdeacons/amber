@@ -60,7 +60,7 @@ class MeetingAdmin
         GroupViewFactory $groupViewFactory,
         MemberRepository $memberRepository
     ) {
-        $this->meeting_config = $configuration->getConfig(Meeting::class);
+        $this->meeting_config = $configuration->getConfig(Meeting::class) ?? [];
 
         $this->groupRepository = $groupRepository;
         $this->groupViewFactory = $groupViewFactory;
@@ -418,14 +418,16 @@ class MeetingAdmin
         $like = '%' . $wpdb->esc_like($searchTerm) . '%';
 
         // Add group post_title to the search
-        // Find the existing search condition and extend it
-        $where = preg_replace(
+        // Find the existing search condition and extend it.
+        //
+        // preg_replace() returns null on a PCRE failure. Fall back to the
+        // clause as it arrived rather than to '', which would drop the WHERE
+        // restriction altogether and widen the query to every post.
+        return preg_replace(
             "/\(\s*{$wpdb->posts}\.post_title\s+LIKE\s*('[^']+')(\s*\))/",
             "({$wpdb->posts}.post_title LIKE $1 OR group_post.post_title LIKE $1$2",
             $where
-        );
-
-        return $where;
+        ) ?? $where;
     }
 
     /**
