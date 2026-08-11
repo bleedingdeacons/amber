@@ -25,7 +25,7 @@ Amber provides the WordPress admin interface layer for the [Unity](https://githu
 * **Dashboard widgets** — three dashboard panels: Position Directory (current holders and rotation status), Meeting Listings (sorted by day/time with reconciliation badges), and Intergroup Meeting Attendance (group and officer attendance records).
 * **Position shortcodes** — `[position_state]`, `[position_header]`, `[directory_list]`, and `[position_summary]` for embedding position data in posts and pages.
 * **Admin column enhancements** — extra columns and sort options on the Members, Meetings, and Positions admin list tables (GSR status, group name, service position, rotation info).
-* **Field validation** — real-time AJAX uniqueness checks for anonymous names and position long names, with server-side ACF validation as a safety net.
+* **Field validation** — real-time AJAX uniqueness checks for anonymous names and position long names, with server-side ACF validation as a safety net. A member's Personal Email is likewise refused if it carries the intergroup's own domain (`aa-bristol.org`), since those addresses forward by role rather than reaching the member; override the domain list with the `amber_intergroup_email_domains` filter.
 * **Post title syncing** — automatically keeps post titles in sync with designated ACF field values for members and positions, with re-entrancy guards to prevent infinite loops.
 * **Meeting reconciliation** — when the Concordance plugin is active, Amber cross-references local Unity meetings against the national AAGBDB group listing and displays match/mismatch badges on the meeting dashboard.
 * **Intergroup meeting management** — full admin interface for creating intergroup meetings and recording group attendance (GSR/proxy) and officer attendance (position-linked).
@@ -97,7 +97,8 @@ amber/
     └── Admin/
         ├── Members/
         │   ├── MemberAdmin.php                  # Member list table customisation
-        │   └── AnonymousNameValidator.php       # AJAX + ACF name uniqueness
+        │   ├── AnonymousNameValidator.php       # AJAX + ACF name uniqueness
+        │   └── PersonalEmailValidator.php       # ACF guard: no intergroup addresses
         ├── Positions/
         │   ├── PositionAdmin.php                # Position list table & meta
         │   ├── PositionDashboard.php            # Dashboard widget

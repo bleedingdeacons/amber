@@ -20,6 +20,7 @@ use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
+use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
@@ -124,6 +125,12 @@ class AmberServiceProvider
 
         $container->register(AnonymousNameValidator::class, function (ContainerInterface $c) {
             return new AnonymousNameValidator(
+                $c->get(Configuration::class)
+            );
+        });
+
+        $container->register(PersonalEmailValidator::class, function (ContainerInterface $c) {
+            return new PersonalEmailValidator(
                 $c->get(Configuration::class)
             );
         });
