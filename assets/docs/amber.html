@@ -760,7 +760,7 @@
             <tr><td><span class="field-name">Is GSR</span></td><td>Tick if this member is their home group's current Group Service Representative.</td></tr>
             <tr><td><span class="field-name">Intergroup position</span></td><td>The officer role they hold. Leave blank if they are registered as a GSR only.</td></tr>
             <tr><td><span class="field-name">Rotation date</span></td><td>When their current term ends. Set this when they take up an officer position.</td></tr>
-            <tr><td><span class="field-name">Personal email</span></td><td>Private. Visible with <code>scrutiny_view_personal_data</code>; editable with <code>scrutiny_edit_personal_data</code>. Used for sending correspondence.</td></tr>
+            <tr><td><span class="field-name">Personal email</span></td><td>Private. Visible with <code>scrutiny_view_personal_data</code>; editable with <code>scrutiny_edit_personal_data</code>. Used for sending correspondence. Must be the member's own address — an <code>@aa-bristol.org</code> address is refused.</td></tr>
             <tr><td><span class="field-name">Mobile number</span></td><td>Private. Visible with <code>scrutiny_view_personal_data</code>; editable with <code>scrutiny_edit_personal_data</code>.</td></tr>
             </tbody>
         </table>
@@ -812,6 +812,11 @@
         <div class="callout info">
             <span class="callout-icon">💡</span>
             <div>Personal contact details are never shown publicly. They are logged by Scrutiny every time they are accessed, in line with GDPR requirements. Updating these fields requires the <code>scrutiny_edit_personal_data</code> capability — without it the fields are read-only.</div>
+        </div>
+
+        <div class="callout warning">
+            <span class="callout-icon">⚠️</span>
+            <div><strong>Not an intergroup address.</strong> Saving is refused if <strong>Personal Email</strong> contains <code>aa-bristol.org</code>. Those addresses forward to whoever currently holds the position, so mail sent to one reaches the intergroup rather than the member — and stops reaching them altogether once they rotate out. Enter the member's own address, or leave the field empty.</div>
         </div>
     </section>
 
