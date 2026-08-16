@@ -64,6 +64,14 @@ class HelpPage
                     window.name = 'amber-admin';
                     var helpUrl = '<?php echo esc_js($helpUrl); ?>' + '?back=' + encodeURIComponent(window.location.href);
                     var existing = window.open('', 'amber-help');
+                    if (!existing) {
+                        // A popup blocker or extension refused the window.
+                        // preventDefault() has already run, so without this the
+                        // Help link would do nothing at all — not even reach the
+                        // fallback page. Open the guide in place instead.
+                        window.location.href = helpUrl;
+                        return;
+                    }
                     try {
                         if (existing && existing.location && existing.location.href && existing.location.href !== 'about:blank') {
                             existing.focus();

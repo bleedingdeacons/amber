@@ -176,4 +176,20 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('<script>', $script);
         $this->assertStringContainsString('page=amber-help', $script);
     }
+
+    /**
+     * window.open() returns null when a popup blocker or an extension refuses
+     * the window. preventDefault() has already run by then, so without an
+     * explicit fallback the Help link would be inert — and the next line would
+     * throw on the null handle rather than failing quietly.
+     *
+     * @test
+     */
+    public function the_help_tab_script_falls_back_to_the_current_tab_when_the_window_is_blocked(): void
+    {
+        $script = $this->capture(static fn () => HelpPage::enqueueHelpTabScript());
+
+        $this->assertStringContainsString('if (!existing) {', $script);
+        $this->assertStringContainsString('window.location.href = helpUrl;', $script);
+    }
 }
