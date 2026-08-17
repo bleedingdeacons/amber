@@ -175,7 +175,10 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
         // Known GSR is linked; unknown one is plain; a group with no GSR just names the group.
-        $this->assertStringContainsString('<a href="https://example.test/wp-admin/post.php?post=7&action=edit">Anonymous Alex</a>', $html);
+        // &#038;, not &: WordPress encodes the separator in an href. The bare
+        // & described output this dashboard has never produced, and passed
+        // only while the test double returned its input untouched.
+        $this->assertStringContainsString('<a href="https://example.test/wp-admin/post.php?post=7&#038;action=edit">Anonymous Alex</a>', $html);
         $this->assertStringContainsString('Anonymous Sam', $html);
         $this->assertStringContainsString('Solo Group', $html);
     }
