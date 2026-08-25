@@ -143,15 +143,22 @@ jobs:
         run: composer audit --locked --abandoned=report
 
       - name: Semgrep
-        # A gate on pull requests, advisory on main.
+        # A gate, on pull requests and on main alike.
         #
         # `semgrep ci` is diff-aware on a PR: it scans against the merge base
         # and reports only what that PR introduces — the same bargain PHPStan's
         # baseline strikes below, with the platform holding the existing state
-        # instead of a committed file. On main it runs a full scan and uploads
-        # it, and continue-on-error keeps that off the release path: a merge is
-        # the release here, so a pre-existing finding must not be able to
-        # freeze one.
+        # instead of a committed file. On main it runs a full scan, and that
+        # gates the release: release has `needs: ci`, so a blocking finding
+        # means no version is raised and no zip is published.
+        #
+        # Deliberately no continue-on-error. Making the main scan advisory was
+        # tried first, reasoning that a merge is the release here and a
+        # pre-existing finding should not be able to freeze one. That has the
+        # trade backwards: it buys an uninterrupted release cadence by shipping
+        # a zip the scanner has already objected to. If a finding does block a
+        # release, triage it and re-cut with workflow_dispatch, which runs the
+        # gates and publishes exactly as a merge does.
         #
         # A run: step rather than semgrep/semgrep-action, for two reasons.
         # uses: steps ignore defaults.run.working-directory (see the Coveralls
@@ -167,7 +174,6 @@ jobs:
         # with a platform token. Without SEMGREP_APP_TOKEN this skips outright
         # rather than scanning with a quietly smaller ruleset and reporting
         # green.
-        continue-on-error: ${{ github.ref == 'refs/heads/main' }}
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         run: |
