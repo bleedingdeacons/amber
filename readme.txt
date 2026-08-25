@@ -3,8 +3,8 @@ Contributors: thebleedingdeacons
 Tags: admin, intergroup, management, unity, gdpr
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 1.28.4
-Build date: 2026/08/17 22:04:31
+Stable tag: 1.28.5
+Build date: 2026/08/25 16:53:52
 Requires PHP: 8.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
