@@ -57,6 +57,17 @@ class CommitteeTree
 {
     public const PAGE_SLUG = 'amber-committees';
 
+    /**
+     * The submenu this screen is placed directly after.
+     *
+     * Matched by slug rather than by a hard-coded index: the Intergroup menu is
+     * filled by MenuRegistrar and by four other Amber admin classes on their
+     * own hooks, so the position of anything in it depends on load order.
+     * Finding the entry and inserting after it survives that; counting does
+     * not.
+     */
+    private const AFTER_SLUG = 'edit.php?post_type=intergroup-meeting';
+
     /** The right-hand pane's id for the members of no committee. */
     private const UNASSIGNED = 0;
 
@@ -143,8 +154,42 @@ class CommitteeTree
             'Committees',
             MenuRegistrar::MENU_CAPABILITY,
             self::PAGE_SLUG,
-            [$this, 'render']
+            [$this, 'render'],
+            $this->positionAfterIntergroupMeetings()
         );
+    }
+
+    /**
+     * Where to slot this screen into the Intergroup submenu.
+     *
+     * add_submenu_page()'s seventh argument is a positional offset into the
+     * parent's existing submenu array, not a key, so this counts entries rather
+     * than reading their indices -- remove_submenu_page() leaves gaps in the
+     * keys and MenuRegistrar calls it.
+     *
+     * @return int|null The offset just after Intergroup Meetings, or null to
+     *                  append -- which is what happens if that entry is not
+     *                  there, rather than guessing at a number.
+     */
+    private function positionAfterIntergroupMeetings(): ?int
+    {
+        global $submenu;
+
+        if (!isset($submenu[MenuRegistrar::MENU_SLUG]) || !is_array($submenu[MenuRegistrar::MENU_SLUG])) {
+            return null;
+        }
+
+        $offset = 0;
+
+        foreach ($submenu[MenuRegistrar::MENU_SLUG] as $item) {
+            $offset++;
+
+            if (is_array($item) && isset($item[2]) && $item[2] === self::AFTER_SLUG) {
+                return $offset;
+            }
+        }
+
+        return null;
     }
 
     /**

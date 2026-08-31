@@ -302,6 +302,64 @@ class CommitteeTreeTest extends AmberTestCase
     }
 
     /**
+     * The seventh argument to add_submenu_page() is a positional offset into
+     * the parent's existing submenu, so "after Intergroup Meetings" has to be
+     * found rather than hard-coded -- four other Amber classes add to that menu
+     * on their own hooks and the order depends on load order.
+     *
+     * @test
+     */
+    public function it_slots_the_page_in_directly_after_intergroup_meetings(): void
+    {
+        $GLOBALS['submenu']['intergroup'] = [
+            0 => ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+            1 => ['Members', 'edit_posts', 'edit.php?post_type=intergroup-member'],
+            // A gap, as remove_submenu_page() leaves behind.
+            5 => ['Intergroup Meetings', 'edit_posts', 'edit.php?post_type=intergroup-meeting'],
+            6 => ['Privacy Policy', 'edit_posts', 'edit.php?post_type=privacy-policy'],
+        ];
+
+        $position = null;
+        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+            function (...$args) use (&$position) {
+                $position = $args[6] ?? null;
+                return 'amber-committees';
+            }
+        );
+
+        $this->tree->registerPage();
+
+        // Third entry by offset, not by key: the keys are 0, 1, 5, 6.
+        $this->assertSame(3, $position);
+
+        unset($GLOBALS['submenu']);
+    }
+
+    /**
+     * @test
+     */
+    public function it_appends_when_intergroup_meetings_is_not_there(): void
+    {
+        $GLOBALS['submenu']['intergroup'] = [
+            ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+        ];
+
+        $position = 'untouched';
+        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+            function (...$args) use (&$position) {
+                $position = $args[6] ?? null;
+                return 'amber-committees';
+            }
+        );
+
+        $this->tree->registerPage();
+
+        $this->assertNull($position, 'appending beats guessing at a number');
+
+        unset($GLOBALS['submenu']);
+    }
+
+    /**
      * @test
      */
     public function it_splits_the_screen_into_a_tree_pane_and_a_member_pane(): void
