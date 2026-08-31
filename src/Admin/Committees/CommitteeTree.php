@@ -24,6 +24,7 @@ use function esc_html;
 use function esc_url;
 use function get_edit_post_link;
 use function plugin_dir_url;
+use function taxonomy_exists;
 use function wp_create_nonce;
 use function wp_enqueue_script;
 use function wp_localize_script;
@@ -115,10 +116,32 @@ class CommitteeTree
 
     public function render(): void
     {
-        $roots = $this->committees->roots();
-
         echo '<div class="wrap amber-committees">';
         echo '<h1>Committees</h1>';
+
+        // Distinguished from "no committees yet" deliberately. The taxonomy is
+        // defined in the ACF admin UI and therefore lives in each site's
+        // database, so an environment that has never had it imported reaches
+        // this screen with nothing registered at all. Both states produce an
+        // empty tree, but only one is fixed by adding a term -- and pointing
+        // somebody at the term editor here would send them to WordPress's bare
+        // "Invalid taxonomy." error with no explanation.
+        $taxonomy = $this->committeeTaxonomy();
+
+        if ($taxonomy === '' || !taxonomy_exists($taxonomy)) {
+            printf(
+                '<p>The committee taxonomy (<code>%s</code>) is not registered on this site, '
+                    . 'so there is nothing to show yet. It is defined in the ACF admin UI rather '
+                    . 'than in code, which means each environment needs its own copy: import it '
+                    . 'under <strong>ACF → Tools → Import</strong>, or recreate it under '
+                    . '<strong>ACF → Taxonomies</strong>.</p>',
+                esc_html($taxonomy !== '' ? $taxonomy : 'not configured')
+            );
+            echo '</div>';
+            return;
+        }
+
+        $roots = $this->committees->roots();
 
         if ($roots === []) {
             echo '<p>No committees exist yet. Create them under '
@@ -447,7 +470,29 @@ class CommitteeTree
         }
         .amber-member.amber-dragging { opacity: .5; }
         .amber-member-edit { font-size: 11px; text-decoration: none; }
-        .amber-member-move { font-size: 11px; max-width: 12em; }
+        /*
+            Visually hidden until the chip is hovered or something inside it has
+            focus. Shown outright it is one dropdown per member, and the
+            Unassigned bucket alone can hold a hundred -- the tree disappears
+            behind a wall of selects.
+
+            Clipped rather than display:none on purpose: a display:none control
+            is not focusable, which would make this the second time the keyboard
+            path got quietly removed. Clipping keeps it in the tab order, and
+            :focus-within brings it into view the moment it is reached.
+        */
+        .amber-member-move {
+            position: absolute; width: 1px; height: 1px;
+            margin: -1px; padding: 0; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+        .amber-member:hover .amber-member-move,
+        .amber-member:focus-within .amber-member-move {
+            position: static; width: auto; height: auto;
+            margin: 0; overflow: visible; clip: auto;
+            white-space: normal; border: 1px solid #8c8f94;
+            font-size: 11px; max-width: 12em;
+        }
         .amber-unassigned { margin-top: 1.5em; }
         .amber-unassigned .amber-committee-head { border-left-color: #8c8f94; }
         </style>';

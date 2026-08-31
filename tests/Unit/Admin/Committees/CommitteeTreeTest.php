@@ -6,6 +6,7 @@ namespace Amber\Tests\Unit\Admin\Committees;
 
 use Amber\Admin\Committees\CommitteeTree;
 use Amber\Tests\AmberTestCase;
+use Brain\Monkey\Functions;
 use Unity\Committees\Interfaces\Committee;
 use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Configuration;
@@ -47,6 +48,10 @@ class CommitteeTreeTest extends AmberTestCase
         $this->committees = $this->createMock(CommitteeRepository::class);
         $this->members    = $this->createMock(MemberRepository::class);
 
+        // wp-mocks does not carry this one. Registered is the normal case; the
+        // unregistered branch overrides it.
+        Functions\when('taxonomy_exists')->justReturn(true);
+
         $this->tree = new CommitteeTree($config, $this->committees, $this->members);
     }
 
@@ -74,9 +79,43 @@ class CommitteeTreeTest extends AmberTestCase
     private function render(): string
     {
         ob_start();
-        $this->tree->render();
 
-        return (string) ob_get_clean();
+        try {
+            $this->tree->render();
+        } finally {
+            // Closed in a finally so a throw inside render() does not leave the
+            // buffer open and turn one failure into every later test reporting
+            // "did not close its own output buffers".
+            $html = (string) ob_get_clean();
+        }
+
+        return $html;
+    }
+
+    /**
+     * The taxonomy is defined in the ACF admin UI, so it lives in each site's
+     * database and an environment that never imported it arrives here with
+     * nothing registered. Found by opening the screen on a local site that had
+     * not been updated: it claimed "no committees exist yet" and linked to a
+     * term editor that answers "Invalid taxonomy."
+     *
+     * @test
+     */
+    public function an_unregistered_taxonomy_says_so_rather_than_blaming_missing_terms(): void
+    {
+        Functions\when('taxonomy_exists')->justReturn(false);
+
+        $this->committees->expects($this->never())->method('roots');
+
+        $html = $this->render();
+
+        $this->assertStringContainsString('is not registered on this site', $html);
+        $this->assertStringContainsString('intergroup-committee', $html);
+        $this->assertStringContainsString('ACF → Tools → Import', $html);
+
+        // Pointing at the term editor here would send somebody to WordPress's
+        // bare "Invalid taxonomy." error.
+        $this->assertStringNotContainsString('edit-tags.php', $html);
     }
 
     /**
