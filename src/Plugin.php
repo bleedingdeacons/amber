@@ -21,6 +21,8 @@ use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
+use Amber\Admin\Committees\CommitteeAssignmentController;
+use Amber\Admin\Committees\CommitteeTree;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Core\AmberServiceProvider;
@@ -31,6 +33,7 @@ use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\TodaysMeetingsShortcode;
 use Psr\Container\ContainerInterface;
+use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Container;
 use Unity\Members\Interfaces\MemberChangeTracker;
 
@@ -121,6 +124,15 @@ class Plugin
             self::$container->get(PositionDashboard::class);
             self::$container->get(MeetingDashboard::class);
             self::$container->get(DirectoryDashboard::class);
+
+            // Committees, feature-detected. Unity ships the contracts but binds
+            // nothing, and tsml-for-unity only started binding them in v1.23.0 --
+            // resolving unconditionally would fatal every site still on an older
+            // one. Absent the binding the screen simply does not appear.
+            if (self::$container->has(CommitteeRepository::class)) {
+                self::$container->get(CommitteeTree::class);
+                self::$container->get(CommitteeAssignmentController::class);
+            }
 
             // Run metadata migrations once per version upgrade (deferred to admin_init
             // so that $wp_rewrite and other globals are available)
