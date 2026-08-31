@@ -32,25 +32,44 @@ use function wp_localize_script;
 /**
  * Committee Tree
  *
- * An admin screen showing the committee hierarchy with its members, and
- * letting them be dragged from one committee to another.
+ * A two-pane admin screen: the committee hierarchy on the left, the members of
+ * whichever committee is selected on the right. Members are dragged from the
+ * right pane onto a committee in the left to move or copy them.
+ *
+ * The panes exist because one column did not survive real data. Rendering every
+ * committee's members inline read fine against a handful, but the Unassigned
+ * bucket alone holds ninety-odd people and the tree disappeared underneath
+ * them. Splitting them means the hierarchy stays visible at all times, which is
+ * the thing being navigated, while the long list gets a column of its own.
  *
  * Deliberately not a CRUD screen. Committees are created, renamed and
  * reparented on WordPress's own term editor, which already does that job
  * properly -- slug collisions, parent loops, capabilities and all. This screen
- * answers the question that editor cannot: who is actually on each committee,
- * seen as a tree rather than one member at a time.
+ * answers the question that editor cannot: who is actually on each committee.
  *
  * Members are shown against the committee they are assigned to, never against
  * its ancestors, even though CommitteeRepository::memberIdsIn() rolls
- * descendants up by default. On a tree the rollup would print the same person
- * at every level above them and make it impossible to see where they actually
- * sit -- so this passes includeDescendants: false and lets the nesting do the
- * implying.
+ * descendants up by default. Selecting a parent and being shown everybody
+ * beneath it would make it impossible to see where anyone actually sits, so
+ * this passes includeDescendants: false and lets the tree do the implying.
  */
 class CommitteeTree
 {
     public const PAGE_SLUG = 'amber-committees';
+
+    /**
+     * The submenu this screen is placed directly after.
+     *
+     * Matched by slug rather than by a hard-coded index: the Intergroup menu is
+     * filled by MenuRegistrar and by four other Amber admin classes on their
+     * own hooks, so the position of anything in it depends on load order.
+     * Finding the entry and inserting after it survives that; counting does
+     * not.
+     */
+    private const AFTER_SLUG = 'edit.php?post_type=intergroup-meeting';
+
+    /** The right-hand pane's id for the members of no committee. */
+    private const UNASSIGNED = 0;
 
     private CommitteeRepository $committees;
     private MemberRepository $members;
@@ -62,12 +81,49 @@ class CommitteeTree
     private readonly array $committeeConfig;
 
     /**
-     * Every committee, keyed by parent id, so the tree is walked without a
+     * Every committee bucketed by parent id, so the tree is walked without a
      * query per node. Built once per render.
      *
      * @var array<int, array<int, Committee>>
      */
     private array $byParent = [];
+
+    /**
+     * Every committee by its own id, for walking back up to a root.
+     *
+     * @var array<int, Committee>
+     */
+    private array $byId = [];
+
+    /**
+     * Members by committee id, memoised because every id is asked for twice --
+     * once for the tree row's count and once for its panel.
+     *
+     * Instance properties, not `static` locals: a static inside a method is
+     * shared by every instance of the class, so a second CommitteeTree would
+     * serve the first one's members. It also leaks between tests, which is how
+     * this was found.
+     *
+     * @var array<int, array<int, Member>>
+     */
+    private array $memberCache = [];
+
+    /** @var array<int, Member>|null */
+    private ?array $unassignedCache = null;
+
+    /**
+     * Committee ids already drawn in the tree, so a cycle cannot be walked
+     * forever.
+     *
+     * WordPress lets a term hierarchy be edited into a loop -- set A's parent
+     * to B and B's to A and it saves without complaint. Every walk over this
+     * structure has to assume that has happened, because an unguarded one does
+     * not mis-draw the tree, it recurses until PHP dies and the screen returns
+     * nothing at all.
+     *
+     * @var array<int, true>
+     */
+    private array $drawn = [];
 
     public function __construct(
         Configuration $configuration,
@@ -98,8 +154,42 @@ class CommitteeTree
             'Committees',
             MenuRegistrar::MENU_CAPABILITY,
             self::PAGE_SLUG,
-            [$this, 'render']
+            [$this, 'render'],
+            $this->positionAfterIntergroupMeetings()
         );
+    }
+
+    /**
+     * Where to slot this screen into the Intergroup submenu.
+     *
+     * add_submenu_page()'s seventh argument is a positional offset into the
+     * parent's existing submenu array, not a key, so this counts entries rather
+     * than reading their indices -- remove_submenu_page() leaves gaps in the
+     * keys and MenuRegistrar calls it.
+     *
+     * @return int|null The offset just after Intergroup Meetings, or null to
+     *                  append -- which is what happens if that entry is not
+     *                  there, rather than guessing at a number.
+     */
+    private function positionAfterIntergroupMeetings(): ?int
+    {
+        global $submenu;
+
+        if (!isset($submenu[MenuRegistrar::MENU_SLUG]) || !is_array($submenu[MenuRegistrar::MENU_SLUG])) {
+            return null;
+        }
+
+        $offset = 0;
+
+        foreach ($submenu[MenuRegistrar::MENU_SLUG] as $item) {
+            $offset++;
+
+            if (is_array($item) && isset($item[2]) && $item[2] === self::AFTER_SLUG) {
+                return $offset;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -154,72 +244,89 @@ class CommitteeTree
         $this->indexTree();
         $this->enqueueScript();
 
-        echo '<p class="description">Drag a member onto a committee to move them there. '
-            . 'Hold <kbd>Ctrl</kbd> (<kbd>⌘</kbd> on a Mac) while dragging to add them to the '
-            . 'second committee instead of moving them. Every member also carries a '
-            . '<em>Move or copy to…</em> menu, which does the same thing from the keyboard.</p>';
+        echo '<p class="description">Pick a committee on the left to see its members. '
+            . 'Drag a member onto a committee to move them there; hold <kbd>Ctrl</kbd> '
+            . '(<kbd>⌘</kbd> on a Mac) while dragging to add them to the second committee '
+            . 'instead of moving them. Every member also carries a <em>Move or copy to…</em> '
+            . 'menu, which does the same thing from the keyboard.</p>';
 
         echo '<p><a href="' . esc_url($this->termEditorUrl()) . '" class="button">'
             . 'Add or rename committees</a></p>';
 
-        echo '<div class="amber-committee-tree">';
-        echo '<ul class="amber-committee-list amber-committee-roots">';
+        $selected = $roots[0]->getId();
+
+        echo '<div class="amber-committee-layout">';
+        $this->renderTreePane($roots, $selected);
+        $this->renderMemberPane($selected);
+        echo '</div>';
+
+        echo '</div>';
+    }
+
+    /**
+     * The left pane: the hierarchy, and nothing else.
+     *
+     * @param array<int, Committee> $roots
+     */
+    private function renderTreePane(array $roots, int $selected): void
+    {
+        echo '<div class="amber-tree-pane">';
+        echo '<h2 class="amber-pane-heading">Committees</h2>';
+
+        echo '<ul class="amber-tree" role="tree" aria-label="Committees">';
         foreach ($roots as $committee) {
-            $this->renderNode($committee);
+            $this->renderTreeNode($committee, $selected);
         }
         echo '</ul>';
-        $this->renderUnassigned();
-        echo '</div>';
+
+        // Outside the tree above rather than a node in it: Unassigned is not a
+        // committee, and putting it in the same tree would make it a sibling of
+        // the real roots in the accessibility tree as well as visually.
+        echo '<ul class="amber-tree amber-tree-loose" role="tree" aria-label="Members with no committee">';
+        printf(
+            '<li role="none"><div class="amber-tree-row amber-tree-unassigned" role="treeitem" '
+                . 'tabindex="0" aria-selected="false" data-committee="%d">'
+                . '<span class="amber-tree-name">Unassigned</span>'
+                . '<span class="amber-tree-count">%d</span></div></li>',
+            self::UNASSIGNED,
+            count($this->unassignedMembers())
+        );
+        echo '</ul>';
 
         echo '</div>';
     }
 
     /**
-     * Load the whole tree once and bucket it by parent.
-     *
-     * findAll() is a single query; walking with childrenOf() would be one per
-     * node, and a tree screen is exactly where that adds up.
+     * One committee and everything below it.
      */
-    private function indexTree(): void
+    private function renderTreeNode(Committee $committee, int $selected): void
     {
-        $this->byParent = [];
+        $id = $committee->getId();
 
-        foreach ($this->committees->findAll() as $committee) {
-            $this->byParent[$committee->getParentId()][] = $committee;
+        if (isset($this->drawn[$id])) {
+            return;
         }
-    }
 
-    /**
-     * Render one committee and everything below it.
-     */
-    private function renderNode(Committee $committee): void
-    {
-        $id       = $committee->getId();
+        $this->drawn[$id] = true;
+
         $children = $this->byParent[$id] ?? [];
-        $members  = $this->membersIn($id);
 
         printf(
-            '<li class="amber-committee" data-committee="%d"><div class="amber-committee-head" '
-                . 'data-committee="%d" tabindex="0"><span class="amber-committee-name">%s</span>'
-                . '<code class="amber-committee-slug">%s</code>'
-                . '<span class="amber-committee-count">%s</span></div>',
+            '<li role="none"><div class="amber-tree-row" role="treeitem" tabindex="0" '
+                . 'aria-selected="%s" data-committee="%d" title="%s">'
+                . '<span class="amber-tree-name">%s</span>'
+                . '<span class="amber-tree-count">%d</span></div>',
+            $id === $selected ? 'true' : 'false',
             $id,
-            $id,
+            esc_attr($committee->getSlug()),
             esc_html($committee->getName()),
-            esc_html($committee->getSlug()),
-            esc_html($this->countLabel(count($members)))
+            count($this->membersIn($id))
         );
 
-        echo '<ul class="amber-member-list">';
-        foreach ($members as $member) {
-            $this->renderMember($member, $id);
-        }
-        echo '</ul>';
-
         if ($children !== []) {
-            echo '<ul class="amber-committee-list">';
+            echo '<ul role="group">';
             foreach ($children as $child) {
-                $this->renderNode($child);
+                $this->renderTreeNode($child, $selected);
             }
             echo '</ul>';
         }
@@ -228,9 +335,81 @@ class CommitteeTree
     }
 
     /**
-     * Render one draggable member chip, with its keyboard equivalent.
+     * The right pane: one panel per committee, all but the selected one hidden.
      *
-     * @param Member $member  The member
+     * Every panel is rendered up front rather than fetched on selection.
+     * Switching committees is then instant and needs no second endpoint, and
+     * the whole page is a few hundred rows at the sizes this screen deals with.
+     */
+    private function renderMemberPane(int $selected): void
+    {
+        echo '<div class="amber-member-pane">';
+
+        foreach ($this->flatten(0, 0) as [$committee, $depth]) {
+            $this->renderMemberPanel(
+                $committee->getId(),
+                $committee->getName(),
+                $this->pathLabel($committee),
+                $this->membersIn($committee->getId()),
+                $committee->getId() === $selected
+            );
+        }
+
+        $this->renderMemberPanel(
+            self::UNASSIGNED,
+            'Unassigned',
+            'Members who are not on any committee',
+            $this->unassignedMembers(),
+            false
+        );
+
+        echo '</div>';
+    }
+
+    /**
+     * @param array<int, Member> $members
+     */
+    private function renderMemberPanel(
+        int $committeeId,
+        string $name,
+        string $path,
+        array $members,
+        bool $visible
+    ): void {
+        printf(
+            '<div class="amber-member-panel" data-committee="%d"%s>',
+            $committeeId,
+            $visible ? '' : ' hidden'
+        );
+
+        printf(
+            '<h2 class="amber-pane-heading">%s <span class="amber-panel-count">%s</span></h2>'
+                . '<p class="amber-panel-path">%s</p>',
+            esc_html($name),
+            esc_html($this->countLabel(count($members))),
+            esc_html($path)
+        );
+
+        if ($members === []) {
+            echo '<p class="amber-panel-empty">Nobody is assigned to this committee. '
+                . 'Drag someone here from another committee, or from Unassigned.</p>';
+            echo '</div>';
+            return;
+        }
+
+        echo '<ul class="amber-member-list">';
+        foreach ($members as $member) {
+            $this->renderMember($member, $committeeId);
+        }
+        echo '</ul>';
+
+        echo '</div>';
+    }
+
+    /**
+     * One draggable member row, with its keyboard equivalent.
+     *
+     * @param Member $member   The member
      * @param int    $sourceId The committee they are being shown under, so a
      *                         move knows what to remove them from
      */
@@ -260,7 +439,7 @@ class CommitteeTree
         }
 
         // The keyboard path. Drag and drop alone would put this screen out of
-        // reach of anyone not using a mouse, and the optgroups give copy the
+        // reach of anyone not using a pointer, and the optgroups give copy the
         // same standing as move rather than stranding it on a modifier key.
         printf(
             '<label class="screen-reader-text" for="amber-move-%1$d-%2$d">Move or copy %3$s to another committee</label>'
@@ -310,22 +489,76 @@ class CommitteeTree
     }
 
     /**
+     * Load the whole tree once and index it both ways.
+     *
+     * findAll() is a single query; walking with childrenOf() would be one per
+     * node, and a tree screen is exactly where that adds up.
+     */
+    private function indexTree(): void
+    {
+        $this->byParent = [];
+        $this->byId     = [];
+        $this->drawn    = [];
+
+        foreach ($this->committees->findAll() as $committee) {
+            $this->byParent[$committee->getParentId()][] = $committee;
+            $this->byId[$committee->getId()]             = $committee;
+        }
+    }
+
+    /**
      * Depth-first flattening of the indexed tree.
      *
+     * Cycle-guarded for the same reason as {@see renderTreeNode()}: a term
+     * hierarchy edited into a loop would otherwise recurse until PHP dies.
+     *
+     * @param array<int, true> $seen Ids already visited on this walk
      * @return array<int, array{0: Committee, 1: int}>
      */
-    private function flatten(int $parentId, int $depth): array
+    private function flatten(int $parentId, int $depth, array $seen = []): array
     {
         $flat = [];
 
         foreach ($this->byParent[$parentId] ?? [] as $committee) {
-            $flat[] = [$committee, $depth];
-            foreach ($this->flatten($committee->getId(), $depth + 1) as $descendant) {
+            $id = $committee->getId();
+
+            if (isset($seen[$id])) {
+                continue;
+            }
+
+            $seen[$id] = true;
+            $flat[]    = [$committee, $depth];
+
+            foreach ($this->flatten($id, $depth + 1, $seen) as $descendant) {
                 $flat[] = $descendant;
             }
         }
 
         return $flat;
+    }
+
+    /**
+     * "Intergroup › Public Information › Health" for a panel subtitle.
+     *
+     * Walked over the in-memory index rather than through
+     * CommitteeRepository::pathTo(), which would be another query per panel.
+     */
+    private function pathLabel(Committee $committee): string
+    {
+        $names  = [$committee->getName()];
+        $parent = $committee->getParentId();
+        $guard  = 0;
+
+        // The guard is not paranoia about the data: WordPress permits a term
+        // hierarchy to be edited into a loop, and an unbounded walk here would
+        // hang the whole admin screen rather than mis-draw one subtitle.
+        while ($parent !== 0 && isset($this->byId[$parent]) && $guard < 50) {
+            $names[] = $this->byId[$parent]->getName();
+            $parent  = $this->byId[$parent]->getParentId();
+            $guard++;
+        }
+
+        return implode(' › ', array_reverse($names));
     }
 
     /**
@@ -335,17 +568,19 @@ class CommitteeTree
      */
     private function membersIn(int $committeeId): array
     {
-        $ids = $this->committees->memberIdsIn($committeeId, false);
-
-        if ($ids === []) {
-            return [];
+        if (isset($this->memberCache[$committeeId])) {
+            return $this->memberCache[$committeeId];
         }
 
-        return $this->members->findAll([
+        $ids = $this->committees->memberIdsIn($committeeId, false);
+
+        $this->memberCache[$committeeId] = $ids === [] ? [] : $this->members->findAll([
             'post__in' => $ids,
             'orderby'  => 'title',
             'order'    => 'ASC',
         ]);
+
+        return $this->memberCache[$committeeId];
     }
 
     /**
@@ -354,16 +589,23 @@ class CommitteeTree
      * Without this the screen would be read-only for anyone not yet assigned:
      * there would be nothing to drag from. It doubles as the "who has been
      * missed" list.
+     *
+     * @return array<int, Member>
      */
-    private function renderUnassigned(): void
+    private function unassignedMembers(): array
     {
+        if ($this->unassignedCache !== null) {
+            return $this->unassignedCache;
+        }
+
         $taxonomy = $this->committeeTaxonomy();
 
         if ($taxonomy === '') {
-            return;
+            $this->unassignedCache = [];
+            return $this->unassignedCache;
         }
 
-        $members = $this->members->findAll([
+        $this->unassignedCache = $this->members->findAll([
             'orderby'   => 'title',
             'order'     => 'ASC',
             'tax_query' => [
@@ -374,20 +616,7 @@ class CommitteeTree
             ],
         ]);
 
-        echo '<div class="amber-committee amber-unassigned" data-committee="0">';
-        printf(
-            '<div class="amber-committee-head" data-committee="0" tabindex="0">'
-                . '<span class="amber-committee-name">Unassigned</span>'
-                . '<span class="amber-committee-count">%s</span></div>',
-            esc_html($this->countLabel(count($members)))
-        );
-
-        echo '<ul class="amber-member-list">';
-        foreach ($members as $member) {
-            $this->renderMember($member, 0);
-        }
-        echo '</ul>';
-        echo '</div>';
+        return $this->unassignedCache;
     }
 
     /**
@@ -423,7 +652,7 @@ class CommitteeTree
             'amber-committee-tree',
             plugin_dir_url(dirname(__DIR__, 3) . '/amber.php') . 'assets/js/committee-tree.js',
             [],
-            '1.0.0',
+            '1.1.0',
             true
         );
 
@@ -447,39 +676,57 @@ class CommitteeTree
         }
 
         echo '<style>
-        .amber-committee-tree { margin-top: 1em; }
-        .amber-committee-list { list-style: none; margin: 0 0 0 1.5em; padding: 0; }
-        .amber-committee-roots { margin-left: 0; }
-        .amber-committee { margin: 0 0 .5em; }
-        .amber-committee-head {
-            display: flex; align-items: baseline; gap: .5em;
-            padding: .4em .6em; background: #fff; border: 1px solid #c3c4c7;
-            border-left: 4px solid #2271b1; border-radius: 3px;
+        .amber-committee-layout {
+            display: grid; grid-template-columns: minmax(240px, 22em) 1fr;
+            gap: 1.5em; align-items: start; margin-top: 1em;
         }
-        .amber-committee-head:focus { outline: 2px solid #2271b1; outline-offset: 1px; }
-        .amber-committee-head.amber-drop-target { background: #f0f6fc; border-left-color: #135e96; }
-        .amber-committee-name { font-weight: 600; }
-        .amber-committee-slug { color: #646970; background: transparent; font-size: 11px; }
-        .amber-committee-count { margin-left: auto; color: #646970; font-size: 12px; }
-        .amber-member-list { list-style: none; margin: .35em 0 .35em 1.5em; padding: 0; }
+        @media screen and (max-width: 782px) {
+            .amber-committee-layout { grid-template-columns: 1fr; }
+        }
+        .amber-tree-pane, .amber-member-pane {
+            background: #fff; border: 1px solid #c3c4c7; border-radius: 3px;
+            padding: 1em;
+        }
+        .amber-pane-heading { margin: 0 0 .5em; font-size: 14px; }
+        .amber-panel-count { color: #646970; font-weight: 400; }
+        .amber-panel-path { margin: 0 0 1em; color: #646970; font-size: 12px; }
+        .amber-panel-empty { color: #646970; }
+
+        .amber-tree, .amber-tree ul { list-style: none; margin: 0; padding: 0; }
+        /* Nested levels get the connecting rule that makes it read as a tree. */
+        .amber-tree ul { margin-left: .75em; padding-left: .75em; border-left: 1px solid #dcdcde; }
+        .amber-tree-loose { margin-top: 1em; padding-top: 1em; border-top: 1px solid #dcdcde; }
+        .amber-tree-row {
+            display: flex; align-items: center; gap: .5em;
+            padding: .35em .5em; border-radius: 3px; cursor: pointer;
+        }
+        .amber-tree-row:hover { background: #f0f0f1; }
+        .amber-tree-row:focus { outline: 2px solid #2271b1; outline-offset: -2px; }
+        .amber-tree-row[aria-selected="true"] { background: #2271b1; color: #fff; }
+        .amber-tree-row[aria-selected="true"] .amber-tree-count { color: #f0f6fc; }
+        .amber-tree-row.amber-drop-target { box-shadow: inset 0 0 0 2px #135e96; background: #f0f6fc; color: #1d2327; }
+        .amber-tree-name { flex: 1 1 auto; }
+        .amber-tree-count { color: #646970; font-size: 12px; }
+
+        .amber-member-list { list-style: none; margin: 0; padding: 0; }
         .amber-member {
-            display: inline-flex; align-items: center; gap: .4em;
-            margin: 0 .35em .35em 0; padding: .2em .5em;
-            background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 3px;
+            display: flex; align-items: center; gap: .5em;
+            padding: .3em .5em; border-bottom: 1px solid #f0f0f1;
             cursor: grab; font-size: 13px;
         }
+        .amber-member:last-child { border-bottom: 0; }
+        .amber-member:hover { background: #f6f7f7; }
         .amber-member.amber-dragging { opacity: .5; }
+        .amber-member-name { flex: 1 1 auto; }
         .amber-member-edit { font-size: 11px; text-decoration: none; }
         /*
-            Visually hidden until the chip is hovered or something inside it has
-            focus. Shown outright it is one dropdown per member, and the
-            Unassigned bucket alone can hold a hundred -- the tree disappears
-            behind a wall of selects.
+            Visually hidden until the row is hovered or something inside it has
+            focus. Shown outright it is one dropdown per member, and Unassigned
+            alone can hold a hundred.
 
             Clipped rather than display:none on purpose: a display:none control
-            is not focusable, which would make this the second time the keyboard
-            path got quietly removed. Clipping keeps it in the tab order, and
-            :focus-within brings it into view the moment it is reached.
+            is not focusable, which would quietly remove the keyboard path this
+            select exists to provide.
         */
         .amber-member-move {
             position: absolute; width: 1px; height: 1px;
@@ -493,8 +740,6 @@ class CommitteeTree
             white-space: normal; border: 1px solid #8c8f94;
             font-size: 11px; max-width: 12em;
         }
-        .amber-unassigned { margin-top: 1.5em; }
-        .amber-unassigned .amber-committee-head { border-left-color: #8c8f94; }
         </style>';
     }
 }

@@ -1,9 +1,13 @@
 /**
- * Committee tree drag-and-drop.
+ * Committee tree: pane selection and drag-and-drop.
  *
- * Native HTML5 drag events, no jQuery UI and no library: the whole interaction
- * is "pick up a member chip, drop it on a committee heading", which the browser
- * already implements.
+ * Two panes. The left is the committee hierarchy, the right is the members of
+ * whichever committee is selected. Every panel is already in the document, so
+ * selecting is a visibility swap rather than a fetch.
+ *
+ * Dragging uses native HTML5 drag events, no jQuery UI and no library: the
+ * whole interaction is "pick up a member row, drop it on a committee", which
+ * the browser already implements.
  *
  * Move is the default and copy is Ctrl/Cmd, matching how file managers behave.
  * The modifier is read on drop rather than on dragstart, because a user decides
@@ -17,20 +21,96 @@
 	'use strict';
 
 	var config = window.amberCommitteeTree || {};
-	var tree = document.querySelector( '.amber-committee-tree' );
+	var layout = document.querySelector( '.amber-committee-layout' );
 
-	if ( ! tree || ! config.ajaxUrl ) {
+	if ( ! layout || ! config.ajaxUrl ) {
 		return;
 	}
 
+	var rows = layout.querySelectorAll( '.amber-tree-row' );
+	var panels = layout.querySelectorAll( '.amber-member-panel' );
 	var dragging = null;
+
+	// --- Selection ----------------------------------------------------------
+
+	function select( committeeId ) {
+		var found = false;
+
+		Array.prototype.forEach.call( panels, function ( panel ) {
+			var match = panel.dataset.committee === String( committeeId );
+			panel.hidden = ! match;
+			found = found || match;
+		} );
+
+		if ( ! found ) {
+			return false;
+		}
+
+		Array.prototype.forEach.call( rows, function ( row ) {
+			row.setAttribute(
+				'aria-selected',
+				row.dataset.committee === String( committeeId ) ? 'true' : 'false'
+			);
+		} );
+
+		// Recorded in the fragment so the selection survives the reload after a
+		// move. Without it every drag would bounce the user back to the first
+		// root, which is exactly where they are not working.
+		window.history.replaceState( null, '', '#committee-' + committeeId );
+
+		return true;
+	}
+
+	layout.addEventListener( 'click', function ( event ) {
+		var row = event.target.closest( '.amber-tree-row' );
+
+		if ( row ) {
+			select( row.dataset.committee );
+		}
+	} );
+
+	layout.addEventListener( 'keydown', function ( event ) {
+		var row = event.target.closest( '.amber-tree-row' );
+
+		if ( ! row ) {
+			return;
+		}
+
+		if ( event.key === 'Enter' || event.key === ' ' ) {
+			event.preventDefault();
+			select( row.dataset.committee );
+			return;
+		}
+
+		// Roving through the tree with the arrow keys, over the rows in
+		// document order -- which is the order they are drawn in.
+		if ( event.key !== 'ArrowDown' && event.key !== 'ArrowUp' ) {
+			return;
+		}
+
+		event.preventDefault();
+
+		var all = Array.prototype.slice.call( rows );
+		var next = all.indexOf( row ) + ( event.key === 'ArrowDown' ? 1 : -1 );
+
+		if ( all[ next ] ) {
+			all[ next ].focus();
+		}
+	} );
+
+	// Restore the committee that was open before the last reload.
+	if ( window.location.hash.indexOf( '#committee-' ) === 0 ) {
+		select( window.location.hash.replace( '#committee-', '' ) );
+	}
+
+	// --- Saving -------------------------------------------------------------
 
 	/**
 	 * Send one assignment change and reload on success.
 	 *
 	 * The page is re-rendered rather than patched in the DOM. Moving one member
-	 * changes the counts on both committees, can empty a list, and with copy can
-	 * put the same person in two places -- reproducing all of that client-side
+	 * changes the counts on both committees, can empty a panel, and with copy
+	 * can put the same person in two -- reproducing all of that client-side
 	 * means a second implementation of the render that can disagree with the
 	 * first. A reload is a few hundred milliseconds and is always right.
 	 */
@@ -43,7 +123,7 @@
 		body.set( 'target', String( targetId ) );
 		body.set( 'mode', mode );
 
-		tree.classList.add( 'amber-busy' );
+		layout.classList.add( 'amber-busy' );
 
 		window.fetch( config.ajaxUrl, {
 			method: 'POST',
@@ -62,21 +142,21 @@
 					return;
 				}
 
-				tree.classList.remove( 'amber-busy' );
+				layout.classList.remove( 'amber-busy' );
 				window.alert(
 					( payload && payload.data && payload.data.message ) ||
 					'That change could not be saved.'
 				);
 			} )
 			.catch( function () {
-				tree.classList.remove( 'amber-busy' );
+				layout.classList.remove( 'amber-busy' );
 				window.alert( 'That change could not be saved.' );
 			} );
 	}
 
 	// --- Dragging -----------------------------------------------------------
 
-	tree.addEventListener( 'dragstart', function ( event ) {
+	layout.addEventListener( 'dragstart', function ( event ) {
 		var member = event.target.closest( '.amber-member' );
 
 		if ( ! member ) {
@@ -98,8 +178,8 @@
 		}
 	} );
 
-	tree.addEventListener( 'dragend', function () {
-		var active = tree.querySelector( '.amber-dragging' );
+	layout.addEventListener( 'dragend', function () {
+		var active = layout.querySelector( '.amber-dragging' );
 
 		if ( active ) {
 			active.classList.remove( 'amber-dragging' );
@@ -110,23 +190,23 @@
 	} );
 
 	function clearDropTarget() {
-		var marked = tree.querySelectorAll( '.amber-drop-target' );
+		var marked = layout.querySelectorAll( '.amber-drop-target' );
 
 		Array.prototype.forEach.call( marked, function ( node ) {
 			node.classList.remove( 'amber-drop-target' );
 		} );
 	}
 
-	tree.addEventListener( 'dragover', function ( event ) {
-		var head = event.target.closest( '.amber-committee-head' );
+	layout.addEventListener( 'dragover', function ( event ) {
+		var row = event.target.closest( '.amber-tree-row' );
 
-		if ( ! head || ! dragging ) {
+		if ( ! row || ! dragging ) {
 			return;
 		}
 
 		// Dropping a member on the committee they are already in is a no-op,
 		// so it is not offered as a target at all.
-		if ( parseInt( head.dataset.committee, 10 ) === dragging.source ) {
+		if ( parseInt( row.dataset.committee, 10 ) === dragging.source ) {
 			return;
 		}
 
@@ -136,30 +216,30 @@
 			event.dataTransfer.dropEffect = ( event.ctrlKey || event.metaKey ) ? 'copy' : 'move';
 		}
 
-		if ( ! head.classList.contains( 'amber-drop-target' ) ) {
+		if ( ! row.classList.contains( 'amber-drop-target' ) ) {
 			clearDropTarget();
-			head.classList.add( 'amber-drop-target' );
+			row.classList.add( 'amber-drop-target' );
 		}
 	} );
 
-	tree.addEventListener( 'dragleave', function ( event ) {
-		var head = event.target.closest( '.amber-committee-head' );
+	layout.addEventListener( 'dragleave', function ( event ) {
+		var row = event.target.closest( '.amber-tree-row' );
 
-		if ( head ) {
-			head.classList.remove( 'amber-drop-target' );
+		if ( row ) {
+			row.classList.remove( 'amber-drop-target' );
 		}
 	} );
 
-	tree.addEventListener( 'drop', function ( event ) {
-		var head = event.target.closest( '.amber-committee-head' );
+	layout.addEventListener( 'drop', function ( event ) {
+		var row = event.target.closest( '.amber-tree-row' );
 
-		if ( ! head || ! dragging ) {
+		if ( ! row || ! dragging ) {
 			return;
 		}
 
 		event.preventDefault();
 
-		var target = parseInt( head.dataset.committee, 10 );
+		var target = parseInt( row.dataset.committee, 10 );
 
 		if ( target === dragging.source ) {
 			return;
@@ -179,7 +259,7 @@
 
 	// --- Keyboard and pointer-free path -------------------------------------
 
-	tree.addEventListener( 'change', function ( event ) {
+	layout.addEventListener( 'change', function ( event ) {
 		var select = event.target.closest( '.amber-member-move' );
 
 		if ( ! select || ! select.value ) {

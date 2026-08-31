@@ -302,6 +302,168 @@ class CommitteeTreeTest extends AmberTestCase
     }
 
     /**
+     * The seventh argument to add_submenu_page() is a positional offset into
+     * the parent's existing submenu, so "after Intergroup Meetings" has to be
+     * found rather than hard-coded -- four other Amber classes add to that menu
+     * on their own hooks and the order depends on load order.
+     *
+     * @test
+     */
+    public function it_slots_the_page_in_directly_after_intergroup_meetings(): void
+    {
+        $GLOBALS['submenu']['intergroup'] = [
+            0 => ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+            1 => ['Members', 'edit_posts', 'edit.php?post_type=intergroup-member'],
+            // A gap, as remove_submenu_page() leaves behind.
+            5 => ['Intergroup Meetings', 'edit_posts', 'edit.php?post_type=intergroup-meeting'],
+            6 => ['Privacy Policy', 'edit_posts', 'edit.php?post_type=privacy-policy'],
+        ];
+
+        $position = null;
+        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+            function (...$args) use (&$position) {
+                $position = $args[6] ?? null;
+                return 'amber-committees';
+            }
+        );
+
+        $this->tree->registerPage();
+
+        // Third entry by offset, not by key: the keys are 0, 1, 5, 6.
+        $this->assertSame(3, $position);
+
+        unset($GLOBALS['submenu']);
+    }
+
+    /**
+     * @test
+     */
+    public function it_appends_when_intergroup_meetings_is_not_there(): void
+    {
+        $GLOBALS['submenu']['intergroup'] = [
+            ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+        ];
+
+        $position = 'untouched';
+        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+            function (...$args) use (&$position) {
+                $position = $args[6] ?? null;
+                return 'amber-committees';
+            }
+        );
+
+        $this->tree->registerPage();
+
+        $this->assertNull($position, 'appending beats guessing at a number');
+
+        unset($GLOBALS['submenu']);
+    }
+
+    /**
+     * @test
+     */
+    public function it_splits_the_screen_into_a_tree_pane_and_a_member_pane(): void
+    {
+        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+
+        $this->committees->method('roots')->willReturn([$intergroup]);
+        $this->committees->method('findAll')->willReturn([$intergroup]);
+        $this->committees->method('memberIdsIn')->willReturn([]);
+        $this->members->method('findAll')->willReturn([]);
+
+        $html = $this->render();
+
+        $this->assertStringContainsString('amber-tree-pane', $html);
+        $this->assertStringContainsString('amber-member-pane', $html);
+        $this->assertStringContainsString('role="tree"', $html);
+        $this->assertStringContainsString('role="treeitem"', $html);
+    }
+
+    /**
+     * The first root opens by default, so the screen is never blank on arrival,
+     * and every other panel ships hidden rather than being fetched on click.
+     *
+     * @test
+     */
+    public function the_first_root_is_selected_and_the_rest_are_hidden(): void
+    {
+        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+        $comms      = $this->committee(13, 'comms', 'Comms', 12);
+
+        $this->committees->method('roots')->willReturn([$intergroup]);
+        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+        $this->committees->method('memberIdsIn')->willReturn([]);
+        $this->members->method('findAll')->willReturn([]);
+
+        $html = $this->render();
+
+        $this->assertStringContainsString('aria-selected="true" data-committee="12"', $html);
+        $this->assertStringContainsString('aria-selected="false" data-committee="13"', $html);
+        $this->assertStringContainsString('<div class="amber-member-panel" data-committee="12">', $html);
+        $this->assertStringContainsString('<div class="amber-member-panel" data-committee="13" hidden>', $html);
+    }
+
+    /**
+     * @test
+     */
+    public function a_nested_committee_shows_its_full_path(): void
+    {
+        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+        $comms      = $this->committee(13, 'comms', 'Comms', 12);
+
+        $this->committees->method('roots')->willReturn([$intergroup]);
+        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+        $this->committees->method('memberIdsIn')->willReturn([]);
+        $this->members->method('findAll')->willReturn([]);
+
+        $this->assertStringContainsString('Intergroup › Comms', $this->render());
+    }
+
+    /**
+     * Unassigned is not a committee, so it gets its own tree rather than
+     * sitting alongside the real roots in the accessibility tree.
+     *
+     * @test
+     */
+    public function unassigned_sits_outside_the_committee_tree(): void
+    {
+        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+
+        $this->committees->method('roots')->willReturn([$intergroup]);
+        $this->committees->method('findAll')->willReturn([$intergroup]);
+        $this->committees->method('memberIdsIn')->willReturn([]);
+        $this->members->method('findAll')->willReturn([]);
+
+        $html = $this->render();
+
+        $this->assertStringContainsString('amber-tree-loose', $html);
+        $this->assertStringContainsString('amber-tree-unassigned', $html);
+        $this->assertStringContainsString('data-committee="0"', $html);
+    }
+
+    /**
+     * A term hierarchy can be edited into a loop in wp-admin, and an unbounded
+     * walk up the parents would hang the whole screen rather than mis-draw one
+     * subtitle.
+     *
+     * @test
+     */
+    public function a_cyclic_hierarchy_does_not_hang_the_path_walk(): void
+    {
+        $a = $this->committee(1, 'a', 'A', 2);
+        $b = $this->committee(2, 'b', 'B', 1);
+
+        $this->committees->method('roots')->willReturn([$a]);
+        $this->committees->method('findAll')->willReturn([$a, $b]);
+        $this->committees->method('memberIdsIn')->willReturn([]);
+        $this->members->method('findAll')->willReturn([]);
+
+        $html = $this->render();
+
+        $this->assertStringContainsString('amber-panel-path', $html);
+    }
+
+    /**
      * @test
      */
     public function names_are_escaped(): void
