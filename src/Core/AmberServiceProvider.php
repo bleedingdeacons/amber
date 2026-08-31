@@ -22,6 +22,8 @@ use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
+use Amber\Admin\Committees\CommitteeAssignmentController;
+use Amber\Admin\Committees\CommitteeTree;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Managers\FrontPageManager;
@@ -33,6 +35,7 @@ use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\TodaysMeetingsShortcode;
 use Psr\Container\ContainerInterface;
 use Scrutiny\Privacy\PersonalDataPolicy;
+use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\Container;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -183,6 +186,22 @@ class AmberServiceProvider
      */
     private function registerDashboards(Container $container): void
     {
+        // Committees. Registered unconditionally -- the bindings are cheap and
+        // resolving them is what is guarded, in Plugin.php, because
+        // CommitteeRepository only exists on a site running a tsml-for-unity
+        // new enough to bind it.
+        $container->register(CommitteeTree::class, function (ContainerInterface $c) {
+            return new CommitteeTree(
+                $c->get(Configuration::class),
+                $c->get(CommitteeRepository::class),
+                $c->get(MemberRepository::class)
+            );
+        });
+
+        $container->register(CommitteeAssignmentController::class, function (ContainerInterface $c) {
+            return new CommitteeAssignmentController($c->get(Configuration::class));
+        });
+
         $container->register(PositionDashboard::class, function (ContainerInterface $c) {
             return new PositionDashboard(
                 $c->get(Configuration::class),
