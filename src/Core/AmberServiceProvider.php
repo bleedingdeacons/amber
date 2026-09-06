@@ -19,6 +19,7 @@ use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberAdmin;
+use Amber\Admin\Members\MemberPasswordAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
@@ -34,7 +35,9 @@ use Amber\Managers\PostTitleSyncer;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\TodaysMeetingsShortcode;
 use Psr\Container\ContainerInterface;
+use Scrutiny\Audit\Interfaces\AuditLogger;
 use Scrutiny\Privacy\PersonalDataPolicy;
+use Unity\Auth\Interfaces\PasswordCredentialRepository;
 use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Core\Interfaces\Container;
@@ -190,6 +193,15 @@ class AmberServiceProvider
         // resolving them is what is guarded, in Plugin.php, because
         // CommitteeRepository only exists on a site running a tsml-for-unity
         // new enough to bind it.
+        $container->register(MemberPasswordAdmin::class, function (ContainerInterface $c) {
+            return new MemberPasswordAdmin(
+                $c->get(PasswordCredentialRepository::class),
+                $c->get(MemberRepository::class),
+                $c->get(PersonalDataPolicy::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
         $container->register(CommitteeTree::class, function (ContainerInterface $c) {
             return new CommitteeTree(
                 $c->get(Configuration::class),
