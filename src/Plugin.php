@@ -132,9 +132,10 @@ class Plugin
             // resolving unconditionally would fatal every site still on an older
             // one. Absent the binding the screen simply does not appear.
             // The member password screen, feature-detected on the store.
-            // Unity registers it, but a site running an older Unity has
-            // no such binding and resolving it unconditionally would
-            // fatal the whole admin — the same reasoning as the committee
+            // Unity declares the contract and tsml-for-unity supplies the
+            // implementation, so a site running an older either has no
+            // such binding — and resolving it unconditionally would fatal
+            // the whole admin. The same reasoning as the committee
             // screens below.
             if (self::$container->has(PasswordCredentialRepository::class)) {
                 self::$container->get(MemberPasswordAdmin::class);
