@@ -17,6 +17,7 @@ use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
+use Amber\Admin\Members\MemberPasswordAdmin;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
@@ -33,6 +34,7 @@ use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\TodaysMeetingsShortcode;
 use Psr\Container\ContainerInterface;
+use Unity\Auth\Interfaces\PasswordCredentialRepository;
 use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Container;
 use Unity\Members\Interfaces\MemberChangeTracker;
@@ -129,6 +131,16 @@ class Plugin
             // nothing, and tsml-for-unity only started binding them in v1.23.0 --
             // resolving unconditionally would fatal every site still on an older
             // one. Absent the binding the screen simply does not appear.
+            // The member password screen, feature-detected on the store.
+            // Unity declares the contract and tsml-for-unity supplies the
+            // implementation, so a site running an older either has no
+            // such binding — and resolving it unconditionally would fatal
+            // the whole admin. The same reasoning as the committee
+            // screens below.
+            if (self::$container->has(PasswordCredentialRepository::class)) {
+                self::$container->get(MemberPasswordAdmin::class);
+            }
+
             if (self::$container->has(CommitteeRepository::class)) {
                 self::$container->get(CommitteeTree::class);
                 self::$container->get(CommitteeAssignmentController::class);
