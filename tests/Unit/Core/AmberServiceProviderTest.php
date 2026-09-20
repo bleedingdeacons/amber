@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Core;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Admin\DeveloperDashboard;
-use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Admin\IntergroupMeetings\ReportsAdmin;
@@ -35,9 +36,8 @@ use Amber\Tests\AmberTestCase;
  * boot. The test registers the provider against a recording container and then
  * runs each stored factory, proving both that the service is registered and
  * that its factory constructs the concrete type it promises.
- *
- * @covers \Amber\Core\AmberServiceProvider
  */
+#[CoversClass(\Amber\Core\AmberServiceProvider::class)]
 class AmberServiceProviderTest extends AmberTestCase
 {
     /**
@@ -65,7 +65,7 @@ class AmberServiceProviderTest extends AmberTestCase
         DeveloperDashboard::class         => DeveloperDashboard::class,
     ];
 
-    /** @test */
+    #[Test]
     public function it_registers_every_amber_service(): void
     {
         $container = $this->mockContainer();
@@ -81,7 +81,7 @@ class AmberServiceProviderTest extends AmberTestCase
         $this->assertTrue($container->has(MeetingReconciler::class));
     }
 
-    /** @test */
+    #[Test]
     public function every_factory_builds_the_concrete_service_it_promises(): void
     {
         $container = $this->mockContainer();
@@ -95,7 +95,7 @@ class AmberServiceProviderTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function the_meeting_dashboard_is_built_without_a_reconciler_when_concordance_is_absent(): void
     {
         // function_exists('concordance') is false under test, so the dashboard

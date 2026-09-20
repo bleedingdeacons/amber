@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Members;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use Scrutiny\Audit\Interfaces\AuditLogger;
+use function Brain\Monkey\Functions\when;
 use Amber\Admin\Members\MemberPasswordAdmin;
 use Amber\Tests\AmberTestCase;
-use Brain\Monkey\Functions;
 use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Auth\PasswordCredential;
 use Unity\Members\Interfaces\Member;
@@ -21,9 +23,8 @@ use Unity\Testing\Doubles\InMemoryPasswordCredentialRepository;
  * to sign in away, and it is reachable by URL — so what matters is that
  * it will not act without the capability, that clearing does not delete,
  * and that no path anywhere sets a password.</p>
- *
- * @covers \Amber\Admin\Members\MemberPasswordAdmin
  */
+#[CoversClass(\Amber\Admin\Members\MemberPasswordAdmin::class)]
 class MemberPasswordAdminTest extends AmberTestCase
 {
     private const MEMBER = 'member@example.org';
@@ -44,18 +45,18 @@ class MemberPasswordAdminTest extends AmberTestCase
 
         $_GET = [];
 
-        Functions\when('check_admin_referer')->justReturn(true);
-        Functions\when('wp_nonce_url')->returnArg();
-        Functions\when('admin_url')->justReturn('https://example.org/wp-admin/admin.php');
-        Functions\when('add_query_arg')->justReturn('https://example.org/wp-admin/admin.php');
-        Functions\when('wp_date')->justReturn('2026-09-06 10:00');
-        Functions\when('get_current_user_id')->justReturn(3);
-        Functions\when('sanitize_key')->returnArg();
-        Functions\when('sanitize_email')->returnArg();
+        when('check_admin_referer')->justReturn(true);
+        when('wp_nonce_url')->returnArg();
+        when('admin_url')->justReturn('https://example.org/wp-admin/admin.php');
+        when('add_query_arg')->justReturn('https://example.org/wp-admin/admin.php');
+        when('wp_date')->justReturn('2026-09-06 10:00');
+        when('get_current_user_id')->justReturn(3);
+        when('sanitize_key')->returnArg();
+        when('sanitize_email')->returnArg();
         // WordPress's is_email answers the address or false, never a
         // bool true - and the stub layer keeps the real signature, so
         // returning true here is a TypeError rather than a passing test.
-        Functions\when('is_email')->returnArg();
+        when('is_email')->returnArg();
     }
 
     protected function tearDown(): void
@@ -67,7 +68,7 @@ class MemberPasswordAdminTest extends AmberTestCase
 
     private function admin(bool $canEdit = true): MemberPasswordAdmin
     {
-        Functions\when('current_user_can')->justReturn($canEdit);
+        when('current_user_can')->justReturn($canEdit);
 
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn(7);
@@ -270,7 +271,7 @@ class MemberPasswordAdminTest extends AmberTestCase
 /**
  * Records what it was told, so the tests can read it back.
  */
-final class FakeAuditLogger implements \Scrutiny\Audit\Interfaces\AuditLogger
+final class FakeAuditLogger implements AuditLogger
 {
     /** @var array<int, array{action: string, entityId: int, field: string, detail: string}> */
     public array $entries = [];

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Positions;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -24,17 +28,16 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * position with no title, an Archivist (permanent tenure, so no "current
  * member" row) — because a widget that renders a blank card or a PHP notice
  * on the dashboard is the most visible failure Amber can have.
- *
- * @covers \Amber\Admin\Positions\PositionDashboard
  */
+#[CoversClass(\Amber\Admin\Positions\PositionDashboard::class)]
 class PositionDashboardTest extends AmberTestCase
 {
     private PositionDashboard $dashboard;
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $viewFactory;
 
-    /** @var PositionRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionRepository&MockObject */
     private $repository;
 
     protected function setUp(): void
@@ -99,15 +102,14 @@ class PositionDashboardTest extends AmberTestCase
     }
 
     // ── registration ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function it_registers_the_dashboard_widget_hooks(): void
     {
         $this->assertHookAdded('wp_dashboard_setup');
         $this->assertHookAdded('admin_head');
     }
 
-    /** @test */
+    #[Test]
     public function the_widget_is_registered_on_the_dashboard(): void
     {
         $this->dashboard->registerDashboardWidget();
@@ -116,7 +118,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertSame('Positions & Members', WpState::$widgets['position_members_dashboard']['name']);
     }
 
-    /** @test */
+    #[Test]
     public function the_widget_styles_are_emitted_on_the_dashboard(): void
     {
         $this->setScreen('dashboard', 'dashboard');
@@ -126,7 +128,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('<style>', $css);
     }
 
-    /** @test */
+    #[Test]
     public function the_widget_styles_are_not_emitted_on_other_screens(): void
     {
         // The widget only appears on the dashboard, so its CSS has no
@@ -137,8 +139,7 @@ class PositionDashboardTest extends AmberTestCase
     }
 
     // ── rendering ────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_site_with_no_positions_says_so_rather_than_rendering_nothing(): void
     {
         $this->repository->method('findAll')->willReturn([]);
@@ -148,7 +149,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('No positions found', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_is_rendered_as_a_card_with_its_holder(): void
     {
         $html = $this->renderWith($this->view());
@@ -159,7 +160,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('treasurer@example.test', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_is_marked_vacant(): void
     {
         $html = $this->renderWith($this->view(['isVacant' => true, 'getMembers' => []]));
@@ -167,7 +168,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Vacant', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_title_falls_back_to_a_placeholder(): void
     {
         // Better a labelled card than an anonymous empty one.
@@ -176,7 +177,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Untitled Position', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_archivist_card_omits_the_current_member_row(): void
     {
         // Archivist is a permanent tenure, so "current member" and rotation
@@ -186,7 +187,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringNotContainsString('Current Member', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_non_archivist_card_shows_the_current_member_row(): void
     {
         $html = $this->renderWith($this->view());
@@ -194,7 +195,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Current Member', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_job_share_lists_every_holder(): void
     {
         $html = $this->renderWith($this->view([
@@ -205,7 +206,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Sam', $html);
     }
 
-    /** @test */
+    #[Test]
     public function positions_are_ordered_by_title(): void
     {
         $html = $this->renderWith(
@@ -218,7 +219,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertLessThan(strpos($html, 'Treasurer'), strpos($html, 'Chair'));
     }
 
-    /** @test */
+    #[Test]
     public function positions_without_a_view_are_skipped(): void
     {
         $this->repository->method('findAll')->willReturn([$this->position(1), $this->position(2)]);
@@ -229,7 +230,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertSame(1, substr_count($html, 'position-card-header'));
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_email_still_renders(): void
     {
         $html = $this->renderWith($this->view(['getPositionEmail' => '']));
@@ -237,7 +238,7 @@ class PositionDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Position Email', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_rotation_date_still_renders(): void
     {
         $html = $this->renderWith($this->view(['getRotationDate' => null]));
@@ -246,11 +247,8 @@ class PositionDashboardTest extends AmberTestCase
     }
 
     // ── status badge ─────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider statusBadgeProvider
-     */
+    #[DataProvider('statusBadgeProvider')]
+    #[Test]
     public function the_status_badge_reflects_the_rotation_state(?int $months, string $expected): void
     {
         $html = $this->renderWith($this->view([
@@ -273,7 +271,7 @@ class PositionDashboardTest extends AmberTestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function an_overdue_member_cell_shows_how_many_months_overdue(): void
     {
         $html = $this->renderWith($this->view([

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Models\ReconciliationResult;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Amber\Utils\HtmlHelper;
-use WP_Error;
 
 /**
  * Tests for the small helpers Amber's screens are built from.
@@ -20,16 +21,14 @@ use WP_Error;
  * and does so from inside a save hook, which is why its re-entrancy guard
  * matters: without it, wp_update_post would re-trigger the very hook that
  * called it.
- *
- * @covers \Amber\Utils\HtmlHelper
- * @covers \Amber\Managers\PostTitleSyncer
- * @covers \Amber\Models\ReconciliationResult
  */
+#[CoversClass(\Amber\Utils\HtmlHelper::class)]
+#[CoversClass(\Amber\Managers\PostTitleSyncer::class)]
+#[CoversClass(\Amber\Models\ReconciliationResult::class)]
 class SupportClassesTest extends AmberTestCase
 {
     // ── HtmlHelper ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_pdf_link_downloads_rather_than_navigates(): void
     {
         $html = HtmlHelper::generatePdfLink('https://example.test/a.pdf', 'minutes.pdf', 'Minutes');
@@ -40,7 +39,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertStringContainsString('>Minutes<', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_external_link_opens_safely_in_a_new_tab(): void
     {
         $html = HtmlHelper::createLink('https://example.test', 'btn', 'Visit');
@@ -52,7 +51,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertStringContainsString('class="btn"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_link_can_be_made_without_a_class_or_content(): void
     {
         $html = HtmlHelper::createLink('https://example.test');
@@ -60,13 +59,13 @@ class SupportClassesTest extends AmberTestCase
         $this->assertStringContainsString('href="https://example.test"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_mailto_address_is_built_from_the_address(): void
     {
         $this->assertSame('mailto:sec@example.test', HtmlHelper::createEmailToAddress('sec@example.test'));
     }
 
-    /** @test */
+    #[Test]
     public function a_subject_is_appended_to_the_mailto_address(): void
     {
         $this->assertSame(
@@ -75,13 +74,13 @@ class SupportClassesTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_subject_is_not_appended(): void
     {
         $this->assertSame('mailto:sec@example.test', HtmlHelper::createEmailToAddress('sec@example.test', ''));
     }
 
-    /** @test */
+    #[Test]
     public function an_email_anchor_wraps_the_mailto_address(): void
     {
         $html = HtmlHelper::createEmailAnchor('sec@example.test', 'Hello', 'Email the secretary');
@@ -90,21 +89,20 @@ class SupportClassesTest extends AmberTestCase
         $this->assertStringContainsString('>Email the secretary<', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_phone_number_becomes_a_tel_address(): void
     {
         $this->assertSame('tel:0117 000 0000', HtmlHelper::createPhoneToAddress('0117 000 0000'));
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_link_points_at_the_meetings_page(): void
     {
         $this->assertSame('/meetings/?meeting=tuesday-group', HtmlHelper::createMeetingLink('tuesday-group'));
     }
 
     // ── PostTitleSyncer ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_title_is_updated_to_match_the_field(): void
     {
         $this->makePost(42, 'intergroup-member', ['post_title' => 'Old Name']);
@@ -118,7 +116,7 @@ class SupportClassesTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function a_title_that_already_matches_is_left_alone(): void
     {
         $this->makePost(42, 'intergroup-member', ['post_title' => 'Same Name']);
@@ -129,7 +127,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertSame([], WpState::$updatedPosts, 'No write when nothing changed.');
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_field_never_blanks_the_title(): void
     {
         $this->makePost(42, 'intergroup-member', ['post_title' => 'Existing']);
@@ -140,7 +138,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertSame([], WpState::$updatedPosts);
     }
 
-    /** @test */
+    #[Test]
     public function a_missing_post_is_ignored(): void
     {
         (new PostTitleSyncer())->sync(999, 'anon-name', 'Member');
@@ -148,7 +146,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertSame([], WpState::$updatedPosts);
     }
 
-    /** @test */
+    #[Test]
     public function a_failed_update_is_logged_rather_than_thrown(): void
     {
         // wp_update_post can answer with a WP_Error; the syncer runs inside
@@ -162,8 +160,7 @@ class SupportClassesTest extends AmberTestCase
     }
 
     // ── ReconciliationResult ─────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_reconciliation_result_exposes_each_bucket(): void
     {
         $result = new ReconciliationResult(
@@ -183,7 +180,7 @@ class SupportClassesTest extends AmberTestCase
         $this->assertSame(['c'], $result->getClosedMatches());
     }
 
-    /** @test */
+    #[Test]
     public function a_reconciliation_result_serialises_every_bucket(): void
     {
         $result = new ReconciliationResult(['m'], ['p'], ['l'], ['n'], ['total' => 4], ['c']);

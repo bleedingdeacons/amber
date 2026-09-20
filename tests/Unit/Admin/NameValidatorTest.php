@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Positions\PositionNameValidator;
 use Amber\Tests\AmberTestCase;
@@ -24,10 +27,9 @@ use Unity\Positions\Interfaces\Position;
  *
  * The two classes are near-identical in shape, so they are exercised
  * together and the parallel is asserted rather than left implicit.
- *
- * @covers \Amber\Admin\Members\AnonymousNameValidator
- * @covers \Amber\Admin\Positions\PositionNameValidator
  */
+#[CoversClass(\Amber\Admin\Members\AnonymousNameValidator::class)]
+#[CoversClass(\Amber\Admin\Positions\PositionNameValidator::class)]
 class NameValidatorTest extends AmberTestCase
 {
     private const MEMBER_TYPE = 'intergroup-member';
@@ -65,8 +67,7 @@ class NameValidatorTest extends AmberTestCase
     }
 
     // ── registration ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function both_validators_register_an_ajax_endpoint_and_a_save_filter(): void
     {
         $this->assertHookAdded('wp_ajax_amber_validate_anonymous_name');
@@ -79,8 +80,7 @@ class NameValidatorTest extends AmberTestCase
     }
 
     // ── script enqueuing ─────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_member_validator_script_loads_only_on_the_member_screen(): void
     {
         $this->setScreen('post', 'post', self::MEMBER_TYPE);
@@ -92,7 +92,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertArrayHasKey('nonce', WpState::$localized['amberMemberAnonymousName']);
     }
 
-    /** @test */
+    #[Test]
     public function the_member_validator_script_is_skipped_elsewhere(): void
     {
         $this->setScreen('post', 'post', 'page');
@@ -102,7 +102,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertSame([], WpState::$enqueued);
     }
 
-    /** @test */
+    #[Test]
     public function the_member_validator_script_is_skipped_without_a_screen(): void
     {
         WpState::$screen = null;
@@ -112,7 +112,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertSame([], WpState::$enqueued);
     }
 
-    /** @test */
+    #[Test]
     public function the_position_validator_script_loads_only_on_the_position_screen(): void
     {
         $this->setScreen('post', 'post', self::POSITION_TYPE);
@@ -122,7 +122,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertNotEmpty(WpState::$enqueued);
     }
 
-    /** @test */
+    #[Test]
     public function the_position_validator_script_is_skipped_elsewhere(): void
     {
         $this->setScreen('post', 'post', 'page');
@@ -133,8 +133,7 @@ class NameValidatorTest extends AmberTestCase
     }
 
     // ── AJAX: member ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function an_unused_anonymous_name_is_reported_valid(): void
     {
         $_POST = ['value' => 'Anonymous Alex', 'post_id' => '42'];
@@ -148,7 +147,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function a_duplicate_anonymous_name_is_reported_invalid_with_the_clashing_post(): void
     {
         $this->existingPost(99);
@@ -164,7 +163,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_anonymous_name_is_not_treated_as_a_clash(): void
     {
         // Emptiness is ACF's required-field problem, not a uniqueness one.
@@ -179,7 +178,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function the_ajax_check_is_refused_without_edit_permission(): void
     {
         $this->denyCapability();
@@ -193,7 +192,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function the_position_ajax_check_answers_the_same_way(): void
     {
         $_POST = ['value' => 'Treasurer', 'post_id' => '7'];
@@ -207,7 +206,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function a_duplicate_position_name_is_reported_invalid(): void
     {
         $this->existingPost(88);
@@ -221,7 +220,7 @@ class NameValidatorTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function the_position_ajax_check_is_refused_without_permission(): void
     {
         $this->denyCapability();
@@ -236,8 +235,7 @@ class NameValidatorTest extends AmberTestCase
     }
 
     // ── save-time validation ─────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_unique_anonymous_name_passes_validation(): void
     {
         $_POST = ['_acf_post_id' => '42'];
@@ -245,7 +243,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertTrue($this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_duplicate_anonymous_name_returns_an_error_message(): void
     {
         $this->existingPost(99);
@@ -257,7 +255,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertStringContainsString('already in use', $result);
     }
 
-    /** @test */
+    #[Test]
     public function an_existing_validation_failure_is_left_untouched(): void
     {
         // Another validator already rejected it; ours must not overwrite
@@ -270,7 +268,7 @@ class NameValidatorTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_value_passes_save_validation(): void
     {
         $this->existingPost(99);
@@ -284,10 +282,9 @@ class NameValidatorTest extends AmberTestCase
      * not the post_id the AJAX handler uses, so both are read with
      * WordPress's own post_ID as a final fallback. Excluding the wrong post
      * would make a record clash with itself and block every save.
-     *
-     * @test
-     * @dataProvider postIdSourceProvider
      */
+    #[DataProvider('postIdSourceProvider')]
+    #[Test]
     public function the_post_being_edited_is_excluded_however_its_id_arrives(string $key): void
     {
         // The only match is the post being edited, so it must not count.
@@ -307,7 +304,7 @@ class NameValidatorTest extends AmberTestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_unique_position_name_passes_validation(): void
     {
         $_POST = ['_acf_post_id' => '7'];
@@ -315,7 +312,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertTrue($this->positionValidator->validateOnSave(true, 'Treasurer', [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_duplicate_position_name_returns_an_error_message(): void
     {
         $this->existingPost(88);
@@ -326,7 +323,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertIsString($result);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_position_name_passes_save_validation(): void
     {
         $this->existingPost(88);
@@ -335,7 +332,7 @@ class NameValidatorTest extends AmberTestCase
         $this->assertTrue($this->positionValidator->validateOnSave(true, '', [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function an_existing_position_validation_failure_is_left_untouched(): void
     {
         $this->existingPost(88);

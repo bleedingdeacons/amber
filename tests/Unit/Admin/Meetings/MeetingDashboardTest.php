@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Meetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Managers\MeetingReconciler;
 use Amber\Models\ReconciliationResult;
@@ -28,15 +31,14 @@ use Unity\Meetings\Interfaces\MeetingRepository;
  * hand-built ReconciliationResult covering all five so every branch of the card
  * renderer is walked, then checks the graceful paths: no reconciler, no
  * meetings, and the screen gate on the styles and scripts.
- *
- * @covers \Amber\Admin\Meetings\MeetingDashboard
  */
+#[CoversClass(\Amber\Admin\Meetings\MeetingDashboard::class)]
 class MeetingDashboardTest extends AmberTestCase
 {
-    /** @var MeetingRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MeetingRepository&MockObject */
     private $meetingRepository;
 
-    /** @var GroupRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupRepository&MockObject */
     private $groupRepository;
 
     protected function setUp(): void
@@ -144,8 +146,7 @@ class MeetingDashboardTest extends AmberTestCase
     }
 
     // ── the full render ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function every_reconciliation_verdict_paints_its_card(): void
     {
         $groupA = $this->group(100, 'Tuesday Group', 'tues@example.test', [
@@ -197,8 +198,7 @@ class MeetingDashboardTest extends AmberTestCase
     }
 
     // ── graceful paths ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function an_empty_site_says_no_meetings_found(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([]);
@@ -209,7 +209,7 @@ class MeetingDashboardTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function without_a_reconciler_the_cards_still_render_with_dashes(): void
     {
         // Concordance absent: every national field degrades to an em dash
@@ -225,7 +225,7 @@ class MeetingDashboardTest extends AmberTestCase
         $this->assertStringNotContainsString('recon-matched', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_reconciler_that_throws_is_swallowed(): void
     {
         $reconciler = $this->createMock(MeetingReconciler::class);
@@ -239,7 +239,7 @@ class MeetingDashboardTest extends AmberTestCase
         $this->assertStringContainsString('meeting-card', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_widget_is_registered(): void
     {
         $this->dashboard()->registerDashboardWidget();
@@ -247,7 +247,7 @@ class MeetingDashboardTest extends AmberTestCase
         $this->assertArrayHasKey('groups_meetings_dashboard', WpState::$widgets);
     }
 
-    /** @test */
+    #[Test]
     public function styles_and_scripts_only_load_on_the_dashboard(): void
     {
         $dashboard = $this->dashboard();

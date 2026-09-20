@@ -6,7 +6,7 @@
  * Version: 1.31.0
  * Build date: 2026/05/31
  * Requires at least: 6.0
- * Requires PHP: 8.1
+ * Requires PHP: 8.4
  * Requires Plugins: unity, sentinel, scrutiny
  * GitHub Plugin URI: https://github.com/bleedingdeacons/amber
  * GitHub Branch: main

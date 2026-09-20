@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Filters\has;
+use function Brain\Monkey\Filters\expectApplied;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Tests\AmberTestCase;
-use Brain\Monkey\Filters;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 
@@ -17,9 +21,8 @@ use Unity\Members\Interfaces\Member;
  * member. An @aa-bristol.org address reaches whoever currently holds a
  * position instead, so it is refused on save however it is dressed up —
  * subdomain, mixed case, or padding around the address.
- *
- * @covers \Amber\Admin\Members\PersonalEmailValidator
  */
+#[CoversClass(\Amber\Admin\Members\PersonalEmailValidator::class)]
 class PersonalEmailValidatorTest extends AmberTestCase
 {
     private const EMAIL_KEY = 'field_67d0eabc277cb';
@@ -47,8 +50,7 @@ class PersonalEmailValidatorTest extends AmberTestCase
     }
 
     // ── registration ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function it_validates_the_personal_email_field_on_save(): void
     {
         $this->assertHookAdded('acf/validate_value/key=' . self::EMAIL_KEY);
@@ -57,22 +59,18 @@ class PersonalEmailValidatorTest extends AmberTestCase
     /**
      * Without a key there is no field to hook, and 'acf/validate_value/key='
      * would validate every field ACF has.
-     *
-     * @test
      */
+    #[Test]
     public function it_registers_nothing_when_the_member_config_names_no_email_field(): void
     {
         new PersonalEmailValidator($this->configuration(''));
 
-        self::assertFalse(Filters\has('acf/validate_value/key='));
+        self::assertFalse(has('acf/validate_value/key='));
     }
 
     // ── rejection ────────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider intergroupAddressProvider
-     */
+    #[DataProvider('intergroupAddressProvider')]
+    #[Test]
     public function an_intergroup_address_is_refused(string $email): void
     {
         $result = $this->validator->validateOnSave(true, $email, [], 'acf[field]');
@@ -95,8 +93,7 @@ class PersonalEmailValidatorTest extends AmberTestCase
     }
 
     // ── acceptance ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_genuine_personal_address_is_accepted(): void
     {
         $this->assertTrue(
@@ -107,9 +104,8 @@ class PersonalEmailValidatorTest extends AmberTestCase
     /**
      * An address at another AA domain is somebody's real mailbox — only the
      * intergroup's own domain forwards by role.
-     *
-     * @test
      */
+    #[Test]
     public function an_address_at_a_different_aa_domain_is_accepted(): void
     {
         $this->assertTrue(
@@ -117,7 +113,7 @@ class PersonalEmailValidatorTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_value_passes(): void
     {
         // Emptiness is ACF's required-field problem, and it is also what a
@@ -125,7 +121,7 @@ class PersonalEmailValidatorTest extends AmberTestCase
         $this->assertTrue($this->validator->validateOnSave(true, '', [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function the_clear_sentinel_passes(): void
     {
         // Scrutiny's Clear button submits this in place of the address; it
@@ -134,13 +130,13 @@ class PersonalEmailValidatorTest extends AmberTestCase
         $this->assertTrue($this->validator->validateOnSave(true, '__CLEAR__', [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function a_non_string_value_passes(): void
     {
         $this->assertTrue($this->validator->validateOnSave(true, null, [], 'acf[field]'));
     }
 
-    /** @test */
+    #[Test]
     public function an_existing_validation_failure_is_left_untouched(): void
     {
         // Another validator already rejected it; ours must not overwrite that
@@ -152,11 +148,10 @@ class PersonalEmailValidatorTest extends AmberTestCase
     }
 
     // ── configuration ────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_blocked_domains_can_be_filtered(): void
     {
-        Filters\expectApplied('amber_intergroup_email_domains')
+        expectApplied('amber_intergroup_email_domains')
             ->andReturn(['aa-somewhere-else.org']);
 
         $result = $this->validator->validateOnSave(true, 'secretary@aa-somewhere-else.org', [], 'acf[field]');
@@ -168,12 +163,11 @@ class PersonalEmailValidatorTest extends AmberTestCase
     /**
      * A filter returning something unusable falls back to the shipped domain
      * rather than quietly blocking nothing.
-     *
-     * @test
      */
+    #[Test]
     public function a_broken_filter_falls_back_to_the_intergroup_domain(): void
     {
-        Filters\expectApplied('amber_intergroup_email_domains')->andReturn('not-an-array');
+        expectApplied('amber_intergroup_email_domains')->andReturn('not-an-array');
 
         $this->assertIsString(
             $this->validator->validateOnSave(true, 'secretary@aa-bristol.org', [], 'acf[field]')

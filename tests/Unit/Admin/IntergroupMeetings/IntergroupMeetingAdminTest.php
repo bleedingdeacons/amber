@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -46,9 +50,8 @@ use WP_Query;
  * officer, asserting the factory/save/delete calls land. It also walks the ACF
  * relationship-label filters that annotate each option with its position, GSRs
  * or officer name.
- *
- * @covers \Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin::class)]
 class IntergroupMeetingAdminTest extends AmberTestCase
 {
     private const IGM_TYPE    = 'intergroup-meeting';
@@ -57,7 +60,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
     private IntergroupMeetingAdmin $admin;
 
-    /** @var array<string, \PHPUnit\Framework\MockObject\MockObject> */
+    /** @var array<string, MockObject> */
     private array $m = [];
 
     protected function setUp(): void
@@ -66,9 +69,9 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $config = $this->createMock(Configuration::class);
         $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
-            \Unity\IntergroupMeetings\Interfaces\IntergroupMeeting::class => ['POST_TYPE' => self::IGM_TYPE],
-            \Unity\Groups\Interfaces\Group::class                        => ['POST_TYPE' => self::GROUP_TYPE],
-            \Unity\Members\Interfaces\Member::class                      => ['POST_TYPE' => self::MEMBER_TYPE],
+            IntergroupMeeting::class => ['POST_TYPE' => self::IGM_TYPE],
+            Group::class                        => ['POST_TYPE' => self::GROUP_TYPE],
+            Member::class                      => ['POST_TYPE' => self::MEMBER_TYPE],
             default                                                      => [],
         });
 
@@ -135,8 +138,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── columns ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_custom_columns_are_inserted_after_title(): void
     {
         $columns = $this->admin->addCustomColumns(['cb' => '', 'title' => 'Title', 'date' => 'Date']);
@@ -147,7 +149,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function the_date_and_count_columns_are_sortable(): void
     {
         $sortable = $this->admin->makeColumnsSortable([]);
@@ -156,7 +158,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('attendee_count', $sortable['attendee_count']);
     }
 
-    /** @test */
+    #[Test]
     public function the_meeting_date_column_formats_the_date(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10'));
@@ -167,7 +169,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function the_meeting_date_column_dashes_when_there_is_no_date(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', ''));
@@ -175,7 +177,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('meeting_date', 1)));
     }
 
-    /** @test */
+    #[Test]
     public function the_group_attendees_column_lists_groups_with_their_gsrs(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100]));
@@ -196,7 +198,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Bob', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_group_attendees_column_dashes_when_empty(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', []));
@@ -204,7 +206,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)));
     }
 
-    /** @test */
+    #[Test]
     public function the_officers_column_lists_positions_with_their_holders(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
@@ -225,7 +227,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Jo', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_officers_column_dashes_when_empty(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], []));
@@ -233,7 +235,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)));
     }
 
-    /** @test */
+    #[Test]
     public function the_officers_column_shows_the_position_alone_when_no_holder_is_named(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
@@ -251,7 +253,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Vacant Role', $html);
     }
 
-    /** @test */
+    #[Test]
     public function officers_fall_back_to_the_display_name_when_members_cannot_be_resolved(): void
     {
         // A position with a display name but no resolvable member records still
@@ -271,7 +273,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Jo, Anonymous Sam', $html);
     }
 
-    /** @test */
+    #[Test]
     public function officers_column_dashes_when_no_position_resolves(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
@@ -280,7 +282,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)));
     }
 
-    /** @test */
+    #[Test]
     public function the_group_attendees_column_skips_a_group_that_cannot_be_resolved(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100]));
@@ -294,7 +296,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)));
     }
 
-    /** @test */
+    #[Test]
     public function the_group_attendees_column_renders_a_group_whose_view_is_missing(): void
     {
         // The group post resolves but its live view (used to find GSRs) does
@@ -311,7 +313,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Tuesday Group', $html);
     }
 
-    /** @test */
+    #[Test]
     public function repeated_group_ids_are_resolved_once_and_reused_from_cache(): void
     {
         // A group appearing twice in the attendee list must hit the per-request
@@ -332,7 +334,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame(2, substr_count($html, 'Tuesday Group'));
     }
 
-    /** @test */
+    #[Test]
     public function the_attendee_count_column_totals_groups_and_officers(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [1, 2], [3]));
@@ -344,8 +346,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── ACF relationship label filters ───────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_position_name_is_appended_to_a_member_option(): void
     {
         $member = $this->member(5, 'Anonymous Alex', 77);
@@ -359,7 +360,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Anonymous Alex (Secretary)', $result);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_with_no_intergroup_position_is_left_unlabelled(): void
     {
         $this->m['memberRepo']->method('findById')->willReturn($this->member(5, 'Anonymous Alex', 0));
@@ -367,13 +368,13 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Anonymous Alex', $this->admin->addPositionName('Anonymous Alex', $this->post(5, self::MEMBER_TYPE), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function a_non_member_option_is_untouched_by_the_position_filter(): void
     {
         $this->assertSame('X', $this->admin->addPositionName('X', $this->post(5, 'page'), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function the_officer_name_is_appended_to_a_position_option(): void
     {
         $view = $this->createMock(PositionView::class);
@@ -385,7 +386,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Treasurer (Anonymous Jo)', $result);
     }
 
-    /** @test */
+    #[Test]
     public function an_unresolved_member_option_is_left_unlabelled(): void
     {
         $this->m['memberRepo']->method('findById')->willReturn(null);
@@ -393,7 +394,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('X', $this->admin->addPositionName('X', $this->post(5, self::MEMBER_TYPE), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function a_position_option_with_no_resolvable_view_is_left_unlabelled(): void
     {
         $this->m['positionViewFac']->method('createFrom')->willReturn(null);
@@ -401,7 +402,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Treasurer', $this->admin->addMemberNameToPosition('Treasurer', $this->post(9, 'intergroup-position'), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function a_position_option_with_no_officer_name_is_left_unlabelled(): void
     {
         $view = $this->createMock(PositionView::class);
@@ -411,7 +412,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Treasurer', $this->admin->addMemberNameToPosition('Treasurer', $this->post(9, 'intergroup-position'), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function a_group_option_with_no_resolvable_view_is_left_unlabelled(): void
     {
         $this->m['groupViewFactory']->method('createFrom')->willReturn(null);
@@ -419,7 +420,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Tuesday Group', $this->admin->addGsrsName('Tuesday Group', $this->post(3, self::GROUP_TYPE), [], 0));
     }
 
-    /** @test */
+    #[Test]
     public function the_gsr_names_are_appended_to_a_group_option(): void
     {
         $view = $this->createMock(GroupView::class);
@@ -434,7 +435,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('Tuesday Group (Anonymous Alex)', $result);
     }
 
-    /** @test */
+    #[Test]
     public function a_group_with_no_gsrs_is_left_unlabelled(): void
     {
         $view = $this->createMock(GroupView::class);
@@ -445,8 +446,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── sorting ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function sorting_by_meeting_date_uses_the_sortable_meta_key(): void
     {
         $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);
@@ -459,7 +459,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('meta_value', $query->get('orderby'));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_by_attendee_count_uses_a_numeric_meta_sort(): void
     {
         $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);
@@ -471,7 +471,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame('meta_value_num', $query->get('orderby'));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_ignored_off_the_intergroup_meeting_screen(): void
     {
         $this->setScreen('edit-page', 'edit', 'page');
@@ -484,8 +484,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── save / attendance sync ───────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_non_intergroup_meeting_post_does_nothing(): void
     {
         WpState::$postTypes[42] = 'page';
@@ -495,7 +494,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->updateIntergroupMeetingMetadataOnSave(42);
     }
 
-    /** @test */
+    #[Test]
     public function saving_stamps_the_sort_meta_and_syncs_added_and_removed_attendees(): void
     {
         WpState::$postTypes[1] = self::IGM_TYPE;
@@ -554,7 +553,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame(4, WpState::$postMeta[1]['_intergroup_meeting_attendee_count']);
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_saved_without_a_date_clears_the_sort_meta(): void
     {
         WpState::$postTypes[1] = self::IGM_TYPE;
@@ -570,7 +569,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertArrayNotHasKey('_intergroup_meeting_date_sortable', WpState::$postMeta[1]);
     }
 
-    /** @test */
+    #[Test]
     public function setup_all_metadata_walks_every_meeting(): void
     {
         $this->m['igmRepo']->method('findAll')->willReturn([
@@ -588,11 +587,8 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── meeting label ────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider meetingLabelProvider
-     */
+    #[DataProvider('meetingLabelProvider')]
+    #[Test]
     public function the_meeting_label_combines_whatever_it_has(string $title, string $date, string $expected): void
     {
         $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'buildMeetingLabel');
@@ -614,8 +610,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── member position change ───────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function an_unchanged_member_does_not_touch_attendance(): void
     {
         $before = $this->member(5, 'Anonymous Alex', 10);
@@ -626,7 +621,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->onMemberPositionChanged($after, $before);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_whose_position_changed_on_meeting_day_has_attendance_updated(): void
     {
         $before = $this->member(5, 'Anonymous Alex', 10);
@@ -651,7 +646,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->onMemberPositionChanged($after, $before);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_change_with_no_meeting_today_updates_nothing(): void
     {
         $before = $this->member(5, 'Anonymous Alex', 10);
@@ -669,7 +664,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->onMemberPositionChanged($after, $before);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_with_no_attendance_records_is_skipped(): void
     {
         $before = $this->member(5, 'Anonymous Alex', 10);
@@ -681,7 +676,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->onMemberPositionChanged($after, $before);
     }
 
-    /** @test */
+    #[Test]
     public function repeated_officer_ids_are_resolved_once_and_reused_from_cache(): void
     {
         $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200, 200]));
@@ -701,8 +696,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── today's meeting lookup ───────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function todays_meeting_is_the_first_one_dated_today(): void
     {
         $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'findTodaysIntergroupMeeting');
@@ -713,7 +707,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->assertSame($meeting, $method->invoke($this->admin));
     }
 
-    /** @test */
+    #[Test]
     public function there_is_no_todays_meeting_when_none_is_dated_today(): void
     {
         $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'findTodaysIntergroupMeeting');
@@ -724,8 +718,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
     }
 
     // ── styles ───────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function column_styles_load_only_on_the_intergroup_meeting_screen(): void
     {
         $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);

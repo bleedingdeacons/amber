@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\Exceptions\WpDieException;
@@ -36,27 +39,26 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * matters in the rows: a vacant position and a GSR-less group still appear (one
  * row, blank member fields), a filled one produces a row per holder, and the
  * derived Duration / Started-Service / Attended fields are correct.
- *
- * @covers \Amber\Admin\IntergroupMeetings\ReportsAdmin
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\ReportsAdmin::class)]
 class ReportsAdminTest extends AmberTestCase
 {
-    /** @var IntergroupMeetingGroupAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
     private $groupAttendance;
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
     private $officerAttendance;
 
-    /** @var PositionRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionRepository&MockObject */
     private $positionRepository;
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $positionViewFactory;
 
-    /** @var GroupRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupRepository&MockObject */
     private $groupRepository;
 
-    /** @var GroupViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupViewFactory&MockObject */
     private $groupViewFactory;
 
     private ReportsAdmin $reports;
@@ -89,8 +91,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── page render ──────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_page_offers_both_downloads_for_the_selected_meeting(): void
     {
         $this->wpdb->col = ['March IG'];
@@ -106,7 +107,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->assertStringContainsString('amber_action=download_positions_csv', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_page_reports_when_there_are_no_meetings(): void
     {
         $this->wpdb->col = [];
@@ -115,8 +116,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── download guards ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_download_handler_ignores_other_admin_pages(): void
     {
         $_GET = [];
@@ -126,7 +126,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function the_download_handler_ignores_an_unknown_action(): void
     {
         $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'nonsense'];
@@ -135,7 +135,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function a_download_without_permission_is_refused(): void
     {
         $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
@@ -145,7 +145,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->reports->maybeHandleDownload();
     }
 
-    /** @test */
+    #[Test]
     public function a_download_with_no_meeting_selected_is_refused(): void
     {
         $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
@@ -185,7 +185,7 @@ class ReportsAdminTest extends AmberTestCase
         return $member;
     }
 
-    /** @test */
+    #[Test]
     public function the_position_rows_include_a_row_per_holder_and_a_vacant_row(): void
     {
         // Two positions in the repo, one filled and one vacant. Only the filled
@@ -220,8 +220,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── group rows ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_group_rows_include_a_row_per_gsr_and_a_gsr_less_row(): void
     {
         $groupA = $this->createMock(Group::class);
@@ -262,8 +261,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── derived-field helpers ────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_duration_is_pluralised_and_empty_for_a_zero_term(): void
     {
         $this->assertSame('1 year', $this->callPrivate('formatDuration', [1]));
@@ -272,7 +270,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->assertSame('', $this->callPrivate('formatDuration', [null]));
     }
 
-    /** @test */
+    #[Test]
     public function the_started_service_date_is_the_rotation_less_the_term(): void
     {
         $this->assertSame(
@@ -285,8 +283,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── CSV writer ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_csv_row_is_written_rfc_4180_with_doubled_quotes(): void
     {
         $stream = fopen('php://temp', 'r+');
@@ -299,8 +296,7 @@ class ReportsAdminTest extends AmberTestCase
     }
 
     // ── registration and styles ──────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_submenu_page_is_registered(): void
     {
         $this->reports->registerSubmenuPage();
@@ -308,7 +304,7 @@ class ReportsAdminTest extends AmberTestCase
         $this->assertContains('intergroup-reports', $this->registeredMenuSlugs());
     }
 
-    /** @test */
+    #[Test]
     public function styles_load_only_on_the_reports_page(): void
     {
         $this->setScreen('intergroup_page_intergroup-reports');

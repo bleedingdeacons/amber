@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Committees;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
+use function Brain\Monkey\Functions\when;
+use function Brain\Monkey\Functions\expect;
 use Amber\Admin\Committees\CommitteeTree;
 use Amber\Tests\AmberTestCase;
-use Brain\Monkey\Functions;
 use Unity\Committees\Interfaces\Committee;
 use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Configuration;
@@ -21,15 +25,14 @@ use Unity\Members\Interfaces\MemberRepository;
  * member with nothing filled in still renders, and that an empty taxonomy
  * produces a signpost rather than a blank page. A tree screen that silently
  * shows a person twice, or shows nothing at all, is worse than one that errors.
- *
- * @covers \Amber\Admin\Committees\CommitteeTree
  */
+#[CoversClass(\Amber\Admin\Committees\CommitteeTree::class)]
 class CommitteeTreeTest extends AmberTestCase
 {
-    /** @var CommitteeRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var CommitteeRepository&MockObject */
     private $committees;
 
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $members;
 
     private CommitteeTree $tree;
@@ -50,7 +53,7 @@ class CommitteeTreeTest extends AmberTestCase
 
         // wp-mocks does not carry this one. Registered is the normal case; the
         // unregistered branch overrides it.
-        Functions\when('taxonomy_exists')->justReturn(true);
+        when('taxonomy_exists')->justReturn(true);
 
         $this->tree = new CommitteeTree($config, $this->committees, $this->members);
     }
@@ -98,12 +101,11 @@ class CommitteeTreeTest extends AmberTestCase
      * nothing registered. Found by opening the screen on a local site that had
      * not been updated: it claimed "no committees exist yet" and linked to a
      * term editor that answers "Invalid taxonomy."
-     *
-     * @test
      */
+    #[Test]
     public function an_unregistered_taxonomy_says_so_rather_than_blaming_missing_terms(): void
     {
-        Functions\when('taxonomy_exists')->justReturn(false);
+        when('taxonomy_exists')->justReturn(false);
 
         $this->committees->expects($this->never())->method('roots');
 
@@ -118,9 +120,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->assertStringNotContainsString('edit-tags.php', $html);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function an_empty_taxonomy_points_at_the_term_editor_instead_of_rendering_a_tree(): void
     {
         $this->committees->method('roots')->willReturn([]);
@@ -133,9 +133,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->assertStringNotContainsString('amber-committee-tree', $html);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_renders_a_committee_with_its_name_and_slug(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -157,9 +155,8 @@ class CommitteeTreeTest extends AmberTestCase
      * The rollup is deliberately off. memberIdsIn() includes descendants by
      * default, which on a tree would print the same person under every
      * ancestor and destroy the one thing the screen is for.
-     *
-     * @test
      */
+    #[Test]
     public function members_are_looked_up_without_the_descendant_rollup(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -177,9 +174,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->render();
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_child_committee_is_nested_under_its_parent(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -201,9 +196,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->assertStringContainsString('Electronic Communications', $html);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_member_is_draggable_and_carries_the_committee_it_sits_in(): void
     {
         $comms = $this->committee(13, 'electronic-communications', 'Electronic Communications');
@@ -228,9 +221,8 @@ class CommitteeTreeTest extends AmberTestCase
      * Members have no post_title worth showing — their names live in ACF — so a
      * blank anonymous name is a real state, not a broken one, and must still
      * produce a chip somebody can drag.
-     *
-     * @test
      */
+    #[Test]
     public function a_member_with_no_anonymous_name_still_renders(): void
     {
         $comms = $this->committee(13, 'comms', 'Comms');
@@ -249,9 +241,8 @@ class CommitteeTreeTest extends AmberTestCase
     /**
      * Drag and drop alone would put the screen out of reach without a pointer,
      * so every member carries a select that does the same two things.
-     *
-     * @test
      */
+    #[Test]
     public function every_member_gets_a_keyboard_reachable_move_and_copy_control(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -306,9 +297,8 @@ class CommitteeTreeTest extends AmberTestCase
      * the parent's existing submenu, so "after Intergroup Meetings" has to be
      * found rather than hard-coded -- four other Amber classes add to that menu
      * on their own hooks and the order depends on load order.
-     *
-     * @test
      */
+    #[Test]
     public function it_slots_the_page_in_directly_after_intergroup_meetings(): void
     {
         $GLOBALS['submenu']['intergroup'] = [
@@ -320,7 +310,7 @@ class CommitteeTreeTest extends AmberTestCase
         ];
 
         $position = null;
-        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+        expect('add_submenu_page')->once()->andReturnUsing(
             function (...$args) use (&$position) {
                 $position = $args[6] ?? null;
                 return 'amber-committees';
@@ -335,9 +325,7 @@ class CommitteeTreeTest extends AmberTestCase
         unset($GLOBALS['submenu']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_appends_when_intergroup_meetings_is_not_there(): void
     {
         $GLOBALS['submenu']['intergroup'] = [
@@ -345,7 +333,7 @@ class CommitteeTreeTest extends AmberTestCase
         ];
 
         $position = 'untouched';
-        Functions\expect('add_submenu_page')->once()->andReturnUsing(
+        expect('add_submenu_page')->once()->andReturnUsing(
             function (...$args) use (&$position) {
                 $position = $args[6] ?? null;
                 return 'amber-committees';
@@ -359,9 +347,7 @@ class CommitteeTreeTest extends AmberTestCase
         unset($GLOBALS['submenu']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_splits_the_screen_into_a_tree_pane_and_a_member_pane(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -382,9 +368,8 @@ class CommitteeTreeTest extends AmberTestCase
     /**
      * The first root opens by default, so the screen is never blank on arrival,
      * and every other panel ships hidden rather than being fetched on click.
-     *
-     * @test
      */
+    #[Test]
     public function the_first_root_is_selected_and_the_rest_are_hidden(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -403,9 +388,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->assertStringContainsString('<div class="amber-member-panel" data-committee="13" hidden>', $html);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_nested_committee_shows_its_full_path(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -422,9 +405,8 @@ class CommitteeTreeTest extends AmberTestCase
     /**
      * Unassigned is not a committee, so it gets its own tree rather than
      * sitting alongside the real roots in the accessibility tree.
-     *
-     * @test
      */
+    #[Test]
     public function unassigned_sits_outside_the_committee_tree(): void
     {
         $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
@@ -445,9 +427,8 @@ class CommitteeTreeTest extends AmberTestCase
      * A term hierarchy can be edited into a loop in wp-admin, and an unbounded
      * walk up the parents would hang the whole screen rather than mis-draw one
      * subtitle.
-     *
-     * @test
      */
+    #[Test]
     public function a_cyclic_hierarchy_does_not_hang_the_path_walk(): void
     {
         $a = $this->committee(1, 'a', 'A', 2);
@@ -463,9 +444,7 @@ class CommitteeTreeTest extends AmberTestCase
         $this->assertStringContainsString('amber-panel-path', $html);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function names_are_escaped(): void
     {
         $comms = $this->committee(13, 'comms', 'Comms');

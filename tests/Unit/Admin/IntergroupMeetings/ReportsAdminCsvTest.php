@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Amber\Admin\IntergroupMeetings\ReportsAdmin;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -21,9 +24,8 @@ use ReflectionMethod;
  * which follows a backslash, so a note containing \"quoted\" text was written
  * as "says \"hi\"" — which an RFC 4180 reader (Excel, Sheets) parses as
  * `says \hi\""`, ending the field early and mangling the rest of the row.
- *
- * @covers \Amber\Admin\IntergroupMeetings\ReportsAdmin
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\ReportsAdmin::class)]
 class ReportsAdminCsvTest extends TestCase
 {
     /** @var string[] */
@@ -44,9 +46,8 @@ class ReportsAdminCsvTest extends TestCase
      * The regression: a field containing a backslash before a quote must
      * survive being read back by a standard RFC 4180 reader, which is what
      * the spreadsheet application opening this download will be.
-     *
-     * @test
      */
+    #[Test]
     public function a_backslash_before_a_quote_survives_an_rfc4180_reader(): void
     {
         $row = ['Chair', 'says \\"hi\\"'];
@@ -54,10 +55,8 @@ class ReportsAdminCsvTest extends TestCase
         $this->assertSame($row, $this->writeThenReadBack($row));
     }
 
-    /**
-     * @test
-     * @dataProvider awkwardValueProvider
-     */
+    #[DataProvider('awkwardValueProvider')]
+    #[Test]
     public function values_survive_a_write_read_round_trip(string $value): void
     {
         $row = ['Chair', $value, 'Apologies'];
@@ -96,10 +95,9 @@ class ReportsAdminCsvTest extends TestCase
      * sees the leading quote. That is the intended trade — the quote is
      * consumed by Excel and LibreOffice on open, and a report is read, not
      * re-imported.
-     *
-     * @test
-     * @dataProvider formulaLeadProvider
      */
+    #[DataProvider('formulaLeadProvider')]
+    #[Test]
     public function a_value_a_spreadsheet_would_evaluate_is_written_as_text(string $value): void
     {
         $row = $this->writeThenReadBack(['Chair', $value, 'Apologies']);
@@ -125,9 +123,7 @@ class ReportsAdminCsvTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function an_ordinary_value_is_left_alone(): void
     {
         $row = $this->writeThenReadBack(['Chair', 'North', 'Apologies']);
@@ -139,9 +135,8 @@ class ReportsAdminCsvTest extends TestCase
      * A whole report must re-read row for row — the failure mode of the old
      * escape was a field running past its record boundary and consuming the
      * next row.
-     *
-     * @test
      */
+    #[Test]
     public function every_row_of_a_report_reads_back_intact(): void
     {
         $rows = [

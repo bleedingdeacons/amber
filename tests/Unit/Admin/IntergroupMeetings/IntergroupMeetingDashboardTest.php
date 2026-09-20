@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -27,21 +30,20 @@ use Unity\Members\Interfaces\MemberRepository;
  * into the register but not matching a member record still shows. The header's
  * title/date label has four shapes (both, title-only, date-only, neither) that
  * decide whether the card is even identifiable.
- *
- * @covers \Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard::class)]
 class IntergroupMeetingDashboardTest extends AmberTestCase
 {
-    /** @var IntergroupMeetingRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingRepository&MockObject */
     private $meetingRepository;
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
     private $groupAttendance;
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
     private $officerAttendance;
 
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $memberRepository;
 
     private IntergroupMeetingDashboard $dashboard;
@@ -103,8 +105,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
     }
 
     // ── empty state ──────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function an_empty_archive_says_so(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([]);
@@ -116,8 +117,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
     }
 
     // ── header label shapes ──────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function meetings_are_ordered_newest_first_with_a_title_and_date_label(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([
@@ -136,7 +136,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $this->assertStringContainsString('March 10, 2026', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_with_neither_title_nor_date_is_flagged(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, '', '')]);
@@ -146,7 +146,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $this->assertStringContainsString('No Title or Date', $this->capture(fn () => $this->dashboard->renderDashboardWidget()));
     }
 
-    /** @test */
+    #[Test]
     public function the_eligible_badge_totals_groups_and_officers(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10', 3, 2)]);
@@ -160,8 +160,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
     }
 
     // ── group attendees ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function group_attendees_link_known_gsrs_and_show_unknown_ones_as_text(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
@@ -183,7 +182,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Solo Group', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_with_no_group_records_dashes_the_groups_cell(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
@@ -196,8 +195,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
     }
 
     // ── officers ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function officers_link_known_members_and_fall_back_to_the_position_alone(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
@@ -216,7 +214,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Secretary', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_with_no_officer_records_says_none(): void
     {
         $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
@@ -227,8 +225,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
     }
 
     // ── registration and styles ──────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_widget_is_registered(): void
     {
         $this->dashboard->registerDashboardWidget();
@@ -236,7 +233,7 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $this->assertArrayHasKey('intergroup_meetings_dashboard', WpState::$widgets);
     }
 
-    /** @test */
+    #[Test]
     public function styles_load_only_on_the_dashboard(): void
     {
         $this->setScreen('dashboard', 'dashboard');

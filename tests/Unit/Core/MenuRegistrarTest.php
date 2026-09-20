@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Core;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Core\MenuRegistrar;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -16,12 +18,11 @@ use BleedingDeacons\WpMocks\WpState;
  * whole point — a submenu registered under the wrong parent simply never
  * appears — so the test asserts the structure the registrar builds rather than
  * that it merely ran.
- *
- * @covers \Amber\Core\MenuRegistrar
  */
+#[CoversClass(\Amber\Core\MenuRegistrar::class)]
 class MenuRegistrarTest extends AmberTestCase
 {
-    /** @test */
+    #[Test]
     public function it_registers_the_intergroup_top_level_menu(): void
     {
         MenuRegistrar::registerMenus();
@@ -32,7 +33,7 @@ class MenuRegistrarTest extends AmberTestCase
         $this->assertSame(MenuRegistrar::MENU_SLUG, array_values($top)[0]['slug']);
     }
 
-    /** @test */
+    #[Test]
     public function every_content_type_gets_a_submenu_under_intergroup(): void
     {
         MenuRegistrar::registerMenus();
@@ -55,7 +56,7 @@ class MenuRegistrarTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function submenus_hang_off_the_intergroup_parent(): void
     {
         MenuRegistrar::registerMenus();
@@ -67,7 +68,7 @@ class MenuRegistrarTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function the_duplicate_default_submenu_is_removed(): void
     {
         // add_menu_page auto-creates a submenu echoing the top-level slug;
@@ -80,7 +81,7 @@ class MenuRegistrarTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function the_help_submenu_is_registered_with_a_render_callback(): void
     {
         MenuRegistrar::registerHelpMenu();
