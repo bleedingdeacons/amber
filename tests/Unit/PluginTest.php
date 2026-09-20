@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Core\MenuRegistrar;
 use Amber\Plugin;
 use Amber\Tests\AmberTestCase;
@@ -21,9 +23,8 @@ use RuntimeException;
  * no-op. maybeRunMigrations is the version-gated metadata sweep; the branch
  * that matters is the guard that skips it when the stored version already
  * matches, since that is what stops it running on every admin page load.
- *
- * @covers \Amber\Plugin
  */
+#[CoversClass(\Amber\Plugin::class)]
 class PluginTest extends AmberTestCase
 {
     protected function setUp(): void
@@ -48,7 +49,7 @@ class PluginTest extends AmberTestCase
         $container->setValue(null, null);
     }
 
-    /** @test */
+    #[Test]
     public function get_container_before_init_is_a_hard_error(): void
     {
         $this->expectException(RuntimeException::class);
@@ -56,7 +57,7 @@ class PluginTest extends AmberTestCase
         Plugin::getContainer();
     }
 
-    /** @test */
+    #[Test]
     public function init_boots_the_container_and_wires_the_admin_menu(): void
     {
         $container = $this->mockContainer();
@@ -72,7 +73,7 @@ class PluginTest extends AmberTestCase
         $this->assertHookAdded('init');
     }
 
-    /** @test */
+    #[Test]
     public function init_is_idempotent(): void
     {
         $first = $this->mockContainer();
@@ -85,7 +86,7 @@ class PluginTest extends AmberTestCase
         $this->assertSame($first, Plugin::getContainer());
     }
 
-    /** @test */
+    #[Test]
     public function a_version_change_runs_the_metadata_migration_and_records_the_new_version(): void
     {
         Plugin::init($this->mockContainer());
@@ -98,7 +99,7 @@ class PluginTest extends AmberTestCase
         $this->assertSame('0.0.0', WpState::$options['amber_db_version']);
     }
 
-    /** @test */
+    #[Test]
     public function migration_is_skipped_when_the_version_is_unchanged(): void
     {
         Plugin::init($this->mockContainer());
@@ -109,7 +110,7 @@ class PluginTest extends AmberTestCase
         $this->assertSame('0.0.0', WpState::$options['amber_db_version']);
     }
 
-    /** @test */
+    #[Test]
     public function the_legacy_menu_constants_still_point_at_the_registrar(): void
     {
         $this->assertSame(MenuRegistrar::MENU_SLUG, Plugin::MENU_SLUG);

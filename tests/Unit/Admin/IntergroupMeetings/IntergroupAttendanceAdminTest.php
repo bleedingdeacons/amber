@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
 use Amber\Tests\AmberTestCase;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendance;
@@ -20,17 +23,16 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceReposi
  * The behaviour worth pinning is the same — proxy Yes/No, em-dash fallbacks for
  * a missing proxy or blank position, the default-to-first-meeting selector, and
  * the singular/plural record counts.
- *
- * @covers \Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin::class)]
 class IntergroupAttendanceAdminTest extends AmberTestCase
 {
     private const PAGE_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
     private $groupAttendance;
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
     private $officerAttendance;
 
     private IntergroupAttendanceAdmin $page;
@@ -74,8 +76,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
     }
 
     // ── selector ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function with_no_records_the_page_says_so(): void
     {
         $this->availableLabels([]);
@@ -83,7 +84,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertStringContainsString('No attendance records found', $this->capture(fn () => $this->page->renderPage()));
     }
 
-    /** @test */
+    #[Test]
     public function the_first_meeting_is_selected_by_default(): void
     {
         $this->availableLabels(['January IG', 'March IG']);
@@ -96,7 +97,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertStringContainsString('<option value="January IG" selected', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_chosen_meeting_from_the_query_string_is_marked_selected(): void
     {
         $this->availableLabels(['January IG', 'March IG']);
@@ -108,8 +109,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
     }
 
     // ── tables ───────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_group_table_renders_rows_proxies_and_a_plural_summary(): void
     {
         $this->availableLabels(['March IG']);
@@ -129,7 +129,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertStringContainsString('1</strong> proxy', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_group_table_is_reported(): void
     {
         $this->availableLabels(['March IG']);
@@ -139,7 +139,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertStringContainsString('No group attendance records', $this->capture(fn () => $this->page->renderPage()));
     }
 
-    /** @test */
+    #[Test]
     public function the_officer_table_collapses_names_by_position_and_dashes_a_blank_role(): void
     {
         $this->availableLabels(['March IG']);
@@ -157,7 +157,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertStringContainsString('3</strong> officer records', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_officer_table_is_reported(): void
     {
         $this->availableLabels(['March IG']);
@@ -168,8 +168,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
     }
 
     // ── registration and styles ──────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_submenu_page_is_registered_under_intergroup(): void
     {
         $this->page->registerSubmenuPage();
@@ -177,7 +176,7 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $this->assertContains('intergroup-attendance', $this->registeredMenuSlugs());
     }
 
-    /** @test */
+    #[Test]
     public function styles_load_only_on_the_attendance_page(): void
     {
         $this->setScreen(self::PAGE_SCREEN);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Common\Functions;
 use Amber\Core\HelpPage;
 use Amber\Managers\FrontPageManager;
@@ -22,22 +24,20 @@ use Unity\Meetings\Interfaces\MeetingRepository;
  * day is empty. HelpPage renders the admin manual, falling back to an inline
  * notice if its template is missing. None of these are large, but together
  * they are a good chunk of otherwise-uncovered front-of-house code.
- *
- * @covers \Amber\Common\Functions
- * @covers \Amber\Managers\FrontPageManager
- * @covers \Amber\Core\HelpPage
  */
+#[CoversClass(\Amber\Common\Functions::class)]
+#[CoversClass(\Amber\Managers\FrontPageManager::class)]
+#[CoversClass(\Amber\Core\HelpPage::class)]
 class SupportClassesExtraTest extends AmberTestCase
 {
     // ── Functions ────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function email_to_builds_a_plain_mailto(): void
     {
         $this->assertSame('mailto:sec@example.test', Functions::emailTo('sec@example.test'));
     }
 
-    /** @test */
+    #[Test]
     public function email_to_appends_an_encoded_subject(): void
     {
         $this->assertSame(
@@ -46,13 +46,13 @@ class SupportClassesExtraTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function phone_to_builds_a_tel_link(): void
     {
         $this->assertSame('tel:0117 000 0000', Functions::phoneTo('0117 000 0000'));
     }
 
-    /** @test */
+    #[Test]
     public function link_to_builds_a_safe_new_tab_anchor(): void
     {
         $html = Functions::linkTo('https://example.test', 'btn', 'Visit');
@@ -62,7 +62,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('>Visit<', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_email_anchor_composes_the_mailto_and_the_link(): void
     {
         $html = Functions::createEmailAnchor('sec@example.test', 'Hi', 'btn', 'Email');
@@ -85,7 +85,7 @@ class SupportClassesExtraTest extends AmberTestCase
         return $meeting;
     }
 
-    /** @test */
+    #[Test]
     public function todays_meetings_are_listed_in_start_time_order(): void
     {
         $repo = $this->createMock(MeetingRepository::class);
@@ -100,7 +100,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertLessThan(strpos($html, 'Evening'), strpos($html, 'Morning'));
     }
 
-    /** @test */
+    #[Test]
     public function an_online_meeting_is_labelled_online(): void
     {
         $repo = $this->createMock(MeetingRepository::class);
@@ -109,7 +109,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('Online', (new FrontPageManager($repo))->render());
     }
 
-    /** @test */
+    #[Test]
     public function an_in_person_meeting_shows_its_location(): void
     {
         $location = $this->createMock(Location::class);
@@ -121,7 +121,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('Church Hall', (new FrontPageManager($repo))->render());
     }
 
-    /** @test */
+    #[Test]
     public function a_meeting_with_no_location_renders_an_empty_attendance_cell(): void
     {
         $repo = $this->createMock(MeetingRepository::class);
@@ -133,7 +133,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('Nowhere', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_day_says_no_meetings_are_scheduled(): void
     {
         $repo = $this->createMock(MeetingRepository::class);
@@ -142,7 +142,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertStringContainsString('No meetings scheduled for today', (new FrontPageManager($repo))->render());
     }
 
-    /** @test */
+    #[Test]
     public function the_shortcode_is_registered_on_construction(): void
     {
         $repo = $this->createMock(MeetingRepository::class);
@@ -153,8 +153,7 @@ class SupportClassesExtraTest extends AmberTestCase
     }
 
     // ── HelpPage ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_help_page_renders_its_template(): void
     {
         // Point the plugin dir at the real Amber root so the bundled template
@@ -168,7 +167,7 @@ class SupportClassesExtraTest extends AmberTestCase
         $this->assertNotSame('', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_help_tab_script_is_emitted(): void
     {
         $script = $this->capture(static fn () => HelpPage::enqueueHelpTabScript());
@@ -182,9 +181,8 @@ class SupportClassesExtraTest extends AmberTestCase
      * the window. preventDefault() has already run by then, so without an
      * explicit fallback the Help link would be inert — and the next line would
      * throw on the null handle rather than failing quietly.
-     *
-     * @test
      */
+    #[Test]
     public function the_help_tab_script_falls_back_to_the_current_tab_when_the_window_is_blocked(): void
     {
         $script = $this->capture(static fn () => HelpPage::enqueueHelpTabScript());

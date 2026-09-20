@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Committees;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Functions\when;
 use Amber\Admin\Committees\CommitteeAssignmentController;
 use Amber\Tests\AmberTestCase;
-use Brain\Monkey\Functions;
 use Unity\Committees\Interfaces\Committee;
 use Unity\Core\Interfaces\Configuration;
-use Unity\Members\Interfaces\Member;
 
 /**
  * Tests for the committee assignment endpoint.
@@ -19,9 +20,8 @@ use Unity\Members\Interfaces\Member;
  * caller without the capability, an id that is not a member, and a copy to
  * Unassigned. The happy paths matter mostly for one thing — that a move removes
  * the source and a copy does not.
- *
- * @covers \Amber\Admin\Committees\CommitteeAssignmentController
  */
+#[CoversClass(\Amber\Admin\Committees\CommitteeAssignmentController::class)]
 class CommitteeAssignmentControllerTest extends AmberTestCase
 {
     private CommitteeAssignmentController $controller;
@@ -39,7 +39,7 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
 
         $this->controller = new CommitteeAssignmentController($config);
 
-        Functions\when('check_ajax_referer')->justReturn(true);
+        when('check_ajax_referer')->justReturn(true);
 
         $_POST = [];
     }
@@ -64,12 +64,12 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
 
         $sent = ['success' => false, 'data' => null];
 
-        Functions\when('wp_send_json_success')->alias(function ($data = null) use (&$sent): void {
+        when('wp_send_json_success')->alias(function ($data = null) use (&$sent): void {
             $sent = ['success' => true, 'data' => $data];
             throw new StopAjax();
         });
 
-        Functions\when('wp_send_json_error')->alias(function ($data = null) use (&$sent): void {
+        when('wp_send_json_error')->alias(function ($data = null) use (&$sent): void {
             $sent = ['success' => false, 'data' => $data];
             throw new StopAjax();
         });
@@ -83,12 +83,10 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         return $sent;
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_refuses_a_caller_without_the_capability(): void
     {
-        Functions\when('current_user_can')->justReturn(false);
+        when('current_user_can')->justReturn(false);
 
         $result = $this->dispatch(['member' => 31, 'target' => 13, 'source' => 12]);
 
@@ -96,13 +94,11 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         $this->assertStringContainsString('not allowed', $result['data']['message']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_refuses_an_id_that_is_not_a_member(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-position');
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-position');
 
         $result = $this->dispatch(['member' => 88, 'target' => 13, 'source' => 12]);
 
@@ -110,13 +106,11 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         $this->assertSame('That is not a member.', $result['data']['message']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_refuses_a_copy_to_unassigned(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-member');
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-member');
 
         $result = $this->dispatch(['member' => 31, 'target' => 0, 'source' => 12, 'mode' => 'copy']);
 
@@ -124,17 +118,15 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         $this->assertStringContainsString('cannot be copied to Unassigned', $result['data']['message']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_move_drops_the_source_and_adds_the_target(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-member');
-        Functions\when('wp_get_object_terms')->justReturn([12, 99]);
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-member');
+        when('wp_get_object_terms')->justReturn([12, 99]);
 
         $written = null;
-        Functions\when('wp_set_object_terms')->alias(
+        when('wp_set_object_terms')->alias(
             function (int $id, array $terms, string $tax, bool $append) use (&$written) {
                 $written = ['id' => $id, 'terms' => $terms, 'tax' => $tax, 'append' => $append];
                 return $terms;
@@ -152,17 +144,15 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         $this->assertSame([13, 99], $written['terms'], 'source dropped, unrelated membership kept');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_copy_keeps_the_source(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-member');
-        Functions\when('wp_get_object_terms')->justReturn([12]);
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-member');
+        when('wp_get_object_terms')->justReturn([12]);
 
         $written = null;
-        Functions\when('wp_set_object_terms')->alias(
+        when('wp_set_object_terms')->alias(
             function (int $id, array $terms) use (&$written) {
                 $written = $terms;
                 return $terms;
@@ -180,17 +170,16 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
     /**
      * Dragging someone onto a committee they are already in should not write a
      * duplicate row.
-     *
-     * @test
      */
+    #[Test]
     public function an_existing_membership_is_not_duplicated(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-member');
-        Functions\when('wp_get_object_terms')->justReturn([13]);
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-member');
+        when('wp_get_object_terms')->justReturn([13]);
 
         $written = null;
-        Functions\when('wp_set_object_terms')->alias(
+        when('wp_set_object_terms')->alias(
             function (int $id, array $terms) use (&$written) {
                 $written = $terms;
                 return $terms;
@@ -205,17 +194,16 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
     /**
      * A move to Unassigned is the one case that legitimately writes an empty
      * set, and it must not be mistaken for a failure.
-     *
-     * @test
      */
+    #[Test]
     public function a_move_to_unassigned_clears_the_only_membership(): void
     {
-        Functions\when('current_user_can')->justReturn(true);
-        Functions\when('get_post_type')->justReturn('intergroup-member');
-        Functions\when('wp_get_object_terms')->justReturn([12]);
+        when('current_user_can')->justReturn(true);
+        when('get_post_type')->justReturn('intergroup-member');
+        when('wp_get_object_terms')->justReturn([12]);
 
         $written = null;
-        Functions\when('wp_set_object_terms')->alias(
+        when('wp_set_object_terms')->alias(
             function (int $id, array $terms) use (&$written) {
                 $written = $terms;
                 return $terms;

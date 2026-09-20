@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Managers\IntergroupManager;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Tests\AmberTestCase;
@@ -27,14 +30,13 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * rotating soon, or missing its date) and a pre-built "email the officer" link.
  * Those drive the visible warning styling, so the branch that decides "yes,
  * highlight" is the one that matters.
- *
- * @covers \Amber\Managers\IntergroupManager
  */
+#[CoversClass(\Amber\Managers\IntergroupManager::class)]
 class IntergroupManagerTest extends AmberTestCase
 {
     private const POSITION_TYPE = 'intergroup-position';
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $viewFactory;
 
     private IntergroupManager $manager;
@@ -86,8 +88,7 @@ class IntergroupManagerTest extends AmberTestCase
     }
 
     // ── registration ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function it_registers_its_save_and_render_hooks(): void
     {
         $this->assertHookAdded('template_redirect');
@@ -97,8 +98,7 @@ class IntergroupManagerTest extends AmberTestCase
     }
 
     // ── title sync delegation ────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_member_syncs_the_title_from_the_anonymous_name_field(): void
     {
         $this->makePost(42, self::POSITION_TYPE, ['post_title' => 'Old']);
@@ -110,7 +110,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame([['ID' => 42, 'post_title' => 'New Member Name']], WpState::$updatedPosts);
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_position_syncs_the_title_from_the_short_description_field(): void
     {
         $this->makePost(7, self::POSITION_TYPE, ['post_title' => 'Old']);
@@ -121,7 +121,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame([['ID' => 7, 'post_title' => 'Treasurer']], WpState::$updatedPosts);
     }
 
-    /** @test */
+    #[Test]
     public function saving_an_intergroup_meeting_syncs_the_title_from_the_meeting_title_field(): void
     {
         $this->makePost(9, self::POSITION_TYPE, ['post_title' => 'Old']);
@@ -133,8 +133,7 @@ class IntergroupManagerTest extends AmberTestCase
     }
 
     // ── updatePositionMeta ───────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function meta_is_not_touched_off_a_position_page(): void
     {
         WpState::$postTypes[0] = 'page';
@@ -144,7 +143,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame([], WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function meta_is_not_touched_without_a_current_post(): void
     {
         WpState::$postTypes[0]                 = self::POSITION_TYPE;
@@ -155,7 +154,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame([], WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_is_highlighted_and_its_officer_link_removed(): void
     {
         // A pre-existing link must be cleared so a vacant post never advertises
@@ -169,7 +168,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertArrayNotHasKey('_email_officer_link', WpState::$postMeta[7]);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_rotating_soon_is_highlighted_and_gets_an_officer_link(): void
     {
         $this->viewingPosition(7, $this->view(['getMonthsUntilRotation' => 3]));
@@ -180,7 +179,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertStringContainsString('mailto:officer@example.test', WpState::$postMeta[7]['_email_officer_link']);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_rotating_far_off_is_not_highlighted(): void
     {
         $this->viewingPosition(7, $this->view(['getMonthsUntilRotation' => 24]));
@@ -190,7 +189,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame('no', WpState::$postMeta[7]['_show_highlight']);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_rotation_date_is_highlighted(): void
     {
         // No date means nobody has set a rotation — worth an officer's eye.
@@ -201,7 +200,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame('yes', WpState::$postMeta[7]['_show_highlight']);
     }
 
-    /** @test */
+    #[Test]
     public function a_filled_position_without_an_email_records_no_officer_link(): void
     {
         $this->viewingPosition(7, $this->view(['getPositionEmail' => '']));
@@ -212,7 +211,7 @@ class IntergroupManagerTest extends AmberTestCase
         $this->assertSame('no', WpState::$postMeta[7]['_show_highlight']);
     }
 
-    /** @test */
+    #[Test]
     public function an_error_while_updating_meta_is_swallowed(): void
     {
         // The method runs on template_redirect for every position page view,

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Positions;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -31,9 +35,8 @@ use WP_Query;
  *
  * Sorting works off precomputed meta, including a numeric sort key that
  * deliberately parks vacant positions first and tenure last.
- *
- * @covers \Amber\Admin\Positions\PositionAdmin
  */
+#[CoversClass(\Amber\Admin\Positions\PositionAdmin::class)]
 class PositionAdminTest extends AmberTestCase
 {
     private const POSITION_TYPE = 'intergroup-position';
@@ -42,10 +45,10 @@ class PositionAdminTest extends AmberTestCase
 
     private PositionAdmin $admin;
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $viewFactory;
 
-    /** @var PositionRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionRepository&MockObject */
     private $repository;
 
     protected function setUp(): void
@@ -111,8 +114,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── registration and columns ─────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function it_registers_its_list_table_hooks(): void
     {
         $this->assertHookAdded('manage_' . self::POSITION_TYPE . '_posts_columns');
@@ -122,7 +124,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertHookAdded('admin_head');
     }
 
-    /** @test */
+    #[Test]
     public function the_custom_columns_are_inserted_after_the_title(): void
     {
         $columns = $this->admin->addCustomColumns(['title' => 'Title', 'date' => 'Date']);
@@ -133,7 +135,7 @@ class PositionAdminTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function the_sortable_columns_are_declared(): void
     {
         $sortable = $this->admin->makeColumnsSortable([]);
@@ -143,7 +145,7 @@ class PositionAdminTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function nothing_renders_for_a_position_with_no_view(): void
     {
         $this->viewFactory->method('createFrom')->willReturn(null);
@@ -151,7 +153,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('', $this->column('position_member'));
     }
 
-    /** @test */
+    #[Test]
     public function the_admin_column_styles_are_emitted(): void
     {
         $css = $this->capture(fn () => $this->admin->addAdminColumnStyles());
@@ -161,8 +163,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── member column ────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_member_column_links_to_each_holder(): void
     {
         $this->useView($this->view([
@@ -178,7 +179,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('post=1', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_shows_a_dash_for_its_member(): void
     {
         $this->useView($this->view(['isVacant' => true]));
@@ -186,7 +187,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('-', $this->column('position_member'));
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_members_shows_a_dash(): void
     {
         $this->useView($this->view(['getMembers' => []]));
@@ -195,8 +196,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── email column ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_email_column_renders_a_mailto_link(): void
     {
         $this->useView($this->view());
@@ -206,7 +206,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('mailto:treasurer@example.test', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_email_shows_a_dash(): void
     {
         $this->useView($this->view(['getPositionEmail' => '']));
@@ -215,8 +215,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── rotation date column ─────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_rotation_date_is_shown_in_uk_format(): void
     {
         $this->useView($this->view(['getRotationDate' => new DateTime('2027-03-01')]));
@@ -224,7 +223,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('01/03/2027', $this->column('rotation_date'));
     }
 
-    /** @test */
+    #[Test]
     public function a_position_with_no_rotation_date_says_so(): void
     {
         $this->useView($this->view(['getRotationDate' => null]));
@@ -232,7 +231,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('Not set', $this->column('rotation_date'));
     }
 
-    /** @test */
+    #[Test]
     public function the_archivist_has_no_rotation_date_by_design(): void
     {
         $this->useView($this->view(['getDescription' => 'Archivist']));
@@ -241,8 +240,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── rotation status column ───────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_archivist_shows_as_tenure_rather_than_a_rotation(): void
     {
         // Matched case-insensitively and trimmed, since the description is
@@ -255,7 +253,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringNotContainsString('Overdue', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_is_flagged_as_vacant(): void
     {
         $this->useView($this->view(['isVacant' => true]));
@@ -263,7 +261,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('Vacant Position', $this->column('rotation_status'));
     }
 
-    /** @test */
+    #[Test]
     public function an_occupied_position_with_no_date_reports_it_as_unknown(): void
     {
         $this->useView($this->view(['getRotationDate' => null]));
@@ -271,10 +269,8 @@ class PositionAdminTest extends AmberTestCase
         $this->assertStringContainsString('No Rotation Date', $this->column('rotation_status'));
     }
 
-    /**
-     * @test
-     * @dataProvider rotationStatusProvider
-     */
+    #[DataProvider('rotationStatusProvider')]
+    #[Test]
     public function the_rotation_status_reflects_the_months_remaining(
         int $months,
         string $expected
@@ -299,11 +295,8 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── sorting ──────────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider sortProvider
-     */
+    #[DataProvider('sortProvider')]
+    #[Test]
     public function sorting_by_a_column_orders_by_its_precomputed_meta_key(
         string $orderby,
         string $metaKey,
@@ -329,7 +322,7 @@ class PositionAdminTest extends AmberTestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_for_another_post_type(): void
     {
         $query = new WP_Query(['post_type' => 'page', 'orderby' => 'position_member']);
@@ -339,7 +332,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('meta_key'));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_when_not_the_main_query(): void
     {
         $query = new WP_Query(['post_type' => self::POSITION_TYPE, 'orderby' => 'position_member']);
@@ -350,7 +343,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('meta_key'));
     }
 
-    /** @test */
+    #[Test]
     public function searching_is_extended_to_the_current_member_name(): void
     {
         $query = new WP_Query(['post_type' => self::POSITION_TYPE, 's' => 'alex']);
@@ -363,7 +356,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertNotSame('', serialize($query->query_vars));
     }
 
-    /** @test */
+    #[Test]
     public function searching_is_skipped_when_the_query_is_not_a_search(): void
     {
         $query = new WP_Query(['post_type' => self::POSITION_TYPE, 's' => 'alex']);
@@ -375,8 +368,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── metadata ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_position_precomputes_its_sort_keys(): void
     {
         $this->useView($this->view());
@@ -389,7 +381,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('treasurer@example.test', $meta['_position_email']);
     }
 
-    /** @test */
+    #[Test]
     public function a_job_share_records_every_holders_id(): void
     {
         $this->useView($this->view([
@@ -401,7 +393,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('1,2', WpState::$postMeta[self::POSITION_ID]['_position_member_id']);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_sorts_after_every_named_holder(): void
     {
         $this->useView($this->view(['isVacant' => true, 'getMembers' => []]));
@@ -415,7 +407,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('vacant', $meta['_rotation_status']);
     }
 
-    /** @test */
+    #[Test]
     public function the_archivist_sorts_last_by_urgency(): void
     {
         $this->useView($this->view(['getDescription' => 'Archivist']));
@@ -427,7 +419,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame(10000, $meta['_rotation_sort_key']);
     }
 
-    /** @test */
+    #[Test]
     public function an_occupied_position_with_no_date_sorts_near_the_end(): void
     {
         $this->useView($this->view(['getRotationDate' => null]));
@@ -439,7 +431,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame(9999, $meta['_rotation_sort_key']);
     }
 
-    /** @test */
+    #[Test]
     public function a_position_without_an_email_stores_no_email_key(): void
     {
         $this->useView($this->view(['getPositionEmail' => '']));
@@ -449,7 +441,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertArrayNotHasKey('_position_email', WpState::$postMeta[self::POSITION_ID] ?? []);
     }
 
-    /** @test */
+    #[Test]
     public function nothing_is_written_for_a_position_with_no_view(): void
     {
         $this->viewFactory->method('createFrom')->willReturn(null);
@@ -459,7 +451,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertArrayNotHasKey(self::POSITION_ID, WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function saving_recomputes_the_metadata(): void
     {
         $this->useView($this->view());
@@ -469,7 +461,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertArrayHasKey('_position_member_name', WpState::$postMeta[self::POSITION_ID]);
     }
 
-    /** @test */
+    #[Test]
     public function an_ajax_save_is_ignored(): void
     {
         WpState::$doingAjax = true;
@@ -481,8 +473,7 @@ class PositionAdminTest extends AmberTestCase
     }
 
     // ── member save refreshes the position they hold ─────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_member_refreshes_the_position_they_hold(): void
     {
         $this->setField(50, 'service-layout-group_intergroup-position', self::POSITION_ID);
@@ -493,7 +484,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertArrayHasKey(self::POSITION_ID, WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_member_holding_several_positions_refreshes_each(): void
     {
         // ACF returns an array when the field allows multiple selections.
@@ -506,7 +497,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertArrayHasKey(8, WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function saving_a_member_with_no_position_writes_nothing(): void
     {
         $this->setField(50, 'service-layout-group_intergroup-position', null);
@@ -517,7 +508,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame([], WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function every_position_can_be_backfilled_at_once(): void
     {
         $position = $this->createMock(Position::class);
@@ -540,7 +531,7 @@ class PositionAdminTest extends AmberTestCase
         return $query;
     }
 
-    /** @test */
+    #[Test]
     public function searching_by_member_name_rewrites_the_query_to_matching_positions(): void
     {
         // Both the member-name meta query and the title query report matches.
@@ -555,7 +546,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertNotEmpty($query->get('post__in'));
     }
 
-    /** @test */
+    #[Test]
     public function extended_search_is_skipped_off_the_position_screen(): void
     {
         $this->setScreen('edit-page', 'edit', 'page');
@@ -568,7 +559,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('alex', $query->get('s'));
     }
 
-    /** @test */
+    #[Test]
     public function extended_search_with_a_blank_term_does_nothing(): void
     {
         $query = $this->positionSearch('');
@@ -578,7 +569,7 @@ class PositionAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('post__in', ''));
     }
 
-    /** @test */
+    #[Test]
     public function extended_search_with_no_member_matches_leaves_the_query_alone(): void
     {
         // No rows come back from the member-name lookup → nothing to merge.

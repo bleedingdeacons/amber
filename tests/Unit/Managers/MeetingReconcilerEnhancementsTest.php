@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Managers\MeetingReconciler;
 use Concordance\Api\ApiCache;
 use Concordance\Models\GroupListing;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
-use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;
 
 /**
@@ -41,8 +41,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     }
 
     // ── Address similarity ─────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function address_similarity_full_postcode_match_scores_one(): void
     {
         $listing = $this->stubListing(['postcode' => 'SL2 4HL']);
@@ -54,7 +53,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertSame(1.0, $score);
     }
 
-    /** @test */
+    #[Test]
     public function address_similarity_outward_only_scores_partial(): void
     {
         $listing = $this->stubListing(['postcode' => 'SL2 4HL']);
@@ -66,7 +65,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertSame(0.7, $score);
     }
 
-    /** @test */
+    #[Test]
     public function address_similarity_falls_back_to_town_when_postcode_absent(): void
     {
         $listing = $this->stubListing(['postcode' => '', 'town' => 'Slough']);
@@ -78,7 +77,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertSame(0.6, $score);
     }
 
-    /** @test */
+    #[Test]
     public function address_similarity_returns_zero_when_no_signal(): void
     {
         $listing = $this->stubListing(['postcode' => 'SL2 4HL', 'town' => 'Slough']);
@@ -90,7 +89,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertSame(0.0, $score);
     }
 
-    /** @test */
+    #[Test]
     public function address_similarity_normalises_postcode_spacing(): void
     {
         // Local address has no space between out/in code; should still match.
@@ -104,22 +103,21 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     }
 
     // ── Postcode extraction ────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function extract_postcodes_finds_uk_postcodes_in_freetext(): void
     {
         $found = $this->invoke('extractPostcodes', ['Some Place, Slough, SL2 4HL']);
         $this->assertSame(['SL2 4HL'], $found);
     }
 
-    /** @test */
+    #[Test]
     public function extract_postcodes_handles_mixed_case_and_spacing(): void
     {
         $found = $this->invoke('extractPostcodes', ['near sl24hl right there']);
         $this->assertSame(['SL2 4HL'], $found);
     }
 
-    /** @test */
+    #[Test]
     public function extract_postcodes_returns_empty_when_none_present(): void
     {
         $found = $this->invoke('extractPostcodes', ['No postcode in this string']);
@@ -127,8 +125,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     }
 
     // ── Open-status detection ──────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function open_status_recognises_open_and_open_again_case_insensitively(): void
     {
         $this->assertTrue($this->invoke('isOpenStatus', ['Open']));
@@ -137,7 +134,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertTrue($this->invoke('isOpenStatus', ['']));
     }
 
-    /** @test */
+    #[Test]
     public function open_status_rejects_closed_and_suspended(): void
     {
         $this->assertFalse($this->invoke('isOpenStatus', ['Closed']));
@@ -146,37 +143,35 @@ class MeetingReconcilerEnhancementsTest extends TestCase
     }
 
     // ── End-time discrepancy with tolerance ────────────────────────────
-
-    /** @test */
+    #[Test]
     public function end_time_discrepancy_ignores_small_differences(): void
     {
         // 5 minutes apart — under the 15 minute tolerance.
         $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '20:35']));
     }
 
-    /** @test */
+    #[Test]
     public function end_time_discrepancy_flags_differences_over_tolerance(): void
     {
         // 30 minutes apart.
         $this->assertTrue($this->invoke('endTimeDiscrepancy', ['20:00', '20:30']));
     }
 
-    /** @test */
+    #[Test]
     public function end_time_discrepancy_returns_false_when_one_side_empty(): void
     {
         $this->assertFalse($this->invoke('endTimeDiscrepancy', ['', '20:30']));
         $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '']));
     }
 
-    /** @test */
+    #[Test]
     public function end_time_discrepancy_returns_false_when_identical(): void
     {
         $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '20:30']));
     }
 
     // ── Postcode normalisation ─────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function normalise_postcode_inserts_space_before_inward_code(): void
     {
         $this->assertSame('SL2 4HL', $this->invoke('normalisePostcode', ['SL24HL']));
@@ -184,7 +179,7 @@ class MeetingReconcilerEnhancementsTest extends TestCase
         $this->assertSame('BS1 5AA', $this->invoke('normalisePostcode', ['BS1  5AA']));
     }
 
-    /** @test */
+    #[Test]
     public function postcode_outward_returns_first_half(): void
     {
         $this->assertSame('SL2', $this->invoke('postcodeOutward', ['SL2 4HL']));

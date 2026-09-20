@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Shortcodes;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\GeneralShortcodes;
 use Amber\Tests\AmberTestCase;
@@ -22,10 +24,9 @@ use DateTimeZone;
  * covering. days_remaining carries the real logic: it parses a date, optionally
  * extends it, and renders hours-or-days remaining, so its boundaries (past,
  * within a day, whole days, bad input) are exercised one by one.
- *
- * @covers \Amber\Shortcodes\GeneralShortcodes
- * @covers \Amber\Services\ShortcodeService
  */
+#[CoversClass(\Amber\Shortcodes\GeneralShortcodes::class)]
+#[CoversClass(\Amber\Services\ShortcodeService::class)]
 class GeneralShortcodesTest extends AmberTestCase
 {
     private GeneralShortcodes $shortcodes;
@@ -37,8 +38,7 @@ class GeneralShortcodesTest extends AmberTestCase
     }
 
     // ── registrar ────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_service_registers_every_general_shortcode(): void
     {
         (new ShortcodeService())->registerShortcodes();
@@ -48,7 +48,7 @@ class GeneralShortcodesTest extends AmberTestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function a_tag_another_plugin_already_registered_is_left_untouched(): void
     {
         // Confur got there first; Amber must not clobber its callback.
@@ -61,8 +61,7 @@ class GeneralShortcodesTest extends AmberTestCase
     }
 
     // ── open_new_link ────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function open_blank_builds_a_new_tab_link(): void
     {
         $html = $this->shortcodes->openBlank(['href' => 'https://example.test', 'class' => 'btn'], 'Visit');
@@ -73,8 +72,7 @@ class GeneralShortcodesTest extends AmberTestCase
     }
 
     // ── open_email ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function link_email_wraps_the_address(): void
     {
         $html = $this->shortcodes->linkEmail(['address' => 'sec@example.test', 'subject' => 'Hello'], 'Email us');
@@ -83,15 +81,14 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('Email us', $html);
     }
 
-    /** @test */
+    #[Test]
     public function link_email_without_an_address_returns_its_content_unchanged(): void
     {
         $this->assertSame('just text', $this->shortcodes->linkEmail(['address' => ''], 'just text'));
     }
 
     // ── pdf_link ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_pdf_link_wraps_the_download_anchor(): void
     {
         $html = $this->shortcodes->generatePdfLink(['url' => 'https://example.test/a.pdf', 'name' => 'minutes.pdf'], 'Minutes');
@@ -100,7 +97,7 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('download="minutes.pdf"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_pdf_link_reports_missing_parameters(): void
     {
         $this->assertStringContainsString(
@@ -110,14 +107,13 @@ class GeneralShortcodesTest extends AmberTestCase
     }
 
     // ── days_remaining ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function days_remaining_asks_for_an_end_date_when_none_is_given(): void
     {
         $this->assertSame('Please provide an end date.', $this->shortcodes->generateDaysRemaining(['end_date' => '']));
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_rejects_an_unparseable_date(): void
     {
         $this->assertStringContainsString(
@@ -126,7 +122,7 @@ class GeneralShortcodesTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_reports_a_date_in_the_past(): void
     {
         $this->assertSame(
@@ -135,7 +131,7 @@ class GeneralShortcodesTest extends AmberTestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_counts_whole_days_for_a_far_off_date(): void
     {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+10 days')->format('Y-m-d');
@@ -146,7 +142,7 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('Deadline:', $html);
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_counts_hours_when_under_a_day_away(): void
     {
         // A datetime a few hours out exercises the hours branch and the
@@ -158,7 +154,7 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('hours remaining', $html);
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_can_extend_the_deadline(): void
     {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+2 days')->format('Y-m-d');
@@ -168,7 +164,7 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('extended by 5 days', $html);
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_extension_uses_the_singular_for_one_day(): void
     {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+2 days')->format('Y-m-d');
@@ -178,7 +174,7 @@ class GeneralShortcodesTest extends AmberTestCase
         $this->assertStringContainsString('extended by 1 day', $html);
     }
 
-    /** @test */
+    #[Test]
     public function days_remaining_accepts_a_relative_date_via_the_generic_parser(): void
     {
         // "+5 days" matches none of the strict formats, so it falls through to

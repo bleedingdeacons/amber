@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Amber\Tests;
 
+use Unity\Core\Interfaces\Configuration;
+use Scrutiny\Privacy\PersonalDataPolicy;
+use function Brain\Monkey\Actions\has;
 use BleedingDeacons\WpMocks\Doubles\FakeWpdb;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Actions;
 use Brain\Monkey\Filters;
 use Unity\Testing\Doubles\FakeContainer;
 
@@ -109,8 +111,8 @@ abstract class AmberTestCase extends TestCase
     protected function mockContainer(): FakeContainer
     {
         return new FakeContainer([], function (string $id) {
-            if ($id === \Unity\Core\Interfaces\Configuration::class) {
-                $config = $this->createMock(\Unity\Core\Interfaces\Configuration::class);
+            if ($id === Configuration::class) {
+                $config = $this->createMock(Configuration::class);
                 $config->method('getConfig')->willReturn([
                     'POST_TYPE'                 => 'intergroup-member',
                     'FIELD_ANONYMOUS_NAME'      => 'anon-name',
@@ -123,8 +125,8 @@ abstract class AmberTestCase extends TestCase
                 return $config;
             }
 
-            if ($id === \Scrutiny\Privacy\PersonalDataPolicy::class) {
-                return new \Scrutiny\Privacy\PersonalDataPolicy();
+            if ($id === PersonalDataPolicy::class) {
+                return new PersonalDataPolicy();
             }
 
             $mock = $this->createMock($id);
@@ -166,7 +168,7 @@ abstract class AmberTestCase extends TestCase
     protected function assertHookAdded(string $hook, string $message = ''): void
     {
         self::assertTrue(
-            Actions\has($hook) !== false || Filters\has($hook) !== false,
+            has($hook) !== false || Filters\has($hook) !== false,
             $message !== '' ? $message : sprintf('Failed asserting that "%s" was hooked.', $hook)
         );
     }

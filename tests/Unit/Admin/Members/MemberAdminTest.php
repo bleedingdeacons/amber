@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Members;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -31,9 +35,8 @@ use WP_Query;
  * The sort keys are precomputed into postmeta on save (WordPress cannot
  * order by a value that lives behind a factory), so those writes are
  * asserted directly.
- *
- * @covers \Amber\Admin\Members\MemberAdmin
  */
+#[CoversClass(\Amber\Admin\Members\MemberAdmin::class)]
 class MemberAdminTest extends AmberTestCase
 {
     private const MEMBER_TYPE = 'intergroup-member';
@@ -42,13 +45,13 @@ class MemberAdminTest extends AmberTestCase
 
     private MemberAdmin $admin;
 
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $members;
 
-    /** @var PositionFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionFactory&MockObject */
     private $positions;
 
-    /** @var GroupFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupFactory&MockObject */
     private $groups;
 
     protected function setUp(): void
@@ -122,8 +125,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── registration ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function it_registers_its_list_table_hooks(): void
     {
         $this->assertHookAdded('manage_' . self::MEMBER_TYPE . '_posts_columns');
@@ -135,8 +137,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── columns ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_custom_columns_are_inserted_after_the_title(): void
     {
         $columns = $this->admin->addCustomColumns(['cb' => '', 'title' => 'Title', 'date' => 'Date']);
@@ -154,7 +155,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertArrayHasKey('date', $columns);
     }
 
-    /** @test */
+    #[Test]
     public function a_column_for_a_member_that_cannot_be_loaded_reads_not_applicable(): void
     {
         $this->members->method('findById')->willReturn(null);
@@ -162,7 +163,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('N/A', $this->column('gsr_status'));
     }
 
-    /** @test */
+    #[Test]
     public function the_gsr_column_marks_a_gsr(): void
     {
         $this->members->method('findById')->willReturn($this->member(['isGsr' => true]));
@@ -170,7 +171,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('Yes', $this->column('gsr_status'));
     }
 
-    /** @test */
+    #[Test]
     public function the_gsr_column_marks_a_non_gsr(): void
     {
         $this->members->method('findById')->willReturn($this->member(['isGsr' => false]));
@@ -178,7 +179,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('No', $this->column('gsr_status'));
     }
 
-    /** @test */
+    #[Test]
     public function the_twelfth_and_responder_columns_report_their_flags(): void
     {
         $this->members->method('findById')->willReturn(
@@ -189,7 +190,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('Yes', $this->column('responder'));
     }
 
-    /** @test */
+    #[Test]
     public function the_service_position_column_links_to_the_position(): void
     {
         $this->members->method('findById')->willReturn($this->member(['getIntergroupPosition' => 7]));
@@ -201,7 +202,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('<a href=', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_with_no_position_shows_not_applicable(): void
     {
         $this->members->method('findById')->willReturn($this->member());
@@ -210,7 +211,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('N/A', $this->column('service_position'));
     }
 
-    /** @test */
+    #[Test]
     public function the_rotation_column_shows_the_date_or_a_dash(): void
     {
         $this->members->method('findById')->willReturn(
@@ -219,7 +220,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('01/01/2027', $this->column('rotation_date'));
     }
 
-    /** @test */
+    #[Test]
     public function the_homegroup_column_links_via_the_groups_first_meeting(): void
     {
         // Groups have no edit screen of their own, so the link goes to a
@@ -236,7 +237,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('post=99', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_homegroup_with_no_meetings_renders_as_plain_text(): void
     {
         $this->members->method('findById')->willReturn($this->member(['getHomeGroup' => 3]));
@@ -248,7 +249,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringNotContainsString('<a href=', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_unknown_homegroup_shows_not_applicable(): void
     {
         $this->members->method('findById')->willReturn($this->member(['getHomeGroup' => 0]));
@@ -258,8 +259,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── certification column ─────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_non_responder_shows_a_dash_rather_than_none(): void
     {
         // The backing field is hidden for non-responders, so every one of
@@ -275,10 +275,8 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringNotContainsString('None', $html);
     }
 
-    /**
-     * @test
-     * @dataProvider certificationColourProvider
-     */
+    #[DataProvider('certificationColourProvider')]
+    #[Test]
     public function each_certification_stage_gets_its_colour(
         ResponderCertification $stage,
         string $expectedColour
@@ -307,8 +305,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── sorting ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_sortable_columns_are_declared(): void
     {
         $sortable = $this->admin->makeSortableColumns([]);
@@ -321,10 +318,9 @@ class MemberAdminTest extends AmberTestCase
     /**
      * Each sortable column maps to a precomputed meta key, because the value
      * shown lives behind a factory and WordPress cannot order by it.
-     *
-     * @test
-     * @dataProvider sortProvider
      */
+    #[DataProvider('sortProvider')]
+    #[Test]
     public function sorting_by_a_column_orders_by_its_precomputed_meta_key(
         string $orderby,
         string $metaKey,
@@ -349,7 +345,7 @@ class MemberAdminTest extends AmberTestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_for_another_post_type(): void
     {
         $query = new WP_Query(['post_type' => 'page', 'orderby' => 'gsr_status']);
@@ -359,7 +355,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('meta_key'));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_when_not_the_main_query(): void
     {
         $query = new WP_Query(['post_type' => self::MEMBER_TYPE, 'orderby' => 'gsr_status']);
@@ -370,7 +366,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('meta_key'));
     }
 
-    /** @test */
+    #[Test]
     public function an_unrecognised_sort_column_is_passed_through_untouched(): void
     {
         $query = new WP_Query(['post_type' => self::MEMBER_TYPE, 'orderby' => 'title']);
@@ -382,8 +378,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── GSR filter ───────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_gsr_filter_dropdown_is_rendered_for_members_only(): void
     {
         $html = $this->capture(fn () => $this->admin->addGsrFilterDropdown(self::MEMBER_TYPE));
@@ -395,7 +390,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('', $this->capture(fn () => $this->admin->addGsrFilterDropdown('page')));
     }
 
-    /** @test */
+    #[Test]
     public function the_dropdown_remembers_the_current_selection(): void
     {
         $_GET['gsr_filter'] = 'yes';
@@ -405,7 +400,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertStringContainsString('selected="selected"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function filtering_to_gsrs_adds_an_equality_meta_query(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -419,7 +414,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('=', $metaQuery[0]['compare']);
     }
 
-    /** @test */
+    #[Test]
     public function filtering_to_non_gsrs_also_matches_members_with_no_value(): void
     {
         // A member who has never been a GSR has no row at all, so a plain
@@ -435,7 +430,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('NOT EXISTS', $metaQuery[0][1]['compare']);
     }
 
-    /** @test */
+    #[Test]
     public function no_filter_is_applied_without_a_selection(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -446,7 +441,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('', $query->get('meta_query'));
     }
 
-    /** @test */
+    #[Test]
     public function the_filter_is_skipped_on_another_screen(): void
     {
         $this->setScreen('edit-page', 'edit', 'page');
@@ -459,8 +454,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── extended search ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function search_is_extended_to_members_linked_to_matching_positions(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -479,7 +473,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertNotEmpty($query->get('post__in'));
     }
 
-    /** @test */
+    #[Test]
     public function search_is_left_alone_when_nothing_extra_matches(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -492,7 +486,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('nothing', $query->get('s'), 'WordPress keeps its own title search.');
     }
 
-    /** @test */
+    #[Test]
     public function search_is_skipped_for_an_empty_term(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -504,7 +498,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame([], $this->wpdb->queries, 'No term, no lookups.');
     }
 
-    /** @test */
+    #[Test]
     public function search_is_skipped_when_the_query_is_not_a_search(): void
     {
         $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
@@ -516,7 +510,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame([], $this->wpdb->queries);
     }
 
-    /** @test */
+    #[Test]
     public function search_is_skipped_on_another_post_type_screen(): void
     {
         $this->setScreen('edit-page', 'edit', 'page');
@@ -529,8 +523,7 @@ class MemberAdminTest extends AmberTestCase
     }
 
     // ── sort metadata ────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function saving_a_member_precomputes_every_sort_key(): void
     {
         $meeting = $this->createMock(Meeting::class);
@@ -555,7 +548,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('tuesday group', $meta['_member_homegroup_sort_name']);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_with_nothing_set_sorts_last(): void
     {
         $this->members->method('findById')->willReturn($this->member());
@@ -572,7 +565,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('zzz_none', $meta['_member_homegroup_sort_name']);
     }
 
-    /** @test */
+    #[Test]
     public function an_unparseable_rotation_date_is_stored_as_given(): void
     {
         $this->members->method('findById')->willReturn(
@@ -586,7 +579,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertSame('sometime soon', WpState::$postMeta[42]['_member_rotation_date_sort']);
     }
 
-    /** @test */
+    #[Test]
     public function metadata_is_not_written_for_a_member_that_cannot_be_loaded(): void
     {
         $this->members->method('findById')->willReturn(null);
@@ -596,7 +589,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertArrayNotHasKey(42, WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function saving_recomputes_the_sort_keys(): void
     {
         $this->members->method('findById')->willReturn($this->member());
@@ -608,7 +601,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertArrayHasKey('_member_gsr_sort', WpState::$postMeta[42]);
     }
 
-    /** @test */
+    #[Test]
     public function an_ajax_save_is_ignored(): void
     {
         // ACF fires save_post over AJAX mid-edit; recomputing then would use
@@ -621,7 +614,7 @@ class MemberAdminTest extends AmberTestCase
         $this->assertArrayNotHasKey(42, WpState::$postMeta);
     }
 
-    /** @test */
+    #[Test]
     public function every_member_can_be_backfilled_at_once(): void
     {
         $this->members->method('findAll')->willReturn([

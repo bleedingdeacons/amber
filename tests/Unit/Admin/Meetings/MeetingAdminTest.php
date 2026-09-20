@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Meetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Meetings\MeetingAdmin;
 use Amber\Tests\AmberTestCase;
 use Unity\Core\Interfaces\Configuration;
@@ -11,7 +14,6 @@ use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Groups\Interfaces\GroupView;
 use Unity\Groups\Interfaces\GroupViewFactory;
-use Unity\Meetings\Interfaces\Meeting;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 use WP_Query;
@@ -27,9 +29,8 @@ use WP_Screen;
  * to spot unlinked meetings, and the search rewrite only fires for a real
  * search on the meeting screen, so the gate that decides that is exercised on
  * its own.
- *
- * @covers \Amber\Admin\Meetings\MeetingAdmin
  */
+#[CoversClass(\Amber\Admin\Meetings\MeetingAdmin::class)]
 class MeetingAdminTest extends AmberTestCase
 {
     private const MEETING_TYPE = 'tsml_meeting';
@@ -38,13 +39,13 @@ class MeetingAdminTest extends AmberTestCase
 
     private MeetingAdmin $admin;
 
-    /** @var GroupRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupRepository&MockObject */
     private $groupRepository;
 
-    /** @var GroupViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupViewFactory&MockObject */
     private $groupViewFactory;
 
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $memberRepository;
 
     protected function setUp(): void
@@ -82,8 +83,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── columns ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_group_gsr_and_email_columns_are_inserted_after_time(): void
     {
         $columns = $this->admin->addCustomColumns([
@@ -100,13 +100,13 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertSame(['title', 'time', 'group', 'gsrs', 'email'], $keys);
     }
 
-    /** @test */
+    #[Test]
     public function the_group_column_is_sortable(): void
     {
         $this->assertSame('group', $this->admin->makeSortableColumns([])['group']);
     }
 
-    /** @test */
+    #[Test]
     public function the_group_and_email_columns_are_shown_by_default_on_the_meeting_screen(): void
     {
         $screen = new WP_Screen(['id' => 'edit-' . self::MEETING_TYPE]);
@@ -118,7 +118,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertContains('author', $hidden);
     }
 
-    /** @test */
+    #[Test]
     public function default_hidden_columns_are_untouched_on_other_screens(): void
     {
         $screen = new WP_Screen(['id' => 'edit-page']);
@@ -127,8 +127,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── group column ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_group_column_shows_the_group_title(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -141,7 +140,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Tuesday Group', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_group_column_shows_na_when_the_meeting_has_no_group(): void
     {
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group', 42));
@@ -149,7 +148,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('N/A', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_group_column_shows_na_when_the_group_has_no_title(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -161,8 +160,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── email column ─────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_email_column_links_the_group_email(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -175,13 +173,13 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('mailto:grp@example.test', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_email_column_dashes_when_there_is_no_group(): void
     {
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('email', 42)));
     }
 
-    /** @test */
+    #[Test]
     public function the_email_column_dashes_when_the_group_has_no_email(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -193,8 +191,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── GSRs column ──────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_gsrs_column_links_each_gsr_in_the_group(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -220,13 +217,13 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Alex', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_gsrs_column_dashes_without_a_group(): void
     {
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
     }
 
-    /** @test */
+    #[Test]
     public function the_gsrs_column_dashes_when_the_group_has_no_gsrs(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -238,7 +235,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
     }
 
-    /** @test */
+    #[Test]
     public function a_gsr_whose_member_record_is_missing_is_skipped(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -258,8 +255,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── sorting ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function sorting_by_group_rewrites_the_query_to_a_meta_sort(): void
     {
         $query = $this->meetingScreenQuery('group');
@@ -270,7 +266,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertNotEmpty($query->get('meta_query'));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_for_a_secondary_query(): void
     {
         $this->setScreen('edit-' . self::MEETING_TYPE, 'edit', self::MEETING_TYPE);
@@ -282,7 +278,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertSame('group', $query->get('orderby'));
     }
 
-    /** @test */
+    #[Test]
     public function the_gsrs_column_dashes_when_the_group_view_is_missing(): void
     {
         $this->setPostMeta(42, self::GROUP_META, 100);
@@ -291,7 +287,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
     }
 
-    /** @test */
+    #[Test]
     public function sorting_is_left_alone_off_the_meeting_screen(): void
     {
         $this->setScreen('edit-page', 'edit', 'page');
@@ -304,8 +300,7 @@ class MeetingAdminTest extends AmberTestCase
     }
 
     // ── search rewrite ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function a_group_search_extends_join_where_and_distinct(): void
     {
         $query = $this->meetingScreenQuery('', true, 'treasurer');
@@ -319,7 +314,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertSame('DISTINCT', $distinct);
     }
 
-    /** @test */
+    #[Test]
     public function the_search_rewrite_is_skipped_when_it_is_not_a_search(): void
     {
         $query = $this->meetingScreenQuery('', false);
@@ -329,7 +324,7 @@ class MeetingAdminTest extends AmberTestCase
         $this->assertSame('', $this->admin->searchDistinct('', $query));
     }
 
-    /** @test */
+    #[Test]
     public function a_search_with_no_term_leaves_the_where_untouched(): void
     {
         $query = $this->meetingScreenQuery('', true, '');

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
 use Amber\Tests\AmberTestCase;
-use BleedingDeacons\WpMocks\WpState;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendance;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendance;
@@ -23,17 +25,16 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceReposi
  * pinning are the proxy Yes/No rendering, the em-dash fallbacks for a missing
  * proxy or position, and the singular/plural record counts — the summary line
  * an officer reads to sanity-check a register.
- *
- * @covers \Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard
  */
+#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard::class)]
 class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
 {
     private const PAGE_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
     private $groupAttendance;
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
     private $officerAttendance;
 
     private IntergroupMeetingAttendanceDashboard $page;
@@ -78,8 +79,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
     }
 
     // ── selector ─────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function with_no_records_the_page_says_so(): void
     {
         $this->availableLabels([]);
@@ -89,7 +89,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $this->assertStringContainsString('No attendance records found', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_selector_lists_and_marks_the_chosen_meeting(): void
     {
         $this->availableLabels(['January IG', 'March IG']);
@@ -103,7 +103,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $this->assertStringContainsString('<option value="March IG" selected', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_first_meeting_is_selected_by_default(): void
     {
         $this->availableLabels(['January IG', 'March IG']);
@@ -117,8 +117,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
     }
 
     // ── group attendance table ───────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_group_table_renders_rows_proxies_and_a_plural_summary(): void
     {
         $this->availableLabels(['March IG']);
@@ -139,7 +138,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $this->assertStringContainsString('1</strong> proxy', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_group_table_is_reported(): void
     {
         $this->availableLabels(['March IG']);
@@ -153,8 +152,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
     }
 
     // ── officer attendance table ─────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_officer_table_collapses_names_by_position_and_dashes_a_blank_role(): void
     {
         $this->availableLabels(['March IG']);
@@ -175,7 +173,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $this->assertStringContainsString('3</strong> officer records', $html);
     }
 
-    /** @test */
+    #[Test]
     public function an_empty_officer_table_is_reported(): void
     {
         $this->availableLabels(['March IG']);
@@ -189,8 +187,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
     }
 
     // ── registration and styles ──────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_submenu_page_is_registered_under_intergroup(): void
     {
         $this->page->registerSubmenuPage();
@@ -198,7 +195,7 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $this->assertContains('intergroup-attendance', $this->registeredMenuSlugs());
     }
 
-    /** @test */
+    #[Test]
     public function styles_load_only_on_the_attendance_page(): void
     {
         $this->setScreen(self::PAGE_SCREEN);

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\DeveloperDashboard;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\Exceptions\WpDieException;
@@ -25,15 +28,14 @@ use Unity\Members\Interfaces\MemberRevisor;
  * attendance wipe issues two DELETEs, and the GDPR clear only revises members
  * that actually have a value set, routing through the repository so the audit
  * trail fires.
- *
- * @covers \Amber\Admin\DeveloperDashboard
  */
+#[CoversClass(\Amber\Admin\DeveloperDashboard::class)]
 class DeveloperDashboardTest extends AmberTestCase
 {
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $memberRepository;
 
-    /** @var MemberRevisor&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRevisor&MockObject */
     private $memberRevisor;
 
     private DeveloperDashboard $dashboard;
@@ -67,8 +69,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── submenu visibility ───────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_submenu_appears_only_outside_production(): void
     {
         // PRODUCTION defaults to true when undefined, hiding the page; the test
@@ -83,8 +84,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── page access ──────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_page_is_refused_to_a_non_administrator(): void
     {
         WpState::$currentUserRoles = ['editor'];
@@ -93,7 +93,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->dashboard->renderPage();
     }
 
-    /** @test */
+    #[Test]
     public function the_page_shows_both_maintenance_sections_with_live_counts(): void
     {
         $this->wpdb->var = 4;                       // each attendance table reports 4
@@ -113,7 +113,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertStringContainsString('>10</strong>', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_buttons_are_disabled_when_there_is_nothing_to_delete(): void
     {
         $this->wpdb->var = 0;
@@ -126,8 +126,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── notices ──────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_delete_success_notice_reports_the_counts(): void
     {
         $this->wpdb->var = 0;
@@ -142,7 +141,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertStringContainsString('1 officer record', $html);   // singular
     }
 
-    /** @test */
+    #[Test]
     public function the_gdpr_success_notice_reports_the_counts(): void
     {
         $this->wpdb->var = 0;
@@ -157,8 +156,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── action guards ────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function actions_are_ignored_off_the_developer_page(): void
     {
         $_GET = [];
@@ -167,7 +165,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function a_page_load_without_a_posted_action_does_nothing(): void
     {
         $_GET = ['page' => 'developer'];
@@ -177,7 +175,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function an_action_from_a_non_administrator_is_refused(): void
     {
         $_GET = ['page' => 'developer'];
@@ -189,8 +187,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── destructive workers (via reflection; the live path exits) ─────
-
-    /** @test */
+    #[Test]
     public function deleting_attendance_issues_a_delete_against_each_table(): void
     {
         $this->wpdb->queryResult = 5;
@@ -204,7 +201,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertStringContainsString('DELETE FROM', $this->wpdb->queries[0]);
     }
 
-    /** @test */
+    #[Test]
     public function clearing_gdpr_only_revises_members_that_have_a_value_set(): void
     {
         $withGdpr    = $this->member(true);
@@ -222,7 +219,7 @@ class DeveloperDashboardTest extends AmberTestCase
         $this->assertSame(2, $result['total']);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_is_counted_as_having_gdpr_data_when_any_field_is_set(): void
     {
         $this->assertTrue($this->callPrivate('memberHasGdprValues', [$this->member(false, '2.0')]));
@@ -230,8 +227,7 @@ class DeveloperDashboardTest extends AmberTestCase
     }
 
     // ── styles ───────────────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function styles_load_only_on_the_developer_page(): void
     {
         $this->setScreen('intergroup_page_developer');

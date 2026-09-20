@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -22,14 +26,13 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * the two things worth pinning are: the visible copy each rotation state
  * produces (Vacant, Overdue, Rotates in N Months, tenure), and that a missing
  * post id lands in the guarded fallback rather than a white screen.
- *
- * @covers \Amber\Managers\PositionShortcodeRenderer
  */
+#[CoversClass(\Amber\Managers\PositionShortcodeRenderer::class)]
 class PositionShortcodeRendererTest extends AmberTestCase
 {
     private PositionShortcodeRenderer $renderer;
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $viewFactory;
 
     protected function setUp(): void
@@ -89,8 +92,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── position_state ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function position_state_without_a_current_post_falls_back_gracefully(): void
     {
         WpState::$options['__current_post_id'] = 0;
@@ -98,7 +100,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Error building position state', $this->renderer->renderPositionState());
     }
 
-    /** @test */
+    #[Test]
     public function position_state_for_a_vacant_post_says_vacant(): void
     {
         $this->atCurrentPost();
@@ -110,7 +112,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Email Service Officer', $html);
     }
 
-    /** @test */
+    #[Test]
     public function position_state_for_an_archivist_shows_no_rotation_heading(): void
     {
         $this->atCurrentPost();
@@ -122,7 +124,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('<h1></h1>', $html);
     }
 
-    /** @test */
+    #[Test]
     public function position_state_without_a_rotation_date_flags_it(): void
     {
         $this->atCurrentPost();
@@ -131,10 +133,8 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('No Rotation Date!', $this->renderer->renderPositionState());
     }
 
-    /**
-     * @test
-     * @dataProvider rotationStatusProvider
-     */
+    #[DataProvider('rotationStatusProvider')]
+    #[Test]
     public function position_state_describes_the_rotation_status(?int $months, string $expected): void
     {
         $this->atCurrentPost();
@@ -157,7 +157,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         ];
     }
 
-    /** @test */
+    #[Test]
     public function position_state_far_from_rotation_shows_an_empty_status(): void
     {
         // Beyond the warning window there is nothing to flag, so the heading
@@ -169,8 +169,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── position_header ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function position_header_renders_title_sobriety_and_term(): void
     {
         $this->atCurrentPost();
@@ -183,7 +182,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Term 3 Years', $html);
     }
 
-    /** @test */
+    #[Test]
     public function position_header_renders_sobriety_in_months_when_not_a_whole_year(): void
     {
         $this->atCurrentPost();
@@ -194,7 +193,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Sobriety 18 Months', $this->renderer->renderPositionHeader());
     }
 
-    /** @test */
+    #[Test]
     public function position_header_uses_the_singular_year_for_a_single_year_of_sobriety(): void
     {
         $this->atCurrentPost();
@@ -208,7 +207,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Term 1 Year', $html);
     }
 
-    /** @test */
+    #[Test]
     public function position_header_shows_tenure_for_an_archivist(): void
     {
         $this->atCurrentPost();
@@ -217,7 +216,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Term Tenure', $this->renderer->renderPositionHeader());
     }
 
-    /** @test */
+    #[Test]
     public function position_header_labels_the_email_officer_when_the_title_says_officer(): void
     {
         $this->atCurrentPost();
@@ -226,7 +225,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Email Officer', $this->renderer->renderPositionHeader());
     }
 
-    /** @test */
+    #[Test]
     public function position_header_hides_the_email_link_for_a_vacant_post(): void
     {
         $this->atCurrentPost();
@@ -236,8 +235,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── directory_list ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_directory_table_renders_a_row_per_position(): void
     {
         $this->viewFactory->method('createAll')->willReturn([
@@ -257,8 +255,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── position_summary ─────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_position_summary_wraps_the_summary_field(): void
     {
         $this->atCurrentPost();
@@ -269,7 +266,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Keeps the books.', $html);
     }
 
-    /** @test */
+    #[Test]
     public function the_position_summary_falls_back_without_a_current_post(): void
     {
         WpState::$options['__current_post_id'] = 0;
@@ -278,8 +275,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── vacant_positions ─────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function vacant_positions_lists_only_the_vacant_ones(): void
     {
         $this->viewFactory->method('createAll')->willReturn([
@@ -293,7 +289,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringNotContainsString('Treasurer', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_without_a_description_falls_back_to_its_long_name(): void
     {
         $this->viewFactory->method('createAll')->willReturn([
@@ -303,7 +299,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('General Service Rep', $this->renderer->renderVacantPositions());
     }
 
-    /** @test */
+    #[Test]
     public function vacant_positions_says_so_when_there_are_none(): void
     {
         $this->viewFactory->method('createAll')->willReturn([
@@ -314,8 +310,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
     }
 
     // ── guarded failure paths ────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_header_falls_back_when_the_view_cannot_be_built(): void
     {
         $this->atCurrentPost();
@@ -324,7 +319,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Error building position header', $this->renderer->renderPositionHeader());
     }
 
-    /** @test */
+    #[Test]
     public function the_directory_table_falls_back_on_error(): void
     {
         $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));
@@ -332,7 +327,7 @@ class PositionShortcodeRendererTest extends AmberTestCase
         $this->assertStringContainsString('Error generating directory list', $this->renderer->renderDirectoryTable());
     }
 
-    /** @test */
+    #[Test]
     public function the_vacant_list_falls_back_on_error(): void
     {
         $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));

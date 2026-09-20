@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Members;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
@@ -28,23 +31,22 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * foldable lists: GSRs with a home group, and filled positions with their
  * holders, each sorted by name. The empty-state copy for each section matters
  * because an intergroup with no GSRs is a real, common state.
- *
- * @covers \Amber\Admin\Members\DirectoryDashboard
  */
+#[CoversClass(\Amber\Admin\Members\DirectoryDashboard::class)]
 class DirectoryDashboardTest extends AmberTestCase
 {
     private DirectoryDashboard $dashboard;
 
-    /** @var MemberRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var MemberRepository&MockObject */
     private $memberRepository;
 
-    /** @var GroupFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var GroupFactory&MockObject */
     private $groupFactory;
 
-    /** @var PositionViewFactory&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionViewFactory&MockObject */
     private $viewFactory;
 
-    /** @var PositionRepository&\PHPUnit\Framework\MockObject\MockObject */
+    /** @var PositionRepository&MockObject */
     private $positionRepository;
 
     protected function setUp(): void
@@ -113,8 +115,7 @@ class DirectoryDashboardTest extends AmberTestCase
     }
 
     // ── capability gate ──────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_widget_is_registered_for_a_user_who_may_view_personal_data(): void
     {
         $this->dashboard->registerDashboardWidget();
@@ -122,7 +123,7 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->assertArrayHasKey('directory_dashboard', WpState::$widgets);
     }
 
-    /** @test */
+    #[Test]
     public function the_widget_is_withheld_from_a_user_who_may_not(): void
     {
         // The widget leaks personal email into the DOM, so a user without the
@@ -134,7 +135,7 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->assertArrayNotHasKey('directory_dashboard', WpState::$widgets);
     }
 
-    /** @test */
+    #[Test]
     public function neither_styles_nor_scripts_load_without_the_capability(): void
     {
         $this->setScreen('dashboard', 'dashboard');
@@ -145,8 +146,7 @@ class DirectoryDashboardTest extends AmberTestCase
     }
 
     // ── groups section ───────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_groups_section_lists_gsrs_with_a_home_group_sorted_by_name(): void
     {
         $this->memberRepository->method('findAll')->willReturn([
@@ -163,7 +163,7 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->assertStringContainsString('data-email="m@example.test"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_member_who_is_not_a_gsr_is_excluded(): void
     {
         $nonGsr = $this->createMock(Member::class);
@@ -179,8 +179,7 @@ class DirectoryDashboardTest extends AmberTestCase
     }
 
     // ── positions section ────────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function the_positions_section_lists_filled_positions_with_holders(): void
     {
         $this->memberRepository->method('findAll')->willReturn([]);
@@ -192,7 +191,7 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->assertStringContainsString('Anonymous Alex, Anonymous Sam', $html);
     }
 
-    /** @test */
+    #[Test]
     public function a_vacant_position_is_left_out_of_the_positions_section(): void
     {
         $position = $this->createMock(Position::class);
@@ -212,8 +211,7 @@ class DirectoryDashboardTest extends AmberTestCase
     }
 
     // ── styles and scripts ───────────────────────────────────────────
-
-    /** @test */
+    #[Test]
     public function styles_and_scripts_are_emitted_on_the_dashboard(): void
     {
         $this->setScreen('dashboard', 'dashboard');
@@ -222,7 +220,7 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->assertStringContainsString('<script>', $this->capture(fn () => $this->dashboard->addDashboardScripts()));
     }
 
-    /** @test */
+    #[Test]
     public function styles_and_scripts_stay_off_other_admin_screens(): void
     {
         $this->setScreen('edit-post', 'edit', 'post');

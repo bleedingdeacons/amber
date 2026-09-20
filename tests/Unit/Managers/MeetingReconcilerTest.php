@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
+use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\Test;
 use Amber\Managers\MeetingReconciler;
 use Concordance\Api\ApiCache;
 use Concordance\Models\GroupListing;
@@ -20,8 +22,8 @@ class MeetingReconcilerTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
-    private MeetingRepository|Mockery\MockInterface $meetingRepo;
-    private ApiCache|Mockery\MockInterface $apiCache;
+    private MeetingRepository|MockInterface $meetingRepo;
+    private ApiCache|MockInterface $apiCache;
     private MeetingReconciler $reconciler;
 
     protected function setUp(): void
@@ -36,7 +38,7 @@ class MeetingReconcilerTest extends TestCase
     /**
      * Create a mock local Meeting.
      */
-    private function mockMeeting(int $id, string $name, int $day, string $time, string $endTime = '', bool $online = false): Meeting|Mockery\MockInterface
+    private function mockMeeting(int $id, string $name, int $day, string $time, string $endTime = '', bool $online = false): Meeting|MockInterface
     {
         $dayNames = [0 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
 
@@ -66,7 +68,7 @@ class MeetingReconcilerTest extends TestCase
      *                                         which GroupListing exposes only
      *                                         through getRawValue().
      */
-    private function mockGroupListing(string $id, string $name, string $day, string $startTime, string $endTime = '', string $town = '', array $rawFields = []): GroupListing|Mockery\MockInterface
+    private function mockGroupListing(string $id, string $name, string $day, string $startTime, string $endTime = '', string $town = '', array $rawFields = []): GroupListing|MockInterface
     {
         $listing = Mockery::mock(GroupListing::class);
         $listing->shouldReceive('getId')->andReturn($id);
@@ -101,10 +103,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Confident match ────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function reconcile_finds_confident_match_on_day_time_and_name(): void
     {
         $local = [$this->mockMeeting(1, 'Serenity Group', 1, '19:00', '20:00')];
@@ -123,10 +122,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Name similarity scoring ────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_returns_1_for_identical_names(): void
     {
         $score = $this->invokeNameSimilarity('Monday Night Meeting', 'Monday Night Meeting');
@@ -134,9 +130,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertEquals(1.0, $score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_is_case_insensitive(): void
     {
         $score = $this->invokeNameSimilarity('Serenity Group', 'SERENITY GROUP');
@@ -144,9 +138,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertEquals(1.0, $score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_strips_stop_words(): void
     {
         // "the", "aa", "meeting", "group" are stop words
@@ -156,9 +148,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertGreaterThanOrEqual(0.3, $score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_returns_low_score_for_unrelated_names(): void
     {
         $score = $this->invokeNameSimilarity('Hope Springs Eternal', 'Downtown Lunch Bunch');
@@ -166,9 +156,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertLessThan(0.3, $score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_handles_empty_strings(): void
     {
         $score = $this->invokeNameSimilarity('', '');
@@ -177,9 +165,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertIsFloat($score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_handles_stop_words_only(): void
     {
         // Both names consist entirely of stop words
@@ -189,9 +175,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertIsFloat($score);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function name_similarity_partial_overlap(): void
     {
         // "serenity" matches, "sunrise"/"sunset" don't
@@ -202,10 +186,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Time normalisation ─────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function normalise_time_pads_single_digit_hour(): void
     {
         $method = (new \ReflectionClass(MeetingReconciler::class))
@@ -217,10 +198,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Day normalisation ──────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function normalise_day_maps_tsml_integer_to_day_string(): void
     {
         $method = (new \ReflectionClass(MeetingReconciler::class))
@@ -232,10 +210,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Summary structure ──────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function reconcile_returns_correct_summary_structure_with_no_data(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
@@ -263,9 +238,7 @@ class MeetingReconcilerTest extends TestCase
         $this->assertEquals(0, $summary['confident_matches']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function reconcile_result_has_all_list_accessors(): void
     {
         // Stub the injected ApiCache rather than partial-mocking the reconciler:
@@ -284,10 +257,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Local-only detection ───────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function reconcile_reports_local_only_when_no_national_data(): void
     {
         $local = [
@@ -311,10 +281,7 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── API error propagation ──────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function reconcile_throws_on_api_error(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
@@ -349,7 +316,6 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Match rows ─────────────────────────────────────────────────────
-
     /**
      * Drives reconcile() all the way to a confident match, which builds a
      * result row from the national listing's status, postcode and address.
@@ -360,9 +326,8 @@ class MeetingReconcilerTest extends TestCase
      * getAddress1() — none of which exist on GroupListing — and still show a
      * green suite, while any real reconcile that found a match died with
      * "Call to undefined method".
-     *
-     * @test
      */
+    #[Test]
     public function a_confident_match_builds_a_row_from_the_national_listing(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([
@@ -398,9 +363,8 @@ class MeetingReconcilerTest extends TestCase
     /**
      * A listing whose national status is not "open" is reported separately
      * rather than as a live match — which also reads the status field.
-     *
-     * @test
      */
+    #[Test]
     public function a_match_closed_nationally_is_not_reported_as_a_live_match(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([
@@ -425,14 +389,12 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── Possible match (day + time, name diverges) ─────────────────────
-
     /**
      * A listing that shares a local meeting's day and time but whose name is
      * unrelated is reported as a "possible" — the day/time-only fallback that
      * builds its own result row from the national listing.
-     *
-     * @test
      */
+    #[Test]
     public function a_day_and_time_coincidence_with_a_different_name_is_a_possible_match(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([
@@ -464,13 +426,11 @@ class MeetingReconcilerTest extends TestCase
     }
 
     // ── National-only detection ────────────────────────────────────────
-
     /**
      * An open national listing that matches nothing locally is surfaced as a
      * national-only discrepancy so it can be added to the local list.
-     *
-     * @test
      */
+    #[Test]
     public function an_unmatched_open_national_listing_is_reported_as_national_only(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
@@ -499,9 +459,8 @@ class MeetingReconcilerTest extends TestCase
     /**
      * A closed national listing that matches nothing locally is deliberately
      * left out of the national-only report — it is neither actionable nor live.
-     *
-     * @test
      */
+    #[Test]
     public function an_unmatched_closed_national_listing_is_not_reported(): void
     {
         $this->meetingRepo->shouldReceive('findAll')->andReturn([]);
