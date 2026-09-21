@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use Amber\Logger\HasLogger;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -37,11 +38,33 @@ use function is_admin;
  */
 class MeetingAdmin
 {
+    use HasLogger;
+
+    /**
+     * Last resort for GROUP_POST_TYPE when the meeting provider does not
+     * publish it.
+     *
+     * This is deliberately a fallback and not the source of truth: the value
+     * belongs to whichever plugin provides meetings, and TSML for Unity
+     * publishes it. It exists because the alternative is worse -- the key was
+     * once absent entirely, which interpolated into the join as
+     * `post_type = ''`, matched no row, and made group-name search quietly
+     * return nothing while still looking like it worked.
+     *
+     * searchWhere() references the group_post alias unconditionally, so the
+     * join has to be added whatever happens; dropping it instead would leave
+     * the WHERE pointing at a table that is not in the query.
+     */
+    private const DEFAULT_GROUP_POST_TYPE = 'tsml_group';
+
     private GroupRepository $groupRepository;
     private GroupViewFactory $groupViewFactory;
     private MemberRepository $memberRepository;
     /** @var array<string, mixed> */
     private readonly array $meeting_config;
+
+    /** Keeps the warning to one line per request rather than one per query. */
+    private bool $warnedMissingGroupPostType = false;
 
     /** @var array<int, array<int>> Per-request cache of groupId => [gsrMemberId, ...] */
     /** @var array<int, array<int>> */
@@ -371,6 +394,34 @@ class MeetingAdmin
     }
 
     /**
+     * The post type GROUP_META_KEY points at.
+     *
+     * Warns rather than failing silently: a missing key is not an error PHP
+     * will stop for, it is an empty string in SQL that matches nothing.
+     *
+     * @return non-empty-string
+     */
+    private function groupPostType(): string
+    {
+        $configured = $this->meeting_config['GROUP_POST_TYPE'] ?? '';
+
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
+        if (!$this->warnedMissingGroupPostType) {
+            $this->warnedMissingGroupPostType = true;
+            self::logWarning(
+                'Meeting config publishes no GROUP_POST_TYPE; falling back to the default '
+                . 'so group-name search keeps working. The meeting provider should publish it.',
+                ['fallback' => self::DEFAULT_GROUP_POST_TYPE]
+            );
+        }
+
+        return self::DEFAULT_GROUP_POST_TYPE;
+    }
+
+    /**
      * Join the posts table with postmeta and tsml_group posts for search
      *
      * @param string $join The JOIN clause
@@ -389,7 +440,7 @@ class MeetingAdmin
         $join .= " LEFT JOIN {$wpdb->postmeta} AS group_meta ON ({$wpdb->posts}.ID = group_meta.post_id AND group_meta.meta_key = '" . $this->meeting_config['GROUP_META_KEY'] . "')";
 
         // Join to get the group post to search its title
-        $join .= " LEFT JOIN {$wpdb->posts} AS group_post ON (group_meta.meta_value = group_post.ID AND group_post.post_type = '" . $this->meeting_config['GROUP_POST_TYPE'] . "')";
+        $join .= " LEFT JOIN {$wpdb->posts} AS group_post ON (group_meta.meta_value = group_post.ID AND group_post.post_type = '" . $this->groupPostType() . "')";
 
         return $join;
     }

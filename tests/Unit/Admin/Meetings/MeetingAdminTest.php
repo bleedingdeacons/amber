@@ -310,6 +310,9 @@ class MeetingAdminTest extends AmberTestCase
         $distinct = $this->admin->searchDistinct('', $query);
 
         $this->assertStringContainsString('group_post', $join);
+        // Not just that the alias is there: the join has to carry a real post
+        // type. It once carried '' and therefore matched nothing.
+        $this->assertStringContainsString("group_post.post_type = '" . self::GROUP_TYPE . "'", $join);
         $this->assertStringContainsString('group_post.post_title LIKE', $where);
         $this->assertSame('DISTINCT', $distinct);
     }
@@ -330,5 +333,57 @@ class MeetingAdminTest extends AmberTestCase
         $query = $this->meetingScreenQuery('', true, '');
 
         $this->assertSame('WHERE', $this->admin->searchWhere('WHERE', $query));
+    }
+
+    // ── missing GROUP_POST_TYPE ──────────────────────────────────────
+    //
+    // The provider publishes this key; it once did not. A missing key is not
+    // an error PHP stops for -- it lands in the join as post_type = '', which
+    // matches no row, so group-name search returns nothing and still looks
+    // like it worked. These pin the fallback that keeps it working and the
+    // warning that makes it visible.
+
+    /** Builds an admin whose meeting config omits GROUP_POST_TYPE. */
+    private function adminWithoutGroupPostType(): MeetingAdmin
+    {
+        $config = $this->createMock(Configuration::class);
+        $config->method('getConfig')->willReturn([
+            'POST_TYPE'      => self::MEETING_TYPE,
+            'GROUP_META_KEY' => self::GROUP_META,
+        ]);
+
+        return new MeetingAdmin(
+            $config,
+            $this->groupRepository,
+            $this->groupViewFactory,
+            $this->memberRepository
+        );
+    }
+
+    #[Test]
+    public function a_missing_group_post_type_falls_back_rather_than_joining_on_nothing(): void
+    {
+        $admin = $this->adminWithoutGroupPostType();
+        $query = $this->meetingScreenQuery('', true, 'treasurer');
+
+        $join = $admin->searchJoin('', $query);
+
+        $this->assertStringContainsString("group_post.post_type = '" . self::GROUP_TYPE . "'", $join);
+        $this->assertStringNotContainsString("group_post.post_type = ''", $join);
+    }
+
+    #[Test]
+    public function the_where_still_references_the_alias_the_join_provides(): void
+    {
+        // The two have to agree: searchWhere() names group_post unconditionally,
+        // so searchJoin() must always supply it or the SQL is invalid.
+        $admin = $this->adminWithoutGroupPostType();
+        $query = $this->meetingScreenQuery('', true, 'treasurer');
+
+        $join  = $admin->searchJoin('', $query);
+        $where = $admin->searchWhere("(wp_posts.post_title LIKE '%treasurer%')", $query);
+
+        $this->assertStringContainsString('AS group_post', $join);
+        $this->assertStringContainsString('group_post.post_title LIKE', $where);
     }
 }
