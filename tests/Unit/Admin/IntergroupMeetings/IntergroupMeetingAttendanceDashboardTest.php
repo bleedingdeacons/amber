@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard;
-use Amber\Tests\AmberTestCase;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendance;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendance;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 
-/**
+/*
  * Tests for the Intergroup Meeting Attendance admin page.
  *
  * This page lets an officer pick a past meeting from a dropdown and see two
@@ -26,34 +22,21 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceReposi
  * proxy or position, and the singular/plural record counts — the summary line
  * an officer reads to sanity-check a register.
  */
-#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingAttendanceDashboard::class)]
-class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
-{
-    private const PAGE_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
-    private $groupAttendance;
+covers(IntergroupMeetingAttendanceDashboard::class);
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
-    private $officerAttendance;
+const ATTENDANCE_DASHBOARD_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    private IntergroupMeetingAttendanceDashboard $page;
+beforeEach(function () {
+    $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
+    $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->page = new IntergroupMeetingAttendanceDashboard(
+        $this->groupAttendance,
+        $this->officerAttendance
+    );
 
-        $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
-        $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
-
-        $this->page = new IntergroupMeetingAttendanceDashboard(
-            $this->groupAttendance,
-            $this->officerAttendance
-        );
-    }
-
-    private function groupRecord(string $group, string $gsr, bool $proxy, string $proxyName): IntergroupMeetingGroupAttendance
-    {
+    $this->groupRecord = function (string $group, string $gsr, bool $proxy, string $proxyName): IntergroupMeetingGroupAttendance {
         $record = $this->createMock(IntergroupMeetingGroupAttendance::class);
         $record->method('getMeetingGroup')->willReturn($group);
         $record->method('getGsrName')->willReturn($gsr);
@@ -61,147 +44,121 @@ class IntergroupMeetingAttendanceDashboardTest extends AmberTestCase
         $record->method('getGsrProxyName')->willReturn($proxyName);
 
         return $record;
-    }
+    };
 
-    private function officerRecord(string $position, string $officer): IntergroupMeetingOfficerAttendance
-    {
+    $this->officerRecord = function (string $position, string $officer): IntergroupMeetingOfficerAttendance {
         $record = $this->createMock(IntergroupMeetingOfficerAttendance::class);
         $record->method('getPositionName')->willReturn($position);
         $record->method('getOfficerName')->willReturn($officer);
 
         return $record;
-    }
+    };
 
     /** Make the meeting-label UNION query return the given labels. */
-    private function availableLabels(array $labels): void
-    {
+    $this->availableLabels = function (array $labels): void {
         $this->wpdb->col = $labels;
-    }
+    };
+});
 
-    // ── selector ─────────────────────────────────────────────────────
-    #[Test]
-    public function with_no_records_the_page_says_so(): void
-    {
-        $this->availableLabels([]);
+// ── selector ─────────────────────────────────────────────────────
+it('says so when there are no records', function () {
+    ($this->availableLabels)([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('No attendance records found', $html);
-    }
+    expect($html)->toContain('No attendance records found');
+});
 
-    #[Test]
-    public function the_selector_lists_and_marks_the_chosen_meeting(): void
-    {
-        $this->availableLabels(['January IG', 'March IG']);
-        $_GET['meeting_label'] = 'March IG';
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('lists meetings in the selector and marks the chosen one', function () {
+    ($this->availableLabels)(['January IG', 'March IG']);
+    $_GET['meeting_label'] = 'March IG';
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('<option value="January IG"', $html);
-        $this->assertStringContainsString('<option value="March IG" selected', $html);
-    }
+    expect($html)->toContain('<option value="January IG"')
+        ->toContain('<option value="March IG" selected');
+});
 
-    #[Test]
-    public function the_first_meeting_is_selected_by_default(): void
-    {
-        $this->availableLabels(['January IG', 'March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('selects the first meeting by default', function () {
+    ($this->availableLabels)(['January IG', 'March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        // No ?meeting_label, so the newest (first in the ordered list) wins.
-        $this->assertStringContainsString('<option value="January IG" selected', $html);
-    }
+    // No ?meeting_label, so the newest (first in the ordered list) wins.
+    expect($html)->toContain('<option value="January IG" selected');
+});
 
-    // ── group attendance table ───────────────────────────────────────
-    #[Test]
-    public function the_group_table_renders_rows_proxies_and_a_plural_summary(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([
-            $this->groupRecord('Tuesday Group', 'Anonymous Alex', false, ''),
-            $this->groupRecord('Friday Group', 'Anonymous Sam', true, 'Anonymous Jo'),
-        ]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+// ── group attendance table ───────────────────────────────────────
+it('renders group rows, proxies and a plural summary', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([
+        ($this->groupRecord)('Tuesday Group', 'Anonymous Alex', false, ''),
+        ($this->groupRecord)('Friday Group', 'Anonymous Sam', true, 'Anonymous Jo'),
+    ]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('Group Attendance', $html);
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertStringContainsString('ig-proxy-yes', $html);
-        $this->assertStringContainsString('ig-proxy-no', $html);
-        $this->assertStringContainsString('Anonymous Jo', $html);        // proxy name
-        $this->assertStringContainsString('2</strong> group records', $html); // plural
-        $this->assertStringContainsString('1</strong> proxy', $html);
-    }
+    expect($html)->toContain('Group Attendance')
+        ->toContain('Tuesday Group')
+        ->toContain('ig-proxy-yes')
+        ->toContain('ig-proxy-no')
+        ->toContain('Anonymous Jo')        // proxy name
+        ->toContain('2</strong> group records') // plural
+        ->toContain('1</strong> proxy');
+});
 
-    #[Test]
-    public function an_empty_group_table_is_reported(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('reports an empty group table', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString(
-            'No group attendance records',
-            $this->capture(fn () => $this->page->renderPage())
-        );
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('No group attendance records');
+});
 
-    // ── officer attendance table ─────────────────────────────────────
-    #[Test]
-    public function the_officer_table_collapses_names_by_position_and_dashes_a_blank_role(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([
-            $this->officerRecord('Treasurer', 'Anonymous Alex'),
-            $this->officerRecord('Treasurer', 'Anonymous Sam'),
-            $this->officerRecord('', 'Anonymous Jo'),
-        ]);
+// ── officer attendance table ─────────────────────────────────────
+it('collapses officer names by position and dashes a blank role', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([
+        ($this->officerRecord)('Treasurer', 'Anonymous Alex'),
+        ($this->officerRecord)('Treasurer', 'Anonymous Sam'),
+        ($this->officerRecord)('', 'Anonymous Jo'),
+    ]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('Officer Attendance', $html);
+    expect($html)->toContain('Officer Attendance')
         // Two Treasurer rows collapse into one comma-joined cell.
-        $this->assertStringContainsString('Anonymous Alex, Anonymous Sam', $html);
+        ->toContain('Anonymous Alex, Anonymous Sam')
         // Blank position renders an em dash.
-        $this->assertStringContainsString('ig-empty-cell', $html);
-        $this->assertStringContainsString('3</strong> officer records', $html);
-    }
+        ->toContain('ig-empty-cell')
+        ->toContain('3</strong> officer records');
+});
 
-    #[Test]
-    public function an_empty_officer_table_is_reported(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('reports an empty officer table', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString(
-            'No officer attendance records',
-            $this->capture(fn () => $this->page->renderPage())
-        );
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('No officer attendance records');
+});
 
-    // ── registration and styles ──────────────────────────────────────
-    #[Test]
-    public function the_submenu_page_is_registered_under_intergroup(): void
-    {
-        $this->page->registerSubmenuPage();
+// ── registration and styles ──────────────────────────────────────
+it('registers the submenu page under intergroup', function () {
+    $this->page->registerSubmenuPage();
 
-        $this->assertContains('intergroup-attendance', $this->registeredMenuSlugs());
-    }
+    expect($this->registeredMenuSlugs())->toContain('intergroup-attendance');
+});
 
-    #[Test]
-    public function styles_load_only_on_the_attendance_page(): void
-    {
-        $this->setScreen(self::PAGE_SCREEN);
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->page->addPageStyles()));
+it('loads styles only on the attendance page', function () {
+    $this->setScreen(ATTENDANCE_DASHBOARD_SCREEN);
+    expect($this->capture(fn () => $this->page->addPageStyles()))->toContain('<style>');
 
-        $this->setScreen('dashboard', 'dashboard');
-        $this->assertSame('', $this->capture(fn () => $this->page->addPageStyles()));
-    }
-}
+    $this->setScreen('dashboard', 'dashboard');
+    expect($this->capture(fn () => $this->page->addPageStyles()))->toBe('');
+});

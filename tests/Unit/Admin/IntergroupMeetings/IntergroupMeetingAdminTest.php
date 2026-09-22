@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
@@ -36,7 +31,7 @@ use Unity\Positions\Interfaces\PositionViewFactory;
 use WP_Post;
 use WP_Query;
 
-/**
+/*
  * Tests for the intergroup-meeting admin list and its attendance sync.
  *
  * Two responsibilities live here. First, the list table: extra columns for the
@@ -51,66 +46,62 @@ use WP_Query;
  * relationship-label filters that annotate each option with its position, GSRs
  * or officer name.
  */
-#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin::class)]
-class IntergroupMeetingAdminTest extends AmberTestCase
+
+covers(IntergroupMeetingAdmin::class);
+
+const IGM_TYPE        = 'intergroup-meeting';
+const IGM_GROUP_TYPE  = 'tsml_group';
+const IGM_MEMBER_TYPE = 'intergroup-member';
+
+function igmPost(int $id, string $type): WP_Post
 {
-    private const IGM_TYPE    = 'intergroup-meeting';
-    private const GROUP_TYPE  = 'tsml_group';
-    private const MEMBER_TYPE = 'intergroup-member';
+    return new WP_Post(['ID' => $id, 'post_type' => $type]);
+}
 
-    private IntergroupMeetingAdmin $admin;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
+        IntergroupMeeting::class => ['POST_TYPE' => IGM_TYPE],
+        Group::class                        => ['POST_TYPE' => IGM_GROUP_TYPE],
+        Member::class                      => ['POST_TYPE' => IGM_MEMBER_TYPE],
+        default                                                      => [],
+    });
 
-    /** @var array<string, MockObject> */
-    private array $m = [];
+    /** @var array<string, \PHPUnit\Framework\MockObject\MockObject> */
+    $this->m = [
+        'igmFactory'       => $this->createMock(IntergroupMeetingFactory::class),
+        'igmRepo'          => $this->createMock(IntergroupMeetingRepository::class),
+        'groupAttFactory'  => $this->createMock(IntergroupMeetingGroupAttendanceFactory::class),
+        'groupAttRepo'     => $this->createMock(IntergroupMeetingGroupAttendanceRepository::class),
+        'offAttFactory'    => $this->createMock(IntergroupMeetingOfficerAttendanceFactory::class),
+        'offAttRepo'       => $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class),
+        'groupRepo'        => $this->createMock(GroupRepository::class),
+        'memberRepo'       => $this->createMock(MemberRepository::class),
+        'positionFactory'  => $this->createMock(PositionFactory::class),
+        'positionRepo'     => $this->createMock(PositionRepository::class),
+        'positionViewFac'  => $this->createMock(PositionViewFactory::class),
+        'meetingRepo'      => $this->createMock(MeetingRepository::class),
+        'groupViewFactory' => $this->createMock(GroupViewFactory::class),
+    ];
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->admin = new IntergroupMeetingAdmin(
+        $config,
+        $this->m['igmFactory'],
+        $this->m['igmRepo'],
+        $this->m['groupAttFactory'],
+        $this->m['groupAttRepo'],
+        $this->m['offAttFactory'],
+        $this->m['offAttRepo'],
+        $this->m['groupRepo'],
+        $this->m['memberRepo'],
+        $this->m['positionFactory'],
+        $this->m['positionRepo'],
+        $this->m['positionViewFac'],
+        $this->m['meetingRepo'],
+        $this->m['groupViewFactory']
+    );
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
-            IntergroupMeeting::class => ['POST_TYPE' => self::IGM_TYPE],
-            Group::class                        => ['POST_TYPE' => self::GROUP_TYPE],
-            Member::class                      => ['POST_TYPE' => self::MEMBER_TYPE],
-            default                                                      => [],
-        });
-
-        $this->m = [
-            'igmFactory'       => $this->createMock(IntergroupMeetingFactory::class),
-            'igmRepo'          => $this->createMock(IntergroupMeetingRepository::class),
-            'groupAttFactory'  => $this->createMock(IntergroupMeetingGroupAttendanceFactory::class),
-            'groupAttRepo'     => $this->createMock(IntergroupMeetingGroupAttendanceRepository::class),
-            'offAttFactory'    => $this->createMock(IntergroupMeetingOfficerAttendanceFactory::class),
-            'offAttRepo'       => $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class),
-            'groupRepo'        => $this->createMock(GroupRepository::class),
-            'memberRepo'       => $this->createMock(MemberRepository::class),
-            'positionFactory'  => $this->createMock(PositionFactory::class),
-            'positionRepo'     => $this->createMock(PositionRepository::class),
-            'positionViewFac'  => $this->createMock(PositionViewFactory::class),
-            'meetingRepo'      => $this->createMock(MeetingRepository::class),
-            'groupViewFactory' => $this->createMock(GroupViewFactory::class),
-        ];
-
-        $this->admin = new IntergroupMeetingAdmin(
-            $config,
-            $this->m['igmFactory'],
-            $this->m['igmRepo'],
-            $this->m['groupAttFactory'],
-            $this->m['groupAttRepo'],
-            $this->m['offAttFactory'],
-            $this->m['offAttRepo'],
-            $this->m['groupRepo'],
-            $this->m['memberRepo'],
-            $this->m['positionFactory'],
-            $this->m['positionRepo'],
-            $this->m['positionViewFac'],
-            $this->m['meetingRepo'],
-            $this->m['groupViewFactory']
-        );
-    }
-
-    private function igm(int $id, string $title, string $date, array $groups = [], array $officers = []): IntergroupMeeting
-    {
+    $this->igm = function (int $id, string $title, string $date, array $groups = [], array $officers = []): IntergroupMeeting {
         $meeting = $this->createMock(IntergroupMeeting::class);
         $meeting->method('getId')->willReturn($id);
         $meeting->method('getTitle')->willReturn($title);
@@ -119,10 +110,9 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $meeting->method('getOfficersAttending')->willReturn($officers);
 
         return $meeting;
-    }
+    };
 
-    private function member(int $id, string $name, int $position = 0, bool $gsr = false): Member
-    {
+    $this->member = function (int $id, string $name, int $position = 0, bool $gsr = false): Member {
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn($id);
         $member->method('getAnonymousName')->willReturn($name);
@@ -130,63 +120,46 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $member->method('isGSR')->willReturn($gsr);
 
         return $member;
-    }
+    };
+});
 
-    private function post(int $id, string $type): WP_Post
-    {
-        return new WP_Post(['ID' => $id, 'post_type' => $type]);
-    }
-
-    // ── columns ──────────────────────────────────────────────────────
-    #[Test]
-    public function the_custom_columns_are_inserted_after_title(): void
-    {
+// ── columns ──────────────────────────────────────────────────────
+describe('columns', function () {
+    it('inserts the custom columns after title', function () {
         $columns = $this->admin->addCustomColumns(['cb' => '', 'title' => 'Title', 'date' => 'Date']);
 
-        $this->assertSame(
-            ['cb', 'title', 'meeting_date', 'group_attendees', 'officers_attending', 'attendee_count', 'date'],
-            array_keys($columns)
-        );
-    }
+        expect(array_keys($columns))
+            ->toBe(['cb', 'title', 'meeting_date', 'group_attendees', 'officers_attending', 'attendee_count', 'date']);
+    });
 
-    #[Test]
-    public function the_date_and_count_columns_are_sortable(): void
-    {
+    it('makes the date and count columns sortable', function () {
         $sortable = $this->admin->makeColumnsSortable([]);
 
-        $this->assertSame('meeting_date', $sortable['meeting_date']);
-        $this->assertSame('attendee_count', $sortable['attendee_count']);
-    }
+        expect($sortable['meeting_date'])->toBe('meeting_date')
+            ->and($sortable['attendee_count'])->toBe('attendee_count');
+    });
 
-    #[Test]
-    public function the_meeting_date_column_formats_the_date(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10'));
+    it('formats the date in the meeting date column', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10'));
 
-        $this->assertStringContainsString(
-            'March 10, 2026',
-            $this->capture(fn () => $this->admin->populateCustomColumns('meeting_date', 1))
-        );
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('meeting_date', 1)))
+            ->toContain('March 10, 2026');
+    });
 
-    #[Test]
-    public function the_meeting_date_column_dashes_when_there_is_no_date(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', ''));
+    it('dashes the meeting date column when there is no date', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', ''));
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('meeting_date', 1)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('meeting_date', 1)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_group_attendees_column_lists_groups_with_their_gsrs(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100]));
+    it('lists groups with their gsrs in the group attendees column', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [100]));
 
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn('Tuesday Group');
         $this->m['groupRepo']->method('findById')->willReturn($group);
 
-        $gsr = $this->member(30, 'Anonymous Bob', 0, true);
+        $gsr = ($this->member)(30, 'Anonymous Bob', 0, true);
         $view = $this->createMock(GroupView::class);
         $view->method('getMembers')->willReturn([$gsr]);
         $this->m['groupViewFactory']->method('createFrom')->willReturn($view);
@@ -194,24 +167,20 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1));
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertStringContainsString('Anonymous Bob', $html);
-    }
+        expect($html)->toContain('Tuesday Group')
+            ->toContain('Anonymous Bob');
+    });
 
-    #[Test]
-    public function the_group_attendees_column_dashes_when_empty(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', []));
+    it('dashes the group attendees column when empty', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', []));
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_officers_column_lists_positions_with_their_holders(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
+    it('lists positions with their holders in the officers column', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], [200]));
 
-        $holder = $this->member(50, 'Anonymous Jo');
+        $holder = ($this->member)(50, 'Anonymous Jo');
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn('Treasurer');
         $view = $this->createMock(PositionView::class);
@@ -223,22 +192,18 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1));
 
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Anonymous Jo', $html);
-    }
+        expect($html)->toContain('Treasurer')
+            ->toContain('Anonymous Jo');
+    });
 
-    #[Test]
-    public function the_officers_column_dashes_when_empty(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], []));
+    it('dashes the officers column when empty', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], []));
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_officers_column_shows_the_position_alone_when_no_holder_is_named(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
+    it('shows the position alone in the officers column when no holder is named', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], [200]));
 
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn('Vacant Role');
@@ -250,15 +215,13 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1));
 
-        $this->assertStringContainsString('Vacant Role', $html);
-    }
+        expect($html)->toContain('Vacant Role');
+    });
 
-    #[Test]
-    public function officers_fall_back_to_the_display_name_when_members_cannot_be_resolved(): void
-    {
+    it('falls back to the display name when officers cannot be resolved to members', function () {
         // A position with a display name but no resolvable member records still
         // lists the names from the display string.
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], [200]));
 
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn('Treasurer');
@@ -270,22 +233,18 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1));
 
-        $this->assertStringContainsString('Anonymous Jo, Anonymous Sam', $html);
-    }
+        expect($html)->toContain('Anonymous Jo, Anonymous Sam');
+    });
 
-    #[Test]
-    public function officers_column_dashes_when_no_position_resolves(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200]));
+    it('dashes the officers column when no position resolves', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], [200]));
         $this->m['positionViewFac']->method('createFrom')->willReturn(null);
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_group_attendees_column_skips_a_group_that_cannot_be_resolved(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100]));
+    it('skips a group that cannot be resolved in the group attendees column', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [100]));
 
         // Group view resolves (for GSR lookup) but the group post itself is gone.
         $view = $this->createMock(GroupView::class);
@@ -293,15 +252,13 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->m['groupViewFactory']->method('createFrom')->willReturn($view);
         $this->m['groupRepo']->method('findById')->willReturn(null);
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_group_attendees_column_renders_a_group_whose_view_is_missing(): void
-    {
+    it('renders a group whose view is missing in the group attendees column', function () {
         // The group post resolves but its live view (used to find GSRs) does
         // not — the group is still listed, just without GSRs.
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100]));
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [100]));
 
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn('Tuesday Group');
@@ -310,15 +267,13 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1));
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-    }
+        expect($html)->toContain('Tuesday Group');
+    });
 
-    #[Test]
-    public function repeated_group_ids_are_resolved_once_and_reused_from_cache(): void
-    {
+    it('resolves repeated group ids once and reuses them from cache', function () {
         // A group appearing twice in the attendee list must hit the per-request
         // cache the second time rather than resolving again.
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [100, 100]));
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [100, 100]));
 
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn('Tuesday Group');
@@ -331,176 +286,150 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group_attendees', 1));
 
-        $this->assertSame(2, substr_count($html, 'Tuesday Group'));
-    }
+        expect(substr_count($html, 'Tuesday Group'))->toBe(2);
+    });
 
-    #[Test]
-    public function the_attendee_count_column_totals_groups_and_officers(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [1, 2], [3]));
+    it('totals groups and officers in the attendee count column', function () {
+        $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [1, 2], [3]));
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('attendee_count', 1));
 
-        $this->assertStringContainsString('3', $html);
-        $this->assertStringContainsString('2 groups, 1 officers', $html);
-    }
+        expect($html)->toContain('3')
+            ->toContain('2 groups, 1 officers');
+    });
+});
 
-    // ── ACF relationship label filters ───────────────────────────────
-    #[Test]
-    public function the_position_name_is_appended_to_a_member_option(): void
-    {
-        $member = $this->member(5, 'Anonymous Alex', 77);
+// ── ACF relationship label filters ───────────────────────────────
+describe('ACF relationship label filters', function () {
+    it('appends the position name to a member option', function () {
+        $member = ($this->member)(5, 'Anonymous Alex', 77);
         $this->m['memberRepo']->method('findById')->willReturn($member);
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn('Secretary');
         $this->m['positionRepo']->method('findById')->willReturn($position);
 
-        $result = $this->admin->addPositionName('Anonymous Alex', $this->post(5, self::MEMBER_TYPE), [], 0);
+        $result = $this->admin->addPositionName('Anonymous Alex', igmPost(5, IGM_MEMBER_TYPE), [], 0);
 
-        $this->assertSame('Anonymous Alex (Secretary)', $result);
-    }
+        expect($result)->toBe('Anonymous Alex (Secretary)');
+    });
 
-    #[Test]
-    public function a_member_with_no_intergroup_position_is_left_unlabelled(): void
-    {
-        $this->m['memberRepo']->method('findById')->willReturn($this->member(5, 'Anonymous Alex', 0));
+    it('leaves a member with no intergroup position unlabelled', function () {
+        $this->m['memberRepo']->method('findById')->willReturn(($this->member)(5, 'Anonymous Alex', 0));
 
-        $this->assertSame('Anonymous Alex', $this->admin->addPositionName('Anonymous Alex', $this->post(5, self::MEMBER_TYPE), [], 0));
-    }
+        expect($this->admin->addPositionName('Anonymous Alex', igmPost(5, IGM_MEMBER_TYPE), [], 0))->toBe('Anonymous Alex');
+    });
 
-    #[Test]
-    public function a_non_member_option_is_untouched_by_the_position_filter(): void
-    {
-        $this->assertSame('X', $this->admin->addPositionName('X', $this->post(5, 'page'), [], 0));
-    }
+    it('leaves a non member option untouched by the position filter', function () {
+        expect($this->admin->addPositionName('X', igmPost(5, 'page'), [], 0))->toBe('X');
+    });
 
-    #[Test]
-    public function the_officer_name_is_appended_to_a_position_option(): void
-    {
+    it('appends the officer name to a position option', function () {
         $view = $this->createMock(PositionView::class);
         $view->method('getOfficerDisplayName')->willReturn('Anonymous Jo');
         $this->m['positionViewFac']->method('createFrom')->willReturn($view);
 
-        $result = $this->admin->addMemberNameToPosition('Treasurer', $this->post(9, 'intergroup-position'), [], 0);
+        $result = $this->admin->addMemberNameToPosition('Treasurer', igmPost(9, 'intergroup-position'), [], 0);
 
-        $this->assertSame('Treasurer (Anonymous Jo)', $result);
-    }
+        expect($result)->toBe('Treasurer (Anonymous Jo)');
+    });
 
-    #[Test]
-    public function an_unresolved_member_option_is_left_unlabelled(): void
-    {
+    it('leaves an unresolved member option unlabelled', function () {
         $this->m['memberRepo']->method('findById')->willReturn(null);
 
-        $this->assertSame('X', $this->admin->addPositionName('X', $this->post(5, self::MEMBER_TYPE), [], 0));
-    }
+        expect($this->admin->addPositionName('X', igmPost(5, IGM_MEMBER_TYPE), [], 0))->toBe('X');
+    });
 
-    #[Test]
-    public function a_position_option_with_no_resolvable_view_is_left_unlabelled(): void
-    {
+    it('leaves a position option with no resolvable view unlabelled', function () {
         $this->m['positionViewFac']->method('createFrom')->willReturn(null);
 
-        $this->assertSame('Treasurer', $this->admin->addMemberNameToPosition('Treasurer', $this->post(9, 'intergroup-position'), [], 0));
-    }
+        expect($this->admin->addMemberNameToPosition('Treasurer', igmPost(9, 'intergroup-position'), [], 0))->toBe('Treasurer');
+    });
 
-    #[Test]
-    public function a_position_option_with_no_officer_name_is_left_unlabelled(): void
-    {
+    it('leaves a position option with no officer name unlabelled', function () {
         $view = $this->createMock(PositionView::class);
         $view->method('getOfficerDisplayName')->willReturn('');
         $this->m['positionViewFac']->method('createFrom')->willReturn($view);
 
-        $this->assertSame('Treasurer', $this->admin->addMemberNameToPosition('Treasurer', $this->post(9, 'intergroup-position'), [], 0));
-    }
+        expect($this->admin->addMemberNameToPosition('Treasurer', igmPost(9, 'intergroup-position'), [], 0))->toBe('Treasurer');
+    });
 
-    #[Test]
-    public function a_group_option_with_no_resolvable_view_is_left_unlabelled(): void
-    {
+    it('leaves a group option with no resolvable view unlabelled', function () {
         $this->m['groupViewFactory']->method('createFrom')->willReturn(null);
 
-        $this->assertSame('Tuesday Group', $this->admin->addGsrsName('Tuesday Group', $this->post(3, self::GROUP_TYPE), [], 0));
-    }
+        expect($this->admin->addGsrsName('Tuesday Group', igmPost(3, IGM_GROUP_TYPE), [], 0))->toBe('Tuesday Group');
+    });
 
-    #[Test]
-    public function the_gsr_names_are_appended_to_a_group_option(): void
-    {
+    it('appends the gsr names to a group option', function () {
         $view = $this->createMock(GroupView::class);
         $view->method('getMembers')->willReturn([
-            $this->member(1, 'Anonymous Alex', 0, true),
-            $this->member(2, 'Not A GSR', 0, false),
+            ($this->member)(1, 'Anonymous Alex', 0, true),
+            ($this->member)(2, 'Not A GSR', 0, false),
         ]);
         $this->m['groupViewFactory']->method('createFrom')->willReturn($view);
 
-        $result = $this->admin->addGsrsName('Tuesday Group', $this->post(3, self::GROUP_TYPE), [], 0);
+        $result = $this->admin->addGsrsName('Tuesday Group', igmPost(3, IGM_GROUP_TYPE), [], 0);
 
-        $this->assertSame('Tuesday Group (Anonymous Alex)', $result);
-    }
+        expect($result)->toBe('Tuesday Group (Anonymous Alex)');
+    });
 
-    #[Test]
-    public function a_group_with_no_gsrs_is_left_unlabelled(): void
-    {
+    it('leaves a group with no gsrs unlabelled', function () {
         $view = $this->createMock(GroupView::class);
-        $view->method('getMembers')->willReturn([$this->member(2, 'Not A GSR', 0, false)]);
+        $view->method('getMembers')->willReturn([($this->member)(2, 'Not A GSR', 0, false)]);
         $this->m['groupViewFactory']->method('createFrom')->willReturn($view);
 
-        $this->assertSame('Tuesday Group', $this->admin->addGsrsName('Tuesday Group', $this->post(3, self::GROUP_TYPE), [], 0));
-    }
+        expect($this->admin->addGsrsName('Tuesday Group', igmPost(3, IGM_GROUP_TYPE), [], 0))->toBe('Tuesday Group');
+    });
+});
 
-    // ── sorting ──────────────────────────────────────────────────────
-    #[Test]
-    public function sorting_by_meeting_date_uses_the_sortable_meta_key(): void
-    {
-        $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);
+// ── sorting ──────────────────────────────────────────────────────
+describe('sorting', function () {
+    it('uses the sortable meta key when sorting by meeting date', function () {
+        $this->setScreen('edit-' . IGM_TYPE, 'edit', IGM_TYPE);
         $query = new WP_Query(['orderby' => 'meeting_date']);
         $query->isMainQuery = true;
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame('_intergroup_meeting_date_sortable', $query->get('meta_key'));
-        $this->assertSame('meta_value', $query->get('orderby'));
-    }
+        expect($query->get('meta_key'))->toBe('_intergroup_meeting_date_sortable')
+            ->and($query->get('orderby'))->toBe('meta_value');
+    });
 
-    #[Test]
-    public function sorting_by_attendee_count_uses_a_numeric_meta_sort(): void
-    {
-        $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);
+    it('uses a numeric meta sort when sorting by attendee count', function () {
+        $this->setScreen('edit-' . IGM_TYPE, 'edit', IGM_TYPE);
         $query = new WP_Query(['orderby' => 'attendee_count']);
         $query->isMainQuery = true;
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame('meta_value_num', $query->get('orderby'));
-    }
+        expect($query->get('orderby'))->toBe('meta_value_num');
+    });
 
-    #[Test]
-    public function sorting_is_ignored_off_the_intergroup_meeting_screen(): void
-    {
+    it('ignores sorting off the intergroup meeting screen', function () {
         $this->setScreen('edit-page', 'edit', 'page');
         $query = new WP_Query(['orderby' => 'meeting_date']);
         $query->isMainQuery = true;
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame('meeting_date', $query->get('orderby'));
-    }
+        expect($query->get('orderby'))->toBe('meeting_date');
+    });
+});
 
-    // ── save / attendance sync ───────────────────────────────────────
-    #[Test]
-    public function saving_a_non_intergroup_meeting_post_does_nothing(): void
-    {
+// ── save / attendance sync ───────────────────────────────────────
+describe('save and attendance sync', function () {
+    it('does nothing when saving a non intergroup meeting post', function () {
         WpState::$postTypes[42] = 'page';
 
         $this->m['igmFactory']->expects($this->never())->method('createFromSource');
 
         $this->admin->updateIntergroupMeetingMetadataOnSave(42);
-    }
+    });
 
-    #[Test]
-    public function saving_stamps_the_sort_meta_and_syncs_added_and_removed_attendees(): void
-    {
-        WpState::$postTypes[1] = self::IGM_TYPE;
+    it('stamps the sort meta and syncs added and removed attendees on save', function () {
+        WpState::$postTypes[1] = IGM_TYPE;
 
         // The meeting now lists group 2 & 3 and officer 11 & 12.
-        $meeting = $this->igm(1, 'March IG', '2026-03-10', [2, 3], [11, 12]);
+        $meeting = ($this->igm)(1, 'March IG', '2026-03-10', [2, 3], [11, 12]);
         $this->m['igmFactory']->method('createFromSource')->willReturn($meeting);
 
         // Existing attendance: group 1 & 2, officer 10 & 11 → add 3/12, remove 1/10.
@@ -521,19 +450,19 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $group3->method('getTitle')->willReturn('Friday Group');
         $this->m['groupRepo']->method('findById')->willReturn($group3);
         $gsrView = $this->createMock(GroupView::class);
-        $gsrView->method('getMembers')->willReturn([$this->member(30, 'Anonymous Bob', 0, true)]);
+        $gsrView->method('getMembers')->willReturn([($this->member)(30, 'Anonymous Bob', 0, true)]);
         $this->m['groupViewFactory']->method('createFrom')->willReturn($gsrView);
 
         // Added officer 12 resolves to a position with one holder.
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn('Treasurer');
         $offView = $this->createMock(PositionView::class);
-        $offView->method('getMembers')->willReturn([$this->member(50, 'Anonymous Jo')]);
+        $offView->method('getMembers')->willReturn([($this->member)(50, 'Anonymous Jo')]);
         $offView->method('getPosition')->willReturn($position);
         $offView->method('getOfficerDisplayName')->willReturn('Anonymous Jo');
         $this->m['positionViewFac']->method('createFrom')->willReturn($offView);
 
-        $this->m['memberRepo']->method('findById')->willReturn($this->member(30, 'Anonymous Bob', 0, true));
+        $this->m['memberRepo']->method('findById')->willReturn(($this->member)(30, 'Anonymous Bob', 0, true));
 
         // Expect one create+save and one delete on each side.
         $this->m['groupAttFactory']->expects($this->once())->method('createNew')
@@ -549,83 +478,68 @@ class IntergroupMeetingAdminTest extends AmberTestCase
         $this->admin->updateIntergroupMeetingMetadataOnSave(1);
 
         // Sort meta stamped.
-        $this->assertSame('2026-03-10', WpState::$postMeta[1]['_intergroup_meeting_date_sortable']);
-        $this->assertSame(4, WpState::$postMeta[1]['_intergroup_meeting_attendee_count']);
-    }
+        expect(WpState::$postMeta[1]['_intergroup_meeting_date_sortable'])->toBe('2026-03-10')
+            ->and(WpState::$postMeta[1]['_intergroup_meeting_attendee_count'])->toBe(4);
+    });
 
-    #[Test]
-    public function a_meeting_saved_without_a_date_clears_the_sort_meta(): void
-    {
-        WpState::$postTypes[1] = self::IGM_TYPE;
+    it('clears the sort meta for a meeting saved without a date', function () {
+        WpState::$postTypes[1] = IGM_TYPE;
         WpState::$postMeta[1]['_intergroup_meeting_date_sortable'] = 'stale';
 
-        $meeting = $this->igm(1, 'IG', '', [], []);
+        $meeting = ($this->igm)(1, 'IG', '', [], []);
         $this->m['igmFactory']->method('createFromSource')->willReturn($meeting);
         $this->m['groupAttRepo']->method('findByIntergroupMeeting')->willReturn([]);
         $this->m['offAttRepo']->method('findByIntergroupMeeting')->willReturn([]);
 
         $this->admin->updateIntergroupMeetingMetadata(1);
 
-        $this->assertArrayNotHasKey('_intergroup_meeting_date_sortable', WpState::$postMeta[1]);
-    }
+        expect(WpState::$postMeta[1])->not->toHaveKey('_intergroup_meeting_date_sortable');
+    });
 
-    #[Test]
-    public function setup_all_metadata_walks_every_meeting(): void
-    {
+    it('walks every meeting when setting up all metadata', function () {
         $this->m['igmRepo']->method('findAll')->willReturn([
-            $this->igm(1, 'A', '2026-01-01'),
-            $this->igm(2, 'B', '2026-02-01'),
+            ($this->igm)(1, 'A', '2026-01-01'),
+            ($this->igm)(2, 'B', '2026-02-01'),
         ]);
         // createFromSource is used inside updateIntergroupMeetingMetadata.
         $this->m['igmFactory']->method('createFromSource')->willReturnCallback(
-            fn (int $id) => $this->igm($id, 'M' . $id, '2026-0' . $id . '-01')
+            fn (int $id) => ($this->igm)($id, 'M' . $id, '2026-0' . $id . '-01')
         );
         $this->m['groupAttRepo']->method('findByIntergroupMeeting')->willReturn([]);
         $this->m['offAttRepo']->method('findByIntergroupMeeting')->willReturn([]);
 
-        $this->assertSame(2, $this->admin->setupAllIntergroupMeetingsMetadata());
-    }
+        expect($this->admin->setupAllIntergroupMeetingsMetadata())->toBe(2);
+    });
+});
 
-    // ── meeting label ────────────────────────────────────────────────
-    #[DataProvider('meetingLabelProvider')]
-    #[Test]
-    public function the_meeting_label_combines_whatever_it_has(string $title, string $date, string $expected): void
-    {
-        $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'buildMeetingLabel');
+// ── meeting label ────────────────────────────────────────────────
+it('combines whatever it has into the meeting label', function (string $title, string $date, string $expected) {
+    $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'buildMeetingLabel');
 
-        $label = $method->invoke($this->admin, $this->igm(1, $title, $date));
+    $label = $method->invoke($this->admin, ($this->igm)(1, $title, $date));
 
-        $this->assertSame($expected, $label);
-    }
+    expect($label)->toBe($expected);
+})->with([
+    'title and date' => ['March IG', '2026-03-10', 'March IG — March 10, 2026'],
+    'title only'     => ['March IG', '', 'March IG'],
+    'date only'      => ['', '2026-03-10', 'March 10, 2026'],
+    'neither'        => ['', '', 'Meeting (ID: 1)'],
+]);
 
-    /** @return array<string, array{0: string, 1: string, 2: string}> */
-    public static function meetingLabelProvider(): array
-    {
-        return [
-            'title and date' => ['March IG', '2026-03-10', 'March IG — March 10, 2026'],
-            'title only'     => ['March IG', '', 'March IG'],
-            'date only'      => ['', '2026-03-10', 'March 10, 2026'],
-            'neither'        => ['', '', 'Meeting (ID: 1)'],
-        ];
-    }
-
-    // ── member position change ───────────────────────────────────────
-    #[Test]
-    public function an_unchanged_member_does_not_touch_attendance(): void
-    {
-        $before = $this->member(5, 'Anonymous Alex', 10);
-        $after  = $this->member(5, 'Anonymous Alex', 10);
+// ── member position change ───────────────────────────────────────
+describe('member position change', function () {
+    it('does not touch attendance for an unchanged member', function () {
+        $before = ($this->member)(5, 'Anonymous Alex', 10);
+        $after  = ($this->member)(5, 'Anonymous Alex', 10);
 
         $this->m['offAttRepo']->expects($this->never())->method('findAll');
 
         $this->admin->onMemberPositionChanged($after, $before);
-    }
+    });
 
-    #[Test]
-    public function a_member_whose_position_changed_on_meeting_day_has_attendance_updated(): void
-    {
-        $before = $this->member(5, 'Anonymous Alex', 10);
-        $after  = $this->member(5, 'Anonymous Alex', 20);
+    it('updates attendance for a member whose position changed on meeting day', function () {
+        $before = ($this->member)(5, 'Anonymous Alex', 10);
+        $after  = ($this->member)(5, 'Anonymous Alex', 20);
 
         $record = $this->createMock(IntergroupMeetingOfficerAttendance::class);
         $record->method('getIntergroupMeetingId')->willReturn(99);
@@ -633,7 +547,7 @@ class IntergroupMeetingAdminTest extends AmberTestCase
 
         // Today's meeting matches the record.
         $today = wp_date('Y-m-d');
-        $this->m['igmRepo']->method('findById')->willReturn($this->igm(99, 'Today IG', $today));
+        $this->m['igmRepo']->method('findById')->willReturn(($this->igm)(99, 'Today IG', $today));
 
         $newPosition = $this->createMock(Position::class);
         $newPosition->method('getLongName')->willReturn('Chair');
@@ -644,87 +558,77 @@ class IntergroupMeetingAdminTest extends AmberTestCase
             ->willReturn(1);
 
         $this->admin->onMemberPositionChanged($after, $before);
-    }
+    });
 
-    #[Test]
-    public function a_member_change_with_no_meeting_today_updates_nothing(): void
-    {
-        $before = $this->member(5, 'Anonymous Alex', 10);
-        $after  = $this->member(5, 'Anonymous Alex', 20);
+    it('updates nothing for a member change with no meeting today', function () {
+        $before = ($this->member)(5, 'Anonymous Alex', 10);
+        $after  = ($this->member)(5, 'Anonymous Alex', 20);
 
         $record = $this->createMock(IntergroupMeetingOfficerAttendance::class);
         $record->method('getIntergroupMeetingId')->willReturn(99);
         $this->m['offAttRepo']->method('findAll')->willReturn([$record]);
 
         // The only attendance record points at a meeting dated in the past.
-        $this->m['igmRepo']->method('findById')->willReturn($this->igm(99, 'Old IG', '2000-01-01'));
+        $this->m['igmRepo']->method('findById')->willReturn(($this->igm)(99, 'Old IG', '2000-01-01'));
 
         $this->m['offAttRepo']->expects($this->never())->method('updateByMeetingAndOfficer');
 
         $this->admin->onMemberPositionChanged($after, $before);
-    }
+    });
 
-    #[Test]
-    public function a_member_with_no_attendance_records_is_skipped(): void
-    {
-        $before = $this->member(5, 'Anonymous Alex', 10);
-        $after  = $this->member(5, 'Anonymous Bob', 10); // name changed
+    it('skips a member with no attendance records', function () {
+        $before = ($this->member)(5, 'Anonymous Alex', 10);
+        $after  = ($this->member)(5, 'Anonymous Bob', 10); // name changed
 
         $this->m['offAttRepo']->method('findAll')->willReturn([]);
         $this->m['offAttRepo']->expects($this->never())->method('updateByMeetingAndOfficer');
 
         $this->admin->onMemberPositionChanged($after, $before);
-    }
+    });
+});
 
-    #[Test]
-    public function repeated_officer_ids_are_resolved_once_and_reused_from_cache(): void
-    {
-        $this->m['igmFactory']->method('createFromSource')->willReturn($this->igm(1, 'IG', '2026-03-10', [], [200, 200]));
+it('resolves repeated officer ids once and reuses them from cache', function () {
+    $this->m['igmFactory']->method('createFromSource')->willReturn(($this->igm)(1, 'IG', '2026-03-10', [], [200, 200]));
 
-        $position = $this->createMock(Position::class);
-        $position->method('getLongName')->willReturn('Treasurer');
-        $view = $this->createMock(PositionView::class);
-        $view->method('getMembers')->willReturn([$this->member(50, 'Anonymous Jo')]);
-        $view->method('getPosition')->willReturn($position);
-        $view->method('getOfficerDisplayName')->willReturn('Anonymous Jo');
-        $this->m['positionViewFac']->expects($this->once())->method('createFrom')->willReturn($view);
-        $this->m['memberRepo']->method('findById')->willReturn($this->member(50, 'Anonymous Jo'));
+    $position = $this->createMock(Position::class);
+    $position->method('getLongName')->willReturn('Treasurer');
+    $view = $this->createMock(PositionView::class);
+    $view->method('getMembers')->willReturn([($this->member)(50, 'Anonymous Jo')]);
+    $view->method('getPosition')->willReturn($position);
+    $view->method('getOfficerDisplayName')->willReturn('Anonymous Jo');
+    $this->m['positionViewFac']->expects($this->once())->method('createFrom')->willReturn($view);
+    $this->m['memberRepo']->method('findById')->willReturn(($this->member)(50, 'Anonymous Jo'));
 
-        $html = $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1));
+    $html = $this->capture(fn () => $this->admin->populateCustomColumns('officers_attending', 1));
 
-        $this->assertSame(2, substr_count($html, 'Treasurer'));
-    }
+    expect(substr_count($html, 'Treasurer'))->toBe(2);
+});
 
-    // ── today's meeting lookup ───────────────────────────────────────
-    #[Test]
-    public function todays_meeting_is_the_first_one_dated_today(): void
-    {
+// ── today's meeting lookup ───────────────────────────────────────
+describe("today's meeting lookup", function () {
+    it('finds the first meeting dated today', function () {
         $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'findTodaysIntergroupMeeting');
 
-        $meeting = $this->igm(5, 'Today IG', wp_date('Y-m-d'));
+        $meeting = ($this->igm)(5, 'Today IG', wp_date('Y-m-d'));
         $this->m['igmRepo']->method('findAll')->willReturn([$meeting]);
 
-        $this->assertSame($meeting, $method->invoke($this->admin));
-    }
+        expect($method->invoke($this->admin))->toBe($meeting);
+    });
 
-    #[Test]
-    public function there_is_no_todays_meeting_when_none_is_dated_today(): void
-    {
+    it('finds nothing when no meeting is dated today', function () {
         $method = new \ReflectionMethod(IntergroupMeetingAdmin::class, 'findTodaysIntergroupMeeting');
 
         $this->m['igmRepo']->method('findAll')->willReturn([]);
 
-        $this->assertNull($method->invoke($this->admin));
-    }
+        expect($method->invoke($this->admin))->toBeNull();
+    });
+});
 
-    // ── styles ───────────────────────────────────────────────────────
-    #[Test]
-    public function column_styles_load_only_on_the_intergroup_meeting_screen(): void
-    {
-        $this->setScreen('edit-' . self::IGM_TYPE, 'edit', self::IGM_TYPE);
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->admin->addAdminColumnStyles()));
+// ── styles ───────────────────────────────────────────────────────
+it('loads column styles only on the intergroup meeting screen', function () {
+    $this->setScreen('edit-' . IGM_TYPE, 'edit', IGM_TYPE);
+    expect($this->capture(fn () => $this->admin->addAdminColumnStyles()))->toContain('<style>');
 
-        $this->setScreen('edit-page', 'edit', 'page');
-        $this->assertSame('', $this->capture(fn () => $this->admin->addAdminColumnStyles()));
-    }
-}
+    $this->setScreen('edit-page', 'edit', 'page');
+    expect($this->capture(fn () => $this->admin->addAdminColumnStyles()))->toBe('');
+});

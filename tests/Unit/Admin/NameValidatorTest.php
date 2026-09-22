@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Positions\PositionNameValidator;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\Exceptions\JsonResponseException;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Positions\Interfaces\Position;
 
-/**
+/*
  * Tests for the two uniqueness validators.
  *
  * Members are identified by an anonymous name and positions by a name, and
@@ -28,159 +24,135 @@ use Unity\Positions\Interfaces\Position;
  * The two classes are near-identical in shape, so they are exercised
  * together and the parallel is asserted rather than left implicit.
  */
-#[CoversClass(\Amber\Admin\Members\AnonymousNameValidator::class)]
-#[CoversClass(\Amber\Admin\Positions\PositionNameValidator::class)]
-class NameValidatorTest extends AmberTestCase
+
+covers(AnonymousNameValidator::class, PositionNameValidator::class);
+
+const NAME_MEMBER_TYPE = 'intergroup-member';
+const NAME_POSITION_TYPE = 'intergroup-position';
+
+/** Make the next uniqueness query report an existing post. */
+function existingPost(int $id): void
 {
-    private const MEMBER_TYPE = 'intergroup-member';
-    private const POSITION_TYPE = 'intergroup-position';
+    WpState::$queryPosts = [$id];
+}
 
-    private AnonymousNameValidator $memberValidator;
-    private PositionNameValidator $positionValidator;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
+        Member::class => [
+            'POST_TYPE' => NAME_MEMBER_TYPE,
+            'FIELD_ANONYMOUS_NAME' => 'about-layout-group_anonymous-name',
+        ],
+        Position::class => [
+            'POST_TYPE' => NAME_POSITION_TYPE,
+            'FIELD_POSITION_LONG_NAME' => 'position-long-name',
+            'FIELD_POSITION_SHORT_NAME' => 'position-short-name',
+        ],
+        default => [],
+    });
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->memberValidator = new AnonymousNameValidator($config);
+    $this->positionValidator = new PositionNameValidator($config);
+});
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
-            Member::class => [
-                'POST_TYPE' => self::MEMBER_TYPE,
-                'FIELD_ANONYMOUS_NAME' => 'about-layout-group_anonymous-name',
-            ],
-            Position::class => [
-                'POST_TYPE' => self::POSITION_TYPE,
-                'FIELD_POSITION_LONG_NAME' => 'position-long-name',
-                'FIELD_POSITION_SHORT_NAME' => 'position-short-name',
-            ],
-            default => [],
-        });
+// ── registration ─────────────────────────────────────────────────
+it('registers an ajax endpoint and a save filter for both validators', function () {
+    $this->assertHookAdded('wp_ajax_amber_validate_anonymous_name');
+    $this->assertHookAdded('wp_ajax_amber_validate_position_name');
+    // Server-side validation is keyed to the ACF field, so a save that
+    // skips the browser is still checked.
+    $this->assertHookAdded('acf/validate_value/key=field_66461796ab271');
+    $this->assertHookAdded('acf/validate_value/key=field_66720958da8b5');
+    $this->assertHookAdded('acf/input/admin_enqueue_scripts');
+});
 
-        $this->memberValidator = new AnonymousNameValidator($config);
-        $this->positionValidator = new PositionNameValidator($config);
-    }
-
-    /** Make the next uniqueness query report an existing post. */
-    private function existingPost(int $id): void
-    {
-        WpState::$queryPosts = [$id];
-    }
-
-    // ── registration ─────────────────────────────────────────────────
-    #[Test]
-    public function both_validators_register_an_ajax_endpoint_and_a_save_filter(): void
-    {
-        $this->assertHookAdded('wp_ajax_amber_validate_anonymous_name');
-        $this->assertHookAdded('wp_ajax_amber_validate_position_name');
-        // Server-side validation is keyed to the ACF field, so a save that
-        // skips the browser is still checked.
-        $this->assertHookAdded('acf/validate_value/key=field_66461796ab271');
-        $this->assertHookAdded('acf/validate_value/key=field_66720958da8b5');
-        $this->assertHookAdded('acf/input/admin_enqueue_scripts');
-    }
-
-    // ── script enqueuing ─────────────────────────────────────────────
-    #[Test]
-    public function the_member_validator_script_loads_only_on_the_member_screen(): void
-    {
-        $this->setScreen('post', 'post', self::MEMBER_TYPE);
+// ── script enqueuing ─────────────────────────────────────────────
+describe('script enqueuing', function () {
+    it('loads the member validator script only on the member screen', function () {
+        $this->setScreen('post', 'post', NAME_MEMBER_TYPE);
 
         $this->memberValidator->enqueueScripts();
 
-        $this->assertNotEmpty(WpState::$enqueued);
-        $this->assertArrayHasKey('amberMemberAnonymousName', WpState::$localized);
-        $this->assertArrayHasKey('nonce', WpState::$localized['amberMemberAnonymousName']);
-    }
+        expect(WpState::$enqueued)->not->toBeEmpty()
+            ->and(WpState::$localized)->toHaveKey('amberMemberAnonymousName')
+            ->and(WpState::$localized['amberMemberAnonymousName'])->toHaveKey('nonce');
+    });
 
-    #[Test]
-    public function the_member_validator_script_is_skipped_elsewhere(): void
-    {
+    it('skips the member validator script elsewhere', function () {
         $this->setScreen('post', 'post', 'page');
 
         $this->memberValidator->enqueueScripts();
 
-        $this->assertSame([], WpState::$enqueued);
-    }
+        expect(WpState::$enqueued)->toBe([]);
+    });
 
-    #[Test]
-    public function the_member_validator_script_is_skipped_without_a_screen(): void
-    {
+    it('skips the member validator script without a screen', function () {
         WpState::$screen = null;
 
         $this->memberValidator->enqueueScripts();
 
-        $this->assertSame([], WpState::$enqueued);
-    }
+        expect(WpState::$enqueued)->toBe([]);
+    });
 
-    #[Test]
-    public function the_position_validator_script_loads_only_on_the_position_screen(): void
-    {
-        $this->setScreen('post', 'post', self::POSITION_TYPE);
+    it('loads the position validator script only on the position screen', function () {
+        $this->setScreen('post', 'post', NAME_POSITION_TYPE);
 
         $this->positionValidator->enqueueScripts();
 
-        $this->assertNotEmpty(WpState::$enqueued);
-    }
+        expect(WpState::$enqueued)->not->toBeEmpty();
+    });
 
-    #[Test]
-    public function the_position_validator_script_is_skipped_elsewhere(): void
-    {
+    it('skips the position validator script elsewhere', function () {
         $this->setScreen('post', 'post', 'page');
 
         $this->positionValidator->enqueueScripts();
 
-        $this->assertSame([], WpState::$enqueued);
-    }
+        expect(WpState::$enqueued)->toBe([]);
+    });
+});
 
-    // ── AJAX: member ─────────────────────────────────────────────────
-    #[Test]
-    public function an_unused_anonymous_name_is_reported_valid(): void
-    {
+// ── AJAX: member ─────────────────────────────────────────────────
+describe('ajax', function () {
+    it('reports an unused anonymous name valid', function () {
         $_POST = ['value' => 'Anonymous Alex', 'post_id' => '42'];
 
         try {
             $this->memberValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertTrue($e->success);
-            $this->assertTrue($e->data['valid']);
+            expect($e->success)->toBeTrue()
+                ->and($e->data['valid'])->toBeTrue();
         }
-    }
+    });
 
-    #[Test]
-    public function a_duplicate_anonymous_name_is_reported_invalid_with_the_clashing_post(): void
-    {
-        $this->existingPost(99);
+    it('reports a duplicate anonymous name invalid with the clashing post', function () {
+        existingPost(99);
         $_POST = ['value' => 'Anonymous Alex', 'post_id' => '42'];
 
         try {
             $this->memberValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertFalse($e->data['valid']);
-            // Naming the clashing post is what makes the message actionable.
-            $this->assertStringContainsString('99', $e->data['message']);
+            expect($e->data['valid'])->toBeFalse()
+                // Naming the clashing post is what makes the message actionable.
+                ->and($e->data['message'])->toContain('99');
         }
-    }
+    });
 
-    #[Test]
-    public function an_empty_anonymous_name_is_not_treated_as_a_clash(): void
-    {
+    it('does not treat an empty anonymous name as a clash', function () {
         // Emptiness is ACF's required-field problem, not a uniqueness one.
-        $this->existingPost(99);
+        existingPost(99);
         $_POST = ['value' => '', 'post_id' => '42'];
 
         try {
             $this->memberValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertTrue($e->data['valid']);
+            expect($e->data['valid'])->toBeTrue();
         }
-    }
+    });
 
-    #[Test]
-    public function the_ajax_check_is_refused_without_edit_permission(): void
-    {
+    it('refuses the ajax check without edit permission', function () {
         $this->denyCapability();
         $_POST = ['value' => 'Anonymous Alex'];
 
@@ -188,41 +160,35 @@ class NameValidatorTest extends AmberTestCase
             $this->memberValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertFalse($e->success);
+            expect($e->success)->toBeFalse();
         }
-    }
+    });
 
-    #[Test]
-    public function the_position_ajax_check_answers_the_same_way(): void
-    {
+    it('answers the position ajax check the same way', function () {
         $_POST = ['value' => 'Treasurer', 'post_id' => '7'];
 
         try {
             $this->positionValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertTrue($e->success);
-            $this->assertTrue($e->data['valid']);
+            expect($e->success)->toBeTrue()
+                ->and($e->data['valid'])->toBeTrue();
         }
-    }
+    });
 
-    #[Test]
-    public function a_duplicate_position_name_is_reported_invalid(): void
-    {
-        $this->existingPost(88);
+    it('reports a duplicate position name invalid', function () {
+        existingPost(88);
         $_POST = ['value' => 'Treasurer', 'post_id' => '7'];
 
         try {
             $this->positionValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertFalse($e->data['valid']);
+            expect($e->data['valid'])->toBeFalse();
         }
-    }
+    });
 
-    #[Test]
-    public function the_position_ajax_check_is_refused_without_permission(): void
-    {
+    it('refuses the position ajax check without permission', function () {
         $this->denyCapability();
         $_POST = ['value' => 'Treasurer'];
 
@@ -230,116 +196,87 @@ class NameValidatorTest extends AmberTestCase
             $this->positionValidator->handleAjax();
             $this->fail('Expected a JSON response.');
         } catch (JsonResponseException $e) {
-            $this->assertFalse($e->success);
+            expect($e->success)->toBeFalse();
         }
-    }
+    });
+});
 
-    // ── save-time validation ─────────────────────────────────────────
-    #[Test]
-    public function saving_a_unique_anonymous_name_passes_validation(): void
-    {
+// ── save-time validation ─────────────────────────────────────────
+describe('save-time validation', function () {
+    it('passes a unique anonymous name', function () {
         $_POST = ['_acf_post_id' => '42'];
 
-        $this->assertTrue($this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]'));
-    }
+        expect($this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]'))->toBeTrue();
+    });
 
-    #[Test]
-    public function saving_a_duplicate_anonymous_name_returns_an_error_message(): void
-    {
-        $this->existingPost(99);
+    it('returns an error message for a duplicate anonymous name', function () {
+        existingPost(99);
         $_POST = ['_acf_post_id' => '42'];
 
         $result = $this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]');
 
-        $this->assertIsString($result);
-        $this->assertStringContainsString('already in use', $result);
-    }
+        expect($result)->toBeString()
+            ->toContain('already in use');
+    });
 
-    #[Test]
-    public function an_existing_validation_failure_is_left_untouched(): void
-    {
+    it('leaves an existing validation failure untouched', function () {
         // Another validator already rejected it; ours must not overwrite
         // that message with a pass.
-        $this->existingPost(99);
+        existingPost(99);
 
-        $this->assertSame(
-            'Already invalid',
-            $this->memberValidator->validateOnSave('Already invalid', 'Anonymous Alex', [], 'acf[field]')
-        );
-    }
+        expect($this->memberValidator->validateOnSave('Already invalid', 'Anonymous Alex', [], 'acf[field]'))
+            ->toBe('Already invalid');
+    });
 
-    #[Test]
-    public function an_empty_value_passes_save_validation(): void
-    {
-        $this->existingPost(99);
+    it('passes an empty value', function () {
+        existingPost(99);
         $_POST = ['_acf_post_id' => '42'];
 
-        $this->assertTrue($this->memberValidator->validateOnSave(true, '', [], 'acf[field]'));
-    }
+        expect($this->memberValidator->validateOnSave(true, '', [], 'acf[field]'))->toBeTrue();
+    });
 
-    /**
-     * ACF puts the post id in _acf_post_id during server-side validation,
-     * not the post_id the AJAX handler uses, so both are read with
-     * WordPress's own post_ID as a final fallback. Excluding the wrong post
-     * would make a record clash with itself and block every save.
-     */
-    #[DataProvider('postIdSourceProvider')]
-    #[Test]
-    public function the_post_being_edited_is_excluded_however_its_id_arrives(string $key): void
-    {
+    // ACF puts the post id in _acf_post_id during server-side validation,
+    // not the post_id the AJAX handler uses, so both are read with
+    // WordPress's own post_ID as a final fallback. Excluding the wrong post
+    // would make a record clash with itself and block every save.
+    it('excludes the post being edited however its id arrives', function (string $key) {
         // The only match is the post being edited, so it must not count.
-        $this->existingPost(0);
+        existingPost(0);
         $_POST = [$key => '42'];
 
-        $this->assertTrue($this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]'));
-    }
+        expect($this->memberValidator->validateOnSave(true, 'Anonymous Alex', [], 'acf[field]'))->toBeTrue();
+    })->with([
+        'acf server-side field' => ['_acf_post_id'],
+        'ajax field'            => ['post_id'],
+        'wordpress field'       => ['post_ID'],
+    ]);
 
-    /** @return array<string, array{0: string}> */
-    public static function postIdSourceProvider(): array
-    {
-        return [
-            'acf server-side field' => ['_acf_post_id'],
-            'ajax field'            => ['post_id'],
-            'wordpress field'       => ['post_ID'],
-        ];
-    }
-
-    #[Test]
-    public function saving_a_unique_position_name_passes_validation(): void
-    {
+    it('passes a unique position name', function () {
         $_POST = ['_acf_post_id' => '7'];
 
-        $this->assertTrue($this->positionValidator->validateOnSave(true, 'Treasurer', [], 'acf[field]'));
-    }
+        expect($this->positionValidator->validateOnSave(true, 'Treasurer', [], 'acf[field]'))->toBeTrue();
+    });
 
-    #[Test]
-    public function saving_a_duplicate_position_name_returns_an_error_message(): void
-    {
-        $this->existingPost(88);
+    it('returns an error message for a duplicate position name', function () {
+        existingPost(88);
         $_POST = ['_acf_post_id' => '7'];
 
         $result = $this->positionValidator->validateOnSave(true, 'Treasurer', [], 'acf[field]');
 
-        $this->assertIsString($result);
-    }
+        expect($result)->toBeString();
+    });
 
-    #[Test]
-    public function an_empty_position_name_passes_save_validation(): void
-    {
-        $this->existingPost(88);
+    it('passes an empty position name', function () {
+        existingPost(88);
         $_POST = ['_acf_post_id' => '7'];
 
-        $this->assertTrue($this->positionValidator->validateOnSave(true, '', [], 'acf[field]'));
-    }
+        expect($this->positionValidator->validateOnSave(true, '', [], 'acf[field]'))->toBeTrue();
+    });
 
-    #[Test]
-    public function an_existing_position_validation_failure_is_left_untouched(): void
-    {
-        $this->existingPost(88);
+    it('leaves an existing position validation failure untouched', function () {
+        existingPost(88);
 
-        $this->assertSame(
-            'Already invalid',
-            $this->positionValidator->validateOnSave('Already invalid', 'Treasurer', [], 'acf[field]')
-        );
-    }
-}
+        expect($this->positionValidator->validateOnSave('Already invalid', 'Treasurer', [], 'acf[field]'))
+            ->toBe('Already invalid');
+    });
+});

@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Positions;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Positions\PositionDashboard;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
@@ -19,7 +14,7 @@ use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\PositionView;
 use Unity\Positions\Interfaces\PositionViewFactory;
 
-/**
+/*
  * Tests for the Positions & Members dashboard widget.
  *
  * This is the at-a-glance screen an intergroup officer sees on login: one
@@ -29,53 +24,38 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * member" row) — because a widget that renders a blank card or a PHP notice
  * on the dashboard is the most visible failure Amber can have.
  */
-#[CoversClass(\Amber\Admin\Positions\PositionDashboard::class)]
-class PositionDashboardTest extends AmberTestCase
-{
-    private PositionDashboard $dashboard;
 
-    /** @var PositionViewFactory&MockObject */
-    private $viewFactory;
+covers(PositionDashboard::class);
 
-    /** @var PositionRepository&MockObject */
-    private $repository;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-member']);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->viewFactory = $this->createMock(PositionViewFactory::class);
+    $this->repository = $this->createMock(PositionRepository::class);
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-member']);
+    $this->dashboard = new PositionDashboard($config, $this->viewFactory, $this->repository);
 
-        $this->viewFactory = $this->createMock(PositionViewFactory::class);
-        $this->repository = $this->createMock(PositionRepository::class);
-
-        $this->dashboard = new PositionDashboard($config, $this->viewFactory, $this->repository);
-    }
-
-    private function position(int $id = 7): Position
-    {
+    $this->position = function (int $id = 7): Position {
         $position = $this->createMock(Position::class);
         $position->method('getId')->willReturn($id);
 
         return $position;
-    }
+    };
 
-    private function member(int $id, string $name): Member
-    {
+    $this->member = function (int $id, string $name): Member {
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn($id);
         $member->method('getAnonymousName')->willReturn($name);
 
         return $member;
-    }
+    };
 
-    private function view(array $overrides = []): PositionView
-    {
+    $this->view = function (array $overrides = []): PositionView {
         $defaults = [
             'getTitle' => 'Treasurer',
             'isVacant' => false,
-            'getMembers' => [$this->member(1, 'Anonymous Alex')],
+            'getMembers' => [($this->member)(1, 'Anonymous Alex')],
             'getPositionEmail' => 'treasurer@example.test',
             'getDescription' => 'Treasurer',
             'getRotationDate' => new DateTime('2027-03-01'),
@@ -88,197 +68,159 @@ class PositionDashboardTest extends AmberTestCase
         }
 
         return $view;
-    }
+    };
 
     /** Render the widget over the given views. */
-    private function renderWith(PositionView ...$views): string
-    {
+    $this->renderWith = function (PositionView ...$views): string {
         $this->repository->method('findAll')->willReturn(
-            array_map(fn (int $i): Position => $this->position($i), range(1, max(count($views), 1)))
+            array_map(fn (int $i): Position => ($this->position)($i), range(1, max(count($views), 1)))
         );
         $this->viewFactory->method('createFrom')->willReturnOnConsecutiveCalls(...$views ?: [null]);
 
         return $this->capture(fn () => $this->dashboard->renderDashboardWidget());
-    }
+    };
+});
 
-    // ── registration ─────────────────────────────────────────────────
-    #[Test]
-    public function it_registers_the_dashboard_widget_hooks(): void
-    {
+// ── registration ─────────────────────────────────────────────────
+describe('registration', function () {
+    it('registers the dashboard widget hooks', function () {
         $this->assertHookAdded('wp_dashboard_setup');
         $this->assertHookAdded('admin_head');
-    }
+    });
 
-    #[Test]
-    public function the_widget_is_registered_on_the_dashboard(): void
-    {
+    it('registers the widget on the dashboard', function () {
         $this->dashboard->registerDashboardWidget();
 
-        $this->assertArrayHasKey('position_members_dashboard', WpState::$widgets);
-        $this->assertSame('Positions & Members', WpState::$widgets['position_members_dashboard']['name']);
-    }
+        expect(WpState::$widgets)->toHaveKey('position_members_dashboard')
+            ->and(WpState::$widgets['position_members_dashboard']['name'])->toBe('Positions & Members');
+    });
 
-    #[Test]
-    public function the_widget_styles_are_emitted_on_the_dashboard(): void
-    {
+    it('emits the widget styles on the dashboard', function () {
         $this->setScreen('dashboard', 'dashboard');
 
         $css = $this->capture(fn () => $this->dashboard->addDashboardStyles());
 
-        $this->assertStringContainsString('<style>', $css);
-    }
+        expect($css)->toContain('<style>');
+    });
 
-    #[Test]
-    public function the_widget_styles_are_not_emitted_on_other_screens(): void
-    {
+    it('does not emit the widget styles on other screens', function () {
         // The widget only appears on the dashboard, so its CSS has no
         // business loading on every admin page.
         $this->setScreen('edit-post', 'edit', 'post');
 
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
-    }
+        expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toBe('');
+    });
+});
 
-    // ── rendering ────────────────────────────────────────────────────
-    #[Test]
-    public function a_site_with_no_positions_says_so_rather_than_rendering_nothing(): void
-    {
+// ── rendering ────────────────────────────────────────────────────
+describe('rendering', function () {
+    it('says so rather than rendering nothing for a site with no positions', function () {
         $this->repository->method('findAll')->willReturn([]);
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('No positions found', $html);
-    }
+        expect($html)->toContain('No positions found');
+    });
 
-    #[Test]
-    public function a_position_is_rendered_as_a_card_with_its_holder(): void
-    {
-        $html = $this->renderWith($this->view());
+    it('renders a position as a card with its holder', function () {
+        $html = ($this->renderWith)(($this->view)());
 
-        $this->assertStringContainsString('position-card', $html);
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Anonymous Alex', $html);
-        $this->assertStringContainsString('treasurer@example.test', $html);
-    }
+        expect($html)->toContain('position-card')
+            ->toContain('Treasurer')
+            ->toContain('Anonymous Alex')
+            ->toContain('treasurer@example.test');
+    });
 
-    #[Test]
-    public function a_vacant_position_is_marked_vacant(): void
-    {
-        $html = $this->renderWith($this->view(['isVacant' => true, 'getMembers' => []]));
+    it('marks a vacant position vacant', function () {
+        $html = ($this->renderWith)(($this->view)(['isVacant' => true, 'getMembers' => []]));
 
-        $this->assertStringContainsString('Vacant', $html);
-    }
+        expect($html)->toContain('Vacant');
+    });
 
-    #[Test]
-    public function a_position_with_no_title_falls_back_to_a_placeholder(): void
-    {
+    it('falls back to a placeholder for a position with no title', function () {
         // Better a labelled card than an anonymous empty one.
-        $html = $this->renderWith($this->view(['getTitle' => '']));
+        $html = ($this->renderWith)(($this->view)(['getTitle' => '']));
 
-        $this->assertStringContainsString('Untitled Position', $html);
-    }
+        expect($html)->toContain('Untitled Position');
+    });
 
-    #[Test]
-    public function the_archivist_card_omits_the_current_member_row(): void
-    {
+    it('omits the current member row from the archivist card', function () {
         // Archivist is a permanent tenure, so "current member" and rotation
         // are not meaningful for it.
-        $html = $this->renderWith($this->view(['getDescription' => 'Archivist']));
+        $html = ($this->renderWith)(($this->view)(['getDescription' => 'Archivist']));
 
-        $this->assertStringNotContainsString('Current Member', $html);
-    }
+        expect($html)->not->toContain('Current Member');
+    });
 
-    #[Test]
-    public function a_non_archivist_card_shows_the_current_member_row(): void
-    {
-        $html = $this->renderWith($this->view());
+    it('shows the current member row on a non archivist card', function () {
+        $html = ($this->renderWith)(($this->view)());
 
-        $this->assertStringContainsString('Current Member', $html);
-    }
+        expect($html)->toContain('Current Member');
+    });
 
-    #[Test]
-    public function a_job_share_lists_every_holder(): void
-    {
-        $html = $this->renderWith($this->view([
-            'getMembers' => [$this->member(1, 'Anonymous Alex'), $this->member(2, 'Anonymous Sam')],
+    it('lists every holder of a job share', function () {
+        $html = ($this->renderWith)(($this->view)([
+            'getMembers' => [($this->member)(1, 'Anonymous Alex'), ($this->member)(2, 'Anonymous Sam')],
         ]));
 
-        $this->assertStringContainsString('Anonymous Alex', $html);
-        $this->assertStringContainsString('Anonymous Sam', $html);
-    }
+        expect($html)->toContain('Anonymous Alex')
+            ->toContain('Anonymous Sam');
+    });
 
-    #[Test]
-    public function positions_are_ordered_by_title(): void
-    {
-        $html = $this->renderWith(
-            $this->view(['getTitle' => 'Treasurer']),
-            $this->view(['getTitle' => 'Chair'])
+    it('orders positions by title', function () {
+        $html = ($this->renderWith)(
+            ($this->view)(['getTitle' => 'Treasurer']),
+            ($this->view)(['getTitle' => 'Chair'])
         );
 
         // Sorted case-insensitively, so Chair precedes Treasurer regardless
         // of the order the repository returned them in.
-        $this->assertLessThan(strpos($html, 'Treasurer'), strpos($html, 'Chair'));
-    }
+        expect(strpos($html, 'Chair'))->toBeLessThan(strpos($html, 'Treasurer'));
+    });
 
-    #[Test]
-    public function positions_without_a_view_are_skipped(): void
-    {
-        $this->repository->method('findAll')->willReturn([$this->position(1), $this->position(2)]);
-        $this->viewFactory->method('createFrom')->willReturnOnConsecutiveCalls(null, $this->view());
+    it('skips positions without a view', function () {
+        $this->repository->method('findAll')->willReturn([($this->position)(1), ($this->position)(2)]);
+        $this->viewFactory->method('createFrom')->willReturnOnConsecutiveCalls(null, ($this->view)());
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertSame(1, substr_count($html, 'position-card-header'));
-    }
+        expect(substr_count($html, 'position-card-header'))->toBe(1);
+    });
 
-    #[Test]
-    public function a_position_with_no_email_still_renders(): void
-    {
-        $html = $this->renderWith($this->view(['getPositionEmail' => '']));
+    it('still renders a position with no email', function () {
+        $html = ($this->renderWith)(($this->view)(['getPositionEmail' => '']));
 
-        $this->assertStringContainsString('Position Email', $html);
-    }
+        expect($html)->toContain('Position Email');
+    });
 
-    #[Test]
-    public function a_position_with_no_rotation_date_still_renders(): void
-    {
-        $html = $this->renderWith($this->view(['getRotationDate' => null]));
+    it('still renders a position with no rotation date', function () {
+        $html = ($this->renderWith)(($this->view)(['getRotationDate' => null]));
 
-        $this->assertStringContainsString('position-card', $html);
-    }
+        expect($html)->toContain('position-card');
+    });
+});
 
-    // ── status badge ─────────────────────────────────────────────────
-    #[DataProvider('statusBadgeProvider')]
-    #[Test]
-    public function the_status_badge_reflects_the_rotation_state(?int $months, string $expected): void
-    {
-        $html = $this->renderWith($this->view([
-            'getMonthsUntilRotation' => $months,
-            'getDaysUntilRotation'   => $months === null ? null : $months * 30,
-        ]));
+// ── status badge ─────────────────────────────────────────────────
+it('reflects the rotation state in the status badge', function (?int $months, string $expected) {
+    $html = ($this->renderWith)(($this->view)([
+        'getMonthsUntilRotation' => $months,
+        'getDaysUntilRotation'   => $months === null ? null : $months * 30,
+    ]));
 
-        $this->assertStringContainsString($expected, $html);
-    }
+    expect($html)->toContain($expected);
+})->with([
+    'unknown when months null' => [null, 'status-unknown'],
+    'overdue when negative'    => [-2, 'status-overdue'],
+    'due at zero'              => [0, 'status-due'],
+    'soon within three'       => [2, 'status-soon'],
+    'filled beyond three'     => [12, 'status-normal'],
+]);
 
-    /** @return array<string, array{0: int|null, 1: string}> */
-    public static function statusBadgeProvider(): array
-    {
-        return [
-            'unknown when months null' => [null, 'status-unknown'],
-            'overdue when negative'    => [-2, 'status-overdue'],
-            'due at zero'              => [0, 'status-due'],
-            'soon within three'       => [2, 'status-soon'],
-            'filled beyond three'     => [12, 'status-normal'],
-        ];
-    }
+it('shows how many months overdue in an overdue member cell', function () {
+    $html = ($this->renderWith)(($this->view)([
+        'getMonthsUntilRotation' => -3,
+        'getDaysUntilRotation'   => -90,
+    ]));
 
-    #[Test]
-    public function an_overdue_member_cell_shows_how_many_months_overdue(): void
-    {
-        $html = $this->renderWith($this->view([
-            'getMonthsUntilRotation' => -3,
-            'getDaysUntilRotation'   => -90,
-        ]));
-
-        $this->assertStringContainsString('Overdue 3 months', $html);
-    }
-}
+    expect($html)->toContain('Overdue 3 months');
+});

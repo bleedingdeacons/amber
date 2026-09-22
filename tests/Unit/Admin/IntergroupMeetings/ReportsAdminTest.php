@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\ReportsAdmin;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\Exceptions\WpDieException;
 use DateTime;
 use ReflectionMethod;
@@ -26,7 +22,7 @@ use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\PositionView;
 use Unity\Positions\Interfaces\PositionViewFactory;
 
-/**
+/*
  * Tests for the CSV reports admin page.
  *
  * The page builds two downloadable reports for a chosen meeting: one row per
@@ -40,125 +36,32 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * row, blank member fields), a filled one produces a row per holder, and the
  * derived Duration / Started-Service / Attended fields are correct.
  */
-#[CoversClass(\Amber\Admin\IntergroupMeetings\ReportsAdmin::class)]
-class ReportsAdminTest extends AmberTestCase
-{
-    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
-    private $groupAttendance;
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
-    private $officerAttendance;
+covers(ReportsAdmin::class);
 
-    /** @var PositionRepository&MockObject */
-    private $positionRepository;
+beforeEach(function () {
+    $this->groupAttendance     = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
+    $this->officerAttendance   = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
+    $this->positionRepository  = $this->createMock(PositionRepository::class);
+    $this->positionViewFactory = $this->createMock(PositionViewFactory::class);
+    $this->groupRepository     = $this->createMock(GroupRepository::class);
+    $this->groupViewFactory    = $this->createMock(GroupViewFactory::class);
 
-    /** @var PositionViewFactory&MockObject */
-    private $positionViewFactory;
-
-    /** @var GroupRepository&MockObject */
-    private $groupRepository;
-
-    /** @var GroupViewFactory&MockObject */
-    private $groupViewFactory;
-
-    private ReportsAdmin $reports;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->groupAttendance     = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
-        $this->officerAttendance   = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
-        $this->positionRepository  = $this->createMock(PositionRepository::class);
-        $this->positionViewFactory = $this->createMock(PositionViewFactory::class);
-        $this->groupRepository     = $this->createMock(GroupRepository::class);
-        $this->groupViewFactory    = $this->createMock(GroupViewFactory::class);
-
-        $this->reports = new ReportsAdmin(
-            $this->groupAttendance,
-            $this->officerAttendance,
-            $this->positionRepository,
-            $this->positionViewFactory,
-            $this->groupRepository,
-            $this->groupViewFactory
-        );
-    }
+    $this->reports = new ReportsAdmin(
+        $this->groupAttendance,
+        $this->officerAttendance,
+        $this->positionRepository,
+        $this->positionViewFactory,
+        $this->groupRepository,
+        $this->groupViewFactory
+    );
 
     /** @return mixed */
-    private function callPrivate(string $method, array $args = [])
-    {
+    $this->callPrivate = function (string $method, array $args = []) {
         return (new ReflectionMethod(ReportsAdmin::class, $method))->invokeArgs($this->reports, $args);
-    }
+    };
 
-    // ── page render ──────────────────────────────────────────────────
-    #[Test]
-    public function the_page_offers_both_downloads_for_the_selected_meeting(): void
-    {
-        $this->wpdb->col = ['March IG'];
-
-        $html = $this->capture(fn () => $this->reports->renderPage());
-
-        $this->assertStringContainsString('Positions Report', $html);
-        $this->assertStringContainsString('Groups Report', $html);
-        // Filenames sanitised from the label.
-        $this->assertStringContainsString('position_March_IG.csv', $html);
-        $this->assertStringContainsString('group_March_IG.csv', $html);
-        // Download links are nonce-protected.
-        $this->assertStringContainsString('amber_action=download_positions_csv', $html);
-    }
-
-    #[Test]
-    public function the_page_reports_when_there_are_no_meetings(): void
-    {
-        $this->wpdb->col = [];
-
-        $this->assertStringContainsString('No attendance records found', $this->capture(fn () => $this->reports->renderPage()));
-    }
-
-    // ── download guards ──────────────────────────────────────────────
-    #[Test]
-    public function the_download_handler_ignores_other_admin_pages(): void
-    {
-        $_GET = [];
-
-        // No exception, no output — it simply returns.
-        $this->reports->maybeHandleDownload();
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function the_download_handler_ignores_an_unknown_action(): void
-    {
-        $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'nonsense'];
-
-        $this->reports->maybeHandleDownload();
-        $this->assertTrue(true);
-    }
-
-    #[Test]
-    public function a_download_without_permission_is_refused(): void
-    {
-        $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
-        $this->denyCapability();
-
-        $this->expectException(WpDieException::class);
-        $this->reports->maybeHandleDownload();
-    }
-
-    #[Test]
-    public function a_download_with_no_meeting_selected_is_refused(): void
-    {
-        $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
-
-        // Permission ok, nonce ok (stubbed), but no meeting_label → wp_die.
-        $this->expectException(WpDieException::class);
-        $this->reports->maybeHandleDownload();
-    }
-
-    // ── position rows ────────────────────────────────────────────────
-
-    private function positionView(int $id, string $title, array $members, int $termYears = 3, ?DateTime $rotation = null): PositionView
-    {
+    $this->positionView = function (int $id, string $title, array $members, int $termYears = 3, ?DateTime $rotation = null): PositionView {
         $position = $this->createMock(Position::class);
         $position->method('getId')->willReturn($id);
         $position->method('getLongName')->willReturn($title . ' Long');
@@ -172,10 +75,9 @@ class ReportsAdminTest extends AmberTestCase
         $view->method('getMembers')->willReturn($members);
 
         return $view;
-    }
+    };
 
-    private function member(string $name): Member
-    {
+    $this->member = function (string $name): Member {
         $member = $this->createMock(Member::class);
         $member->method('getAnonymousName')->willReturn($name);
         $member->method('getPersonalEmail')->willReturn(strtolower($name) . '@example.test');
@@ -183,134 +85,167 @@ class ReportsAdminTest extends AmberTestCase
         $member->method('isGSR')->willReturn(true);
 
         return $member;
-    }
+    };
+});
 
-    #[Test]
-    public function the_position_rows_include_a_row_per_holder_and_a_vacant_row(): void
-    {
-        // Two positions in the repo, one filled and one vacant. Only the filled
-        // one is marked attending.
-        $filled = $this->positionView(1, 'Treasurer', [$this->member('Anonymous Alex')]);
-        $vacant = $this->positionView(2, 'Secretary', []);
+// ── page render ──────────────────────────────────────────────────
+it('offers both downloads for the selected meeting', function () {
+    $this->wpdb->col = ['March IG'];
 
-        $p1 = $this->createMock(Position::class);
-        $p1->method('getId')->willReturn(1);
-        $p2 = $this->createMock(Position::class);
-        $p2->method('getId')->willReturn(2);
-        $this->positionRepository->method('findAll')->willReturn([$p1, $p2]);
-        $this->positionViewFactory->method('createFrom')->willReturnMap([[1, $filled], [2, $vacant]]);
+    $html = $this->capture(fn () => $this->reports->renderPage());
 
-        $attRecord = $this->createMock(IntergroupMeetingOfficerAttendance::class);
-        $attRecord->method('getOfficerId')->willReturn(1);
-        $this->officerAttendance->method('findAll')->willReturn([$attRecord]);
+    expect($html)->toContain('Positions Report')
+        ->toContain('Groups Report')
+        // Filenames sanitised from the label.
+        ->toContain('position_March_IG.csv')
+        ->toContain('group_March_IG.csv')
+        // Download links are nonce-protected.
+        ->toContain('amber_action=download_positions_csv');
+});
 
-        /** @var array<array<string>> $rows */
-        $rows = $this->callPrivate('buildPositionRows', ['March IG']);
+it('reports when there are no meetings', function () {
+    $this->wpdb->col = [];
 
-        $this->assertCount(2, $rows);
+    expect($this->capture(fn () => $this->reports->renderPage()))->toContain('No attendance records found');
+});
+
+// ── download guards ──────────────────────────────────────────────
+it('ignores other admin pages in the download handler', function () {
+    $_GET = [];
+
+    // No exception, no output — it simply returns.
+    expect($this->reports->maybeHandleDownload())->toBeNull();
+});
+
+it('ignores an unknown action in the download handler', function () {
+    $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'nonsense'];
+
+    expect($this->reports->maybeHandleDownload())->toBeNull();
+});
+
+it('refuses a download without permission', function () {
+    $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
+    $this->denyCapability();
+
+    $this->reports->maybeHandleDownload();
+})->throws(WpDieException::class);
+
+it('refuses a download with no meeting selected', function () {
+    $_GET = ['page' => 'intergroup-reports', 'amber_action' => 'download_positions_csv'];
+
+    // Permission ok, nonce ok (stubbed), but no meeting_label → wp_die.
+    $this->reports->maybeHandleDownload();
+})->throws(WpDieException::class);
+
+// ── position rows ────────────────────────────────────────────────
+it('includes a position row per holder and a vacant row', function () {
+    // Two positions in the repo, one filled and one vacant. Only the filled
+    // one is marked attending.
+    $filled = ($this->positionView)(1, 'Treasurer', [($this->member)('Anonymous Alex')]);
+    $vacant = ($this->positionView)(2, 'Secretary', []);
+
+    $p1 = $this->createMock(Position::class);
+    $p1->method('getId')->willReturn(1);
+    $p2 = $this->createMock(Position::class);
+    $p2->method('getId')->willReturn(2);
+    $this->positionRepository->method('findAll')->willReturn([$p1, $p2]);
+    $this->positionViewFactory->method('createFrom')->willReturnMap([[1, $filled], [2, $vacant]]);
+
+    $attRecord = $this->createMock(IntergroupMeetingOfficerAttendance::class);
+    $attRecord->method('getOfficerId')->willReturn(1);
+    $this->officerAttendance->method('findAll')->willReturn([$attRecord]);
+
+    /** @var array<array<string>> $rows */
+    $rows = ($this->callPrivate)('buildPositionRows', ['March IG']);
+
+    expect($rows)->toHaveCount(2)
         // Alphabetical: Secretary before Treasurer.
-        $this->assertSame('Secretary', $rows[0][0]);
-        $this->assertSame('No', $rows[0][8]);        // vacant, not attended
-        $this->assertSame('', $rows[0][3]);          // blank member name
-        $this->assertSame('Treasurer', $rows[1][0]);
-        $this->assertSame('Anonymous Alex', $rows[1][3]);
-        $this->assertSame('Yes', $rows[1][8]);       // attended
-        $this->assertSame('3 years', $rows[1][6]);   // duration
-        $this->assertSame('2024-01-01', $rows[1][7]); // rotation 2027 − 3y term
-    }
+        ->and($rows[0][0])->toBe('Secretary')
+        ->and($rows[0][8])->toBe('No')        // vacant, not attended
+        ->and($rows[0][3])->toBe('')          // blank member name
+        ->and($rows[1][0])->toBe('Treasurer')
+        ->and($rows[1][3])->toBe('Anonymous Alex')
+        ->and($rows[1][8])->toBe('Yes')       // attended
+        ->and($rows[1][6])->toBe('3 years')   // duration
+        ->and($rows[1][7])->toBe('2024-01-01'); // rotation 2027 − 3y term
+});
 
-    // ── group rows ───────────────────────────────────────────────────
-    #[Test]
-    public function the_group_rows_include_a_row_per_gsr_and_a_gsr_less_row(): void
-    {
-        $groupA = $this->createMock(Group::class);
-        $groupA->method('getId')->willReturn(10);
-        $groupA->method('getTitle')->willReturn('Alpha Group');
-        $groupB = $this->createMock(Group::class);
-        $groupB->method('getId')->willReturn(20);
-        $groupB->method('getTitle')->willReturn('Beta Group');
-        $this->groupRepository->method('findAll')->willReturn([$groupB, $groupA]);
+// ── group rows ───────────────────────────────────────────────────
+it('includes a group row per gsr and a gsr less row', function () {
+    $groupA = $this->createMock(Group::class);
+    $groupA->method('getId')->willReturn(10);
+    $groupA->method('getTitle')->willReturn('Alpha Group');
+    $groupB = $this->createMock(Group::class);
+    $groupB->method('getId')->willReturn(20);
+    $groupB->method('getTitle')->willReturn('Beta Group');
+    $this->groupRepository->method('findAll')->willReturn([$groupB, $groupA]);
 
-        // Alpha has a GSR and an attendance record with a proxy; Beta has neither.
-        $viewA = $this->createMock(GroupView::class);
-        $viewA->method('getMembers')->willReturn([$this->member('Anonymous Bob')]);
-        $viewB = $this->createMock(GroupView::class);
-        $viewB->method('getMembers')->willReturn([]);
-        $this->groupViewFactory->method('createFrom')->willReturnMap([[10, $viewA], [20, $viewB]]);
+    // Alpha has a GSR and an attendance record with a proxy; Beta has neither.
+    $viewA = $this->createMock(GroupView::class);
+    $viewA->method('getMembers')->willReturn([($this->member)('Anonymous Bob')]);
+    $viewB = $this->createMock(GroupView::class);
+    $viewB->method('getMembers')->willReturn([]);
+    $this->groupViewFactory->method('createFrom')->willReturnMap([[10, $viewA], [20, $viewB]]);
 
-        $record = $this->createMock(IntergroupMeetingGroupAttendance::class);
-        $record->method('getGroupId')->willReturn(10);
-        $record->method('isGsrProxy')->willReturn(true);
-        $record->method('getGsrProxyName')->willReturn('Anonymous Proxy');
-        $this->groupAttendance->method('findAll')->willReturn([$record]);
+    $record = $this->createMock(IntergroupMeetingGroupAttendance::class);
+    $record->method('getGroupId')->willReturn(10);
+    $record->method('isGsrProxy')->willReturn(true);
+    $record->method('getGsrProxyName')->willReturn('Anonymous Proxy');
+    $this->groupAttendance->method('findAll')->willReturn([$record]);
 
-        /** @var array<array<string>> $rows */
-        $rows = $this->callPrivate('buildGroupRows', ['March IG']);
+    /** @var array<array<string>> $rows */
+    $rows = ($this->callPrivate)('buildGroupRows', ['March IG']);
 
-        $this->assertCount(2, $rows);
+    expect($rows)->toHaveCount(2)
         // Alphabetical: Alpha first.
-        $this->assertSame('Alpha Group', $rows[0][0]);
-        $this->assertSame('Anonymous Bob', $rows[0][1]);
-        $this->assertSame('Yes', $rows[0][4]);          // attended
-        $this->assertSame('Yes', $rows[0][5]);          // proxy attended
-        $this->assertSame('Anonymous Proxy', $rows[0][6]);
+        ->and($rows[0][0])->toBe('Alpha Group')
+        ->and($rows[0][1])->toBe('Anonymous Bob')
+        ->and($rows[0][4])->toBe('Yes')          // attended
+        ->and($rows[0][5])->toBe('Yes')          // proxy attended
+        ->and($rows[0][6])->toBe('Anonymous Proxy')
         // Beta: no GSR, not attended.
-        $this->assertSame('Beta Group', $rows[1][0]);
-        $this->assertSame('', $rows[1][1]);
-        $this->assertSame('No', $rows[1][4]);
-    }
+        ->and($rows[1][0])->toBe('Beta Group')
+        ->and($rows[1][1])->toBe('')
+        ->and($rows[1][4])->toBe('No');
+});
 
-    // ── derived-field helpers ────────────────────────────────────────
-    #[Test]
-    public function the_duration_is_pluralised_and_empty_for_a_zero_term(): void
-    {
-        $this->assertSame('1 year', $this->callPrivate('formatDuration', [1]));
-        $this->assertSame('4 years', $this->callPrivate('formatDuration', [4]));
-        $this->assertSame('', $this->callPrivate('formatDuration', [0]));
-        $this->assertSame('', $this->callPrivate('formatDuration', [null]));
-    }
+// ── derived-field helpers ────────────────────────────────────────
+it('pluralises the duration and leaves it empty for a zero term', function () {
+    expect(($this->callPrivate)('formatDuration', [1]))->toBe('1 year')
+        ->and(($this->callPrivate)('formatDuration', [4]))->toBe('4 years')
+        ->and(($this->callPrivate)('formatDuration', [0]))->toBe('')
+        ->and(($this->callPrivate)('formatDuration', [null]))->toBe('');
+});
 
-    #[Test]
-    public function the_started_service_date_is_the_rotation_less_the_term(): void
-    {
-        $this->assertSame(
-            '2023-06-01',
-            $this->callPrivate('formatStartedService', [new DateTime('2026-06-01'), 3])
-        );
+it('dates the start of service as the rotation less the term', function () {
+    expect(($this->callPrivate)('formatStartedService', [new DateTime('2026-06-01'), 3]))->toBe('2023-06-01')
         // No rotation date or no term → blank.
-        $this->assertSame('', $this->callPrivate('formatStartedService', [null, 3]));
-        $this->assertSame('', $this->callPrivate('formatStartedService', [new DateTime('2026-06-01'), 0]));
-    }
+        ->and(($this->callPrivate)('formatStartedService', [null, 3]))->toBe('')
+        ->and(($this->callPrivate)('formatStartedService', [new DateTime('2026-06-01'), 0]))->toBe('');
+});
 
-    // ── CSV writer ───────────────────────────────────────────────────
-    #[Test]
-    public function a_csv_row_is_written_rfc_4180_with_doubled_quotes(): void
-    {
-        $stream = fopen('php://temp', 'r+');
-        (new ReflectionMethod(ReportsAdmin::class, 'writeCsvRow'))->invoke(null, $stream, ['plain', 'says "hi"']);
-        rewind($stream);
-        $line = stream_get_contents($stream);
-        fclose($stream);
+// ── CSV writer ───────────────────────────────────────────────────
+it('writes a csv row rfc 4180 style with doubled quotes', function () {
+    $stream = fopen('php://temp', 'r+');
+    (new ReflectionMethod(ReportsAdmin::class, 'writeCsvRow'))->invoke(null, $stream, ['plain', 'says "hi"']);
+    rewind($stream);
+    $line = stream_get_contents($stream);
+    fclose($stream);
 
-        $this->assertSame("plain,\"says \"\"hi\"\"\"\n", $line);
-    }
+    expect($line)->toBe("plain,\"says \"\"hi\"\"\"\n");
+});
 
-    // ── registration and styles ──────────────────────────────────────
-    #[Test]
-    public function the_submenu_page_is_registered(): void
-    {
-        $this->reports->registerSubmenuPage();
+// ── registration and styles ──────────────────────────────────────
+it('registers the submenu page', function () {
+    $this->reports->registerSubmenuPage();
 
-        $this->assertContains('intergroup-reports', $this->registeredMenuSlugs());
-    }
+    expect($this->registeredMenuSlugs())->toContain('intergroup-reports');
+});
 
-    #[Test]
-    public function styles_load_only_on_the_reports_page(): void
-    {
-        $this->setScreen('intergroup_page_intergroup-reports');
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->reports->addPageStyles()));
+it('loads styles only on the reports page', function () {
+    $this->setScreen('intergroup_page_intergroup-reports');
+    expect($this->capture(fn () => $this->reports->addPageStyles()))->toContain('<style>');
 
-        $this->setScreen('dashboard', 'dashboard');
-        $this->assertSame('', $this->capture(fn () => $this->reports->addPageStyles()));
-    }
-}
+    $this->setScreen('dashboard', 'dashboard');
+    expect($this->capture(fn () => $this->reports->addPageStyles()))->toBe('');
+});

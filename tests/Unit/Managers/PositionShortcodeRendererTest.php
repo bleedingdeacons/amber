@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Managers\PositionShortcodeRenderer;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
@@ -17,7 +12,7 @@ use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionView;
 use Unity\Positions\Interfaces\PositionViewFactory;
 
-/**
+/*
  * Tests for the public position shortcodes.
  *
  * These are the tags an intergroup drops into a page to show who holds which
@@ -27,33 +22,23 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * produces (Vacant, Overdue, Rotates in N Months, tenure), and that a missing
  * post id lands in the guarded fallback rather than a white screen.
  */
-#[CoversClass(\Amber\Managers\PositionShortcodeRenderer::class)]
-class PositionShortcodeRendererTest extends AmberTestCase
+
+covers(PositionShortcodeRenderer::class);
+
+function atCurrentPost(int $id = 7): void
 {
-    private PositionShortcodeRenderer $renderer;
+    WpState::$options['__current_post_id'] = $id;
+}
 
-    /** @var PositionViewFactory&MockObject */
-    private $viewFactory;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-position', 'SUMMARY' => 'summary']);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->viewFactory = $this->createMock(PositionViewFactory::class);
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-position', 'SUMMARY' => 'summary']);
+    $this->renderer = new PositionShortcodeRenderer($config, $this->viewFactory);
 
-        $this->viewFactory = $this->createMock(PositionViewFactory::class);
-
-        $this->renderer = new PositionShortcodeRenderer($config, $this->viewFactory);
-    }
-
-    private function atCurrentPost(int $id = 7): void
-    {
-        WpState::$options['__current_post_id'] = $id;
-    }
-
-    private function position(array $overrides = []): Position
-    {
+    $this->position = function (array $overrides = []): Position {
         $defaults = [
             'getMinimumSobriety' => 24,
             'getTermYears'       => 3,
@@ -67,10 +52,9 @@ class PositionShortcodeRendererTest extends AmberTestCase
         }
 
         return $position;
-    }
+    };
 
-    private function view(array $overrides = [], ?Position $position = null): PositionView
-    {
+    $this->view = function (array $overrides = [], ?Position $position = null): PositionView {
         $defaults = [
             'isArchivist'            => false,
             'isVacant'               => false,
@@ -86,252 +70,211 @@ class PositionShortcodeRendererTest extends AmberTestCase
         foreach (array_merge($defaults, $overrides) as $method => $value) {
             $view->method($method)->willReturn($value);
         }
-        $view->method('getPosition')->willReturn($position ?? $this->position());
+        $view->method('getPosition')->willReturn($position ?? ($this->position)());
 
         return $view;
-    }
+    };
+});
 
-    // ── position_state ───────────────────────────────────────────────
-    #[Test]
-    public function position_state_without_a_current_post_falls_back_gracefully(): void
-    {
+// ── position_state ───────────────────────────────────────────────
+describe('position_state', function () {
+    it('falls back gracefully without a current post', function () {
         WpState::$options['__current_post_id'] = 0;
 
-        $this->assertStringContainsString('Error building position state', $this->renderer->renderPositionState());
-    }
+        expect($this->renderer->renderPositionState())->toContain('Error building position state');
+    });
 
-    #[Test]
-    public function position_state_for_a_vacant_post_says_vacant(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['isVacant' => true]));
+    it('says vacant for a vacant post', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['isVacant' => true]));
 
         $html = $this->renderer->renderPositionState();
 
-        $this->assertStringContainsString('Vacant!', $html);
-        $this->assertStringContainsString('Email Service Officer', $html);
-    }
+        expect($html)->toContain('Vacant!')
+            ->toContain('Email Service Officer');
+    });
 
-    #[Test]
-    public function position_state_for_an_archivist_shows_no_rotation_heading(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['isArchivist' => true]));
+    it('shows no rotation heading for an archivist', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['isArchivist' => true]));
 
         $html = $this->renderer->renderPositionState();
 
         // Archivist tenure is permanent, so the heading is intentionally blank.
-        $this->assertStringContainsString('<h1></h1>', $html);
-    }
+        expect($html)->toContain('<h1></h1>');
+    });
 
-    #[Test]
-    public function position_state_without_a_rotation_date_flags_it(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['getRotationDate' => null]));
+    it('flags a missing rotation date', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['getRotationDate' => null]));
 
-        $this->assertStringContainsString('No Rotation Date!', $this->renderer->renderPositionState());
-    }
+        expect($this->renderer->renderPositionState())->toContain('No Rotation Date!');
+    });
 
-    #[DataProvider('rotationStatusProvider')]
-    #[Test]
-    public function position_state_describes_the_rotation_status(?int $months, string $expected): void
-    {
-        $this->atCurrentPost();
+    it('describes the rotation status', function (?int $months, string $expected) {
+        atCurrentPost();
         $this->viewFactory->method('createFrom')->willReturn(
-            $this->view(['getMonthsUntilRotation' => $months])
+            ($this->view)(['getMonthsUntilRotation' => $months])
         );
 
-        $this->assertStringContainsString($expected, $this->renderer->renderPositionState());
-    }
+        expect($this->renderer->renderPositionState())->toContain($expected);
+    })->with([
+        'overdue'      => [-2, 'Rotation Overdue!'],
+        'due now'      => [0, 'Rotation Due Now'],
+        'next month'   => [1, 'Rotation Next Month'],
+        'within window' => [3, 'Rotates in 3 Months'],
+        'unknown'      => [null, 'Status Unknown'],
+    ]);
 
-    /** @return array<string, array{0: int|null, 1: string}> */
-    public static function rotationStatusProvider(): array
-    {
-        return [
-            'overdue'      => [-2, 'Rotation Overdue!'],
-            'due now'      => [0, 'Rotation Due Now'],
-            'next month'   => [1, 'Rotation Next Month'],
-            'within window' => [3, 'Rotates in 3 Months'],
-            'unknown'      => [null, 'Status Unknown'],
-        ];
-    }
-
-    #[Test]
-    public function position_state_far_from_rotation_shows_an_empty_status(): void
-    {
+    it('shows an empty status far from rotation', function () {
         // Beyond the warning window there is nothing to flag, so the heading
         // collapses to empty.
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['getMonthsUntilRotation' => 24]));
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['getMonthsUntilRotation' => 24]));
 
-        $this->assertStringContainsString('<h1></h1>', $this->renderer->renderPositionState());
-    }
+        expect($this->renderer->renderPositionState())->toContain('<h1></h1>');
+    });
+});
 
-    // ── position_header ──────────────────────────────────────────────
-    #[Test]
-    public function position_header_renders_title_sobriety_and_term(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view());
+// ── position_header ──────────────────────────────────────────────
+describe('position_header', function () {
+    it('renders title, sobriety and term', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)());
 
         $html = $this->renderer->renderPositionHeader();
 
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Sobriety 2 Years', $html);
-        $this->assertStringContainsString('Term 3 Years', $html);
-    }
+        expect($html)->toContain('Treasurer')
+            ->toContain('Sobriety 2 Years')
+            ->toContain('Term 3 Years');
+    });
 
-    #[Test]
-    public function position_header_renders_sobriety_in_months_when_not_a_whole_year(): void
-    {
-        $this->atCurrentPost();
+    it('renders sobriety in months when not a whole year', function () {
+        atCurrentPost();
         $this->viewFactory->method('createFrom')->willReturn(
-            $this->view([], $this->position(['getMinimumSobriety' => 18]))
+            ($this->view)([], ($this->position)(['getMinimumSobriety' => 18]))
         );
 
-        $this->assertStringContainsString('Sobriety 18 Months', $this->renderer->renderPositionHeader());
-    }
+        expect($this->renderer->renderPositionHeader())->toContain('Sobriety 18 Months');
+    });
 
-    #[Test]
-    public function position_header_uses_the_singular_year_for_a_single_year_of_sobriety(): void
-    {
-        $this->atCurrentPost();
+    it('uses the singular year for a single year of sobriety', function () {
+        atCurrentPost();
         $this->viewFactory->method('createFrom')->willReturn(
-            $this->view([], $this->position(['getMinimumSobriety' => 12, 'getTermYears' => 1]))
+            ($this->view)([], ($this->position)(['getMinimumSobriety' => 12, 'getTermYears' => 1]))
         );
 
         $html = $this->renderer->renderPositionHeader();
 
-        $this->assertStringContainsString('Sobriety 1 Year', $html);
-        $this->assertStringContainsString('Term 1 Year', $html);
-    }
+        expect($html)->toContain('Sobriety 1 Year')
+            ->toContain('Term 1 Year');
+    });
 
-    #[Test]
-    public function position_header_shows_tenure_for_an_archivist(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['isArchivist' => true]));
+    it('shows tenure for an archivist', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['isArchivist' => true]));
 
-        $this->assertStringContainsString('Term Tenure', $this->renderer->renderPositionHeader());
-    }
+        expect($this->renderer->renderPositionHeader())->toContain('Term Tenure');
+    });
 
-    #[Test]
-    public function position_header_labels_the_email_officer_when_the_title_says_officer(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['getTitle' => 'Public Information Officer']));
+    it('labels the email officer when the title says officer', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['getTitle' => 'Public Information Officer']));
 
-        $this->assertStringContainsString('Email Officer', $this->renderer->renderPositionHeader());
-    }
+        expect($this->renderer->renderPositionHeader())->toContain('Email Officer');
+    });
 
-    #[Test]
-    public function position_header_hides_the_email_link_for_a_vacant_post(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willReturn($this->view(['isVacant' => true]));
+    it('hides the email link for a vacant post', function () {
+        atCurrentPost();
+        $this->viewFactory->method('createFrom')->willReturn(($this->view)(['isVacant' => true]));
 
-        $this->assertStringNotContainsString('pseudo_link', $this->renderer->renderPositionHeader());
-    }
+        expect($this->renderer->renderPositionHeader())->not->toContain('pseudo_link');
+    });
+});
 
-    // ── directory_list ───────────────────────────────────────────────
-    #[Test]
-    public function the_directory_table_renders_a_row_per_position(): void
-    {
-        $this->viewFactory->method('createAll')->willReturn([
-            $this->view(['getDescription' => 'Treasurer']),
-            $this->view(['isVacant' => true, 'getDescription' => 'Secretary']),
-            $this->view(['isArchivist' => true, 'getDescription' => 'Archivist']),
-            $this->view(['getRotationDate' => null, 'getDescription' => 'Chair']),
-        ]);
+// ── directory_list ───────────────────────────────────────────────
+it('renders a directory table row per position', function () {
+    $this->viewFactory->method('createAll')->willReturn([
+        ($this->view)(['getDescription' => 'Treasurer']),
+        ($this->view)(['isVacant' => true, 'getDescription' => 'Secretary']),
+        ($this->view)(['isArchivist' => true, 'getDescription' => 'Archivist']),
+        ($this->view)(['getRotationDate' => null, 'getDescription' => 'Chair']),
+    ]);
 
-        $html = $this->renderer->renderDirectoryTable();
+    $html = $this->renderer->renderDirectoryTable();
 
-        $this->assertStringContainsString('id="service_positions"', $html);
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Position Vacant', $html);
-        $this->assertStringContainsString('No Rotation Date!', $html);
-        $this->assertSame(4, substr_count($html, '<tr>'));
-    }
+    expect($html)->toContain('id="service_positions"')
+        ->toContain('Treasurer')
+        ->toContain('Position Vacant')
+        ->toContain('No Rotation Date!')
+        ->and(substr_count($html, '<tr>'))->toBe(4);
+});
 
-    // ── position_summary ─────────────────────────────────────────────
-    #[Test]
-    public function the_position_summary_wraps_the_summary_field(): void
-    {
-        $this->atCurrentPost();
+// ── position_summary ─────────────────────────────────────────────
+describe('position_summary', function () {
+    it('wraps the summary field', function () {
+        atCurrentPost();
         $this->setField(7, 'summary', '<p>Keeps the books.</p>');
 
         $html = $this->renderer->renderPositionSummary();
 
-        $this->assertStringContainsString('Keeps the books.', $html);
-    }
+        expect($html)->toContain('Keeps the books.');
+    });
 
-    #[Test]
-    public function the_position_summary_falls_back_without_a_current_post(): void
-    {
+    it('falls back without a current post', function () {
         WpState::$options['__current_post_id'] = 0;
 
-        $this->assertStringContainsString('Error loading position summary', $this->renderer->renderPositionSummary());
-    }
+        expect($this->renderer->renderPositionSummary())->toContain('Error loading position summary');
+    });
+});
 
-    // ── vacant_positions ─────────────────────────────────────────────
-    #[Test]
-    public function vacant_positions_lists_only_the_vacant_ones(): void
-    {
+// ── vacant_positions ─────────────────────────────────────────────
+describe('vacant_positions', function () {
+    it('lists only the vacant ones', function () {
         $this->viewFactory->method('createAll')->willReturn([
-            $this->view(['isVacant' => false, 'getDescription' => 'Treasurer']),
-            $this->view(['isVacant' => true, 'getDescription' => 'Secretary']),
+            ($this->view)(['isVacant' => false, 'getDescription' => 'Treasurer']),
+            ($this->view)(['isVacant' => true, 'getDescription' => 'Secretary']),
         ]);
 
         $html = $this->renderer->renderVacantPositions();
 
-        $this->assertStringContainsString('Secretary', $html);
-        $this->assertStringNotContainsString('Treasurer', $html);
-    }
+        expect($html)->toContain('Secretary')
+            ->not->toContain('Treasurer');
+    });
 
-    #[Test]
-    public function a_vacant_position_without_a_description_falls_back_to_its_long_name(): void
-    {
+    it('falls back to the long name for a vacant position without a description', function () {
         $this->viewFactory->method('createAll')->willReturn([
-            $this->view(['isVacant' => true, 'getDescription' => ''], $this->position(['getLongName' => 'General Service Rep'])),
+            ($this->view)(['isVacant' => true, 'getDescription' => ''], ($this->position)(['getLongName' => 'General Service Rep'])),
         ]);
 
-        $this->assertStringContainsString('General Service Rep', $this->renderer->renderVacantPositions());
-    }
+        expect($this->renderer->renderVacantPositions())->toContain('General Service Rep');
+    });
 
-    #[Test]
-    public function vacant_positions_says_so_when_there_are_none(): void
-    {
+    it('says so when there are none', function () {
         $this->viewFactory->method('createAll')->willReturn([
-            $this->view(['isVacant' => false]),
+            ($this->view)(['isVacant' => false]),
         ]);
 
-        $this->assertStringContainsString('no vacant positions', $this->renderer->renderVacantPositions());
-    }
+        expect($this->renderer->renderVacantPositions())->toContain('no vacant positions');
+    });
+});
 
-    // ── guarded failure paths ────────────────────────────────────────
-    #[Test]
-    public function the_header_falls_back_when_the_view_cannot_be_built(): void
-    {
-        $this->atCurrentPost();
-        $this->viewFactory->method('createFrom')->willThrowException(new \RuntimeException('boom'));
+// ── guarded failure paths ────────────────────────────────────────
+it('falls back in the header when the view cannot be built', function () {
+    atCurrentPost();
+    $this->viewFactory->method('createFrom')->willThrowException(new \RuntimeException('boom'));
 
-        $this->assertStringContainsString('Error building position header', $this->renderer->renderPositionHeader());
-    }
+    expect($this->renderer->renderPositionHeader())->toContain('Error building position header');
+});
 
-    #[Test]
-    public function the_directory_table_falls_back_on_error(): void
-    {
-        $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));
+it('falls back in the directory table on error', function () {
+    $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));
 
-        $this->assertStringContainsString('Error generating directory list', $this->renderer->renderDirectoryTable());
-    }
+    expect($this->renderer->renderDirectoryTable())->toContain('Error generating directory list');
+});
 
-    #[Test]
-    public function the_vacant_list_falls_back_on_error(): void
-    {
-        $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));
+it('falls back in the vacant list on error', function () {
+    $this->viewFactory->method('createAll')->willThrowException(new \RuntimeException('boom'));
 
-        $this->assertStringContainsString('Error building vacant positions list', $this->renderer->renderVacantPositions());
-    }
-}
+    expect($this->renderer->renderVacantPositions())->toContain('Error building vacant positions list');
+});

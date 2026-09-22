@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Positions;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Positions\PositionAdmin;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use Unity\Core\Interfaces\Configuration;
@@ -21,7 +16,7 @@ use Unity\Positions\Interfaces\PositionViewFactory;
 use WP_Post;
 use WP_Query;
 
-/**
+/*
  * Tests for the positions list table.
  *
  * The interesting behaviour is the rotation status column, which is the
@@ -36,50 +31,45 @@ use WP_Query;
  * Sorting works off precomputed meta, including a numeric sort key that
  * deliberately parks vacant positions first and tenure last.
  */
-#[CoversClass(\Amber\Admin\Positions\PositionAdmin::class)]
-class PositionAdminTest extends AmberTestCase
-{
-    private const POSITION_TYPE = 'intergroup-position';
-    private const MEMBER_TYPE = 'intergroup-member';
-    private const POSITION_ID = 7;
 
-    private PositionAdmin $admin;
+covers(PositionAdmin::class);
 
-    /** @var PositionViewFactory&MockObject */
-    private $viewFactory;
+const POSITION_ADMIN_TYPE = 'intergroup-position';
+const POSITION_ADMIN_MEMBER_TYPE = 'intergroup-member';
+const POSITION_ADMIN_ID = 7;
 
-    /** @var PositionRepository&MockObject */
-    private $repository;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
+        Member::class => [
+            'POST_TYPE' => POSITION_ADMIN_MEMBER_TYPE,
+            'FIELD_INTERGROUP_POSITION' => 'service-layout-group_intergroup-position',
+        ],
+        Position::class => ['POST_TYPE' => POSITION_ADMIN_TYPE],
+        default => [],
+    });
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->viewFactory = $this->createMock(PositionViewFactory::class);
+    $this->repository = $this->createMock(PositionRepository::class);
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(static fn (string $key): array => match ($key) {
-            Member::class => [
-                'POST_TYPE' => self::MEMBER_TYPE,
-                'FIELD_INTERGROUP_POSITION' => 'service-layout-group_intergroup-position',
-            ],
-            Position::class => ['POST_TYPE' => self::POSITION_TYPE],
-            default => [],
-        });
+    $this->admin = new PositionAdmin($config, $this->viewFactory, $this->repository);
 
-        $this->viewFactory = $this->createMock(PositionViewFactory::class);
-        $this->repository = $this->createMock(PositionRepository::class);
+    $this->member = function (int $id, string $name): Member {
+        $member = $this->createMock(Member::class);
+        $member->method('getId')->willReturn($id);
+        $member->method('getAnonymousName')->willReturn($name);
 
-        $this->admin = new PositionAdmin($config, $this->viewFactory, $this->repository);
-    }
+        return $member;
+    };
 
     /**
      * A position view. Defaults describe an occupied position with a
      * rotation a year out.
      */
-    private function view(array $overrides = []): PositionView
-    {
+    $this->view = function (array $overrides = []): PositionView {
         $defaults = [
             'isVacant' => false,
-            'getMembers' => [$this->member(1, 'Anonymous Alex')],
+            'getMembers' => [($this->member)(1, 'Anonymous Alex')],
             'getPositionEmail' => 'treasurer@example.test',
             'getDescription' => 'Treasurer',
             'getRotationDate' => new DateTime('2027-03-01'),
@@ -92,463 +82,382 @@ class PositionAdminTest extends AmberTestCase
         }
 
         return $view;
-    }
+    };
 
-    private function member(int $id, string $name): Member
-    {
-        $member = $this->createMock(Member::class);
-        $member->method('getId')->willReturn($id);
-        $member->method('getAnonymousName')->willReturn($name);
-
-        return $member;
-    }
-
-    private function column(string $name, int $postId = self::POSITION_ID): string
-    {
+    $this->column = function (string $name, int $postId = POSITION_ADMIN_ID): string {
         return $this->capture(fn () => $this->admin->populateCustomColumns($name, $postId));
-    }
+    };
 
-    private function useView(PositionView $view): void
-    {
+    $this->useView = function (PositionView $view): void {
         $this->viewFactory->method('createFrom')->willReturn($view);
-    }
+    };
+});
 
-    // ── registration and columns ─────────────────────────────────────
-    #[Test]
-    public function it_registers_its_list_table_hooks(): void
-    {
-        $this->assertHookAdded('manage_' . self::POSITION_TYPE . '_posts_columns');
-        $this->assertHookAdded('save_post_' . self::POSITION_TYPE);
+// ── registration and columns ─────────────────────────────────────
+describe('registration and columns', function () {
+    it('registers its list table hooks', function () {
+        $this->assertHookAdded('manage_' . POSITION_ADMIN_TYPE . '_posts_columns');
+        $this->assertHookAdded('save_post_' . POSITION_ADMIN_TYPE);
         // A member save also refreshes the position they hold.
-        $this->assertHookAdded('save_post_' . self::MEMBER_TYPE);
+        $this->assertHookAdded('save_post_' . POSITION_ADMIN_MEMBER_TYPE);
         $this->assertHookAdded('admin_head');
-    }
+    });
 
-    #[Test]
-    public function the_custom_columns_are_inserted_after_the_title(): void
-    {
+    it('inserts the custom columns after the title', function () {
         $columns = $this->admin->addCustomColumns(['title' => 'Title', 'date' => 'Date']);
 
-        $this->assertSame(
-            ['title', 'position_email', 'position_member', 'rotation_status', 'rotation_date', 'date'],
-            array_keys($columns)
-        );
-    }
+        expect(array_keys($columns))
+            ->toBe(['title', 'position_email', 'position_member', 'rotation_status', 'rotation_date', 'date']);
+    });
 
-    #[Test]
-    public function the_sortable_columns_are_declared(): void
-    {
+    it('declares the sortable columns', function () {
         $sortable = $this->admin->makeColumnsSortable([]);
 
         foreach (['position_member', 'position_email', 'rotation_date'] as $column) {
-            $this->assertArrayHasKey($column, $sortable);
+            expect($sortable)->toHaveKey($column);
         }
-    }
+    });
 
-    #[Test]
-    public function nothing_renders_for_a_position_with_no_view(): void
-    {
+    it('renders nothing for a position with no view', function () {
         $this->viewFactory->method('createFrom')->willReturn(null);
 
-        $this->assertSame('', $this->column('position_member'));
-    }
+        expect(($this->column)('position_member'))->toBe('');
+    });
 
-    #[Test]
-    public function the_admin_column_styles_are_emitted(): void
-    {
+    it('emits the admin column styles', function () {
         $css = $this->capture(fn () => $this->admin->addAdminColumnStyles());
 
-        $this->assertStringContainsString('<style>', $css);
-        $this->assertStringContainsString('.status-overdue', $css);
-    }
+        expect($css)->toContain('<style>')
+            ->toContain('.status-overdue');
+    });
+});
 
-    // ── member column ────────────────────────────────────────────────
-    #[Test]
-    public function the_member_column_links_to_each_holder(): void
-    {
-        $this->useView($this->view([
-            'getMembers' => [$this->member(1, 'Anonymous Alex'), $this->member(2, 'Anonymous Sam')],
+// ── member column ────────────────────────────────────────────────
+describe('member column', function () {
+    it('links to each holder', function () {
+        ($this->useView)(($this->view)([
+            'getMembers' => [($this->member)(1, 'Anonymous Alex'), ($this->member)(2, 'Anonymous Sam')],
         ]));
 
-        $html = $this->column('position_member');
+        $html = ($this->column)('position_member');
 
         // A job-share lists both, comma separated.
-        $this->assertStringContainsString('Anonymous Alex', $html);
-        $this->assertStringContainsString('Anonymous Sam', $html);
-        $this->assertStringContainsString(', ', $html);
-        $this->assertStringContainsString('post=1', $html);
-    }
+        expect($html)->toContain('Anonymous Alex')
+            ->toContain('Anonymous Sam')
+            ->toContain(', ')
+            ->toContain('post=1');
+    });
 
-    #[Test]
-    public function a_vacant_position_shows_a_dash_for_its_member(): void
-    {
-        $this->useView($this->view(['isVacant' => true]));
+    it('shows a dash for the member of a vacant position', function () {
+        ($this->useView)(($this->view)(['isVacant' => true]));
 
-        $this->assertSame('-', $this->column('position_member'));
-    }
+        expect(($this->column)('position_member'))->toBe('-');
+    });
 
-    #[Test]
-    public function a_position_with_no_members_shows_a_dash(): void
-    {
-        $this->useView($this->view(['getMembers' => []]));
+    it('shows a dash for a position with no members', function () {
+        ($this->useView)(($this->view)(['getMembers' => []]));
 
-        $this->assertSame('-', $this->column('position_member'));
-    }
+        expect(($this->column)('position_member'))->toBe('-');
+    });
+});
 
-    // ── email column ─────────────────────────────────────────────────
-    #[Test]
-    public function the_email_column_renders_a_mailto_link(): void
-    {
-        $this->useView($this->view());
+// ── email column ─────────────────────────────────────────────────
+describe('email column', function () {
+    it('renders a mailto link', function () {
+        ($this->useView)(($this->view)());
 
-        $html = $this->column('position_email');
+        $html = ($this->column)('position_email');
 
-        $this->assertStringContainsString('mailto:treasurer@example.test', $html);
-    }
+        expect($html)->toContain('mailto:treasurer@example.test');
+    });
 
-    #[Test]
-    public function a_position_with_no_email_shows_a_dash(): void
-    {
-        $this->useView($this->view(['getPositionEmail' => '']));
+    it('shows a dash for a position with no email', function () {
+        ($this->useView)(($this->view)(['getPositionEmail' => '']));
 
-        $this->assertSame('-', $this->column('position_email'));
-    }
+        expect(($this->column)('position_email'))->toBe('-');
+    });
+});
 
-    // ── rotation date column ─────────────────────────────────────────
-    #[Test]
-    public function the_rotation_date_is_shown_in_uk_format(): void
-    {
-        $this->useView($this->view(['getRotationDate' => new DateTime('2027-03-01')]));
+// ── rotation date column ─────────────────────────────────────────
+describe('rotation date column', function () {
+    it('shows the rotation date in uk format', function () {
+        ($this->useView)(($this->view)(['getRotationDate' => new DateTime('2027-03-01')]));
 
-        $this->assertStringContainsString('01/03/2027', $this->column('rotation_date'));
-    }
+        expect(($this->column)('rotation_date'))->toContain('01/03/2027');
+    });
 
-    #[Test]
-    public function a_position_with_no_rotation_date_says_so(): void
-    {
-        $this->useView($this->view(['getRotationDate' => null]));
+    it('says so for a position with no rotation date', function () {
+        ($this->useView)(($this->view)(['getRotationDate' => null]));
 
-        $this->assertStringContainsString('Not set', $this->column('rotation_date'));
-    }
+        expect(($this->column)('rotation_date'))->toContain('Not set');
+    });
 
-    #[Test]
-    public function the_archivist_has_no_rotation_date_by_design(): void
-    {
-        $this->useView($this->view(['getDescription' => 'Archivist']));
+    it('gives the archivist no rotation date by design', function () {
+        ($this->useView)(($this->view)(['getDescription' => 'Archivist']));
 
-        $this->assertStringContainsString('N/A', $this->column('rotation_date'));
-    }
+        expect(($this->column)('rotation_date'))->toContain('N/A');
+    });
+});
 
-    // ── rotation status column ───────────────────────────────────────
-    #[Test]
-    public function the_archivist_shows_as_tenure_rather_than_a_rotation(): void
-    {
+// ── rotation status column ───────────────────────────────────────
+describe('rotation status column', function () {
+    it('shows the archivist as tenure rather than a rotation', function () {
         // Matched case-insensitively and trimmed, since the description is
         // free text typed by an admin.
-        $this->useView($this->view(['getDescription' => '  archivist ']));
+        ($this->useView)(($this->view)(['getDescription' => '  archivist ']));
 
-        $html = $this->column('rotation_status');
+        $html = ($this->column)('rotation_status');
 
-        $this->assertStringContainsString('Tenure', $html);
-        $this->assertStringNotContainsString('Overdue', $html);
-    }
+        expect($html)->toContain('Tenure')
+            ->not->toContain('Overdue');
+    });
 
-    #[Test]
-    public function a_vacant_position_is_flagged_as_vacant(): void
-    {
-        $this->useView($this->view(['isVacant' => true]));
+    it('flags a vacant position as vacant', function () {
+        ($this->useView)(($this->view)(['isVacant' => true]));
 
-        $this->assertStringContainsString('Vacant Position', $this->column('rotation_status'));
-    }
+        expect(($this->column)('rotation_status'))->toContain('Vacant Position');
+    });
 
-    #[Test]
-    public function an_occupied_position_with_no_date_reports_it_as_unknown(): void
-    {
-        $this->useView($this->view(['getRotationDate' => null]));
+    it('reports an occupied position with no date as unknown', function () {
+        ($this->useView)(($this->view)(['getRotationDate' => null]));
 
-        $this->assertStringContainsString('No Rotation Date', $this->column('rotation_status'));
-    }
+        expect(($this->column)('rotation_status'))->toContain('No Rotation Date');
+    });
 
-    #[DataProvider('rotationStatusProvider')]
-    #[Test]
-    public function the_rotation_status_reflects_the_months_remaining(
+    it('reflects the months remaining', function (
         int $months,
         string $expected
-    ): void {
-        $this->useView($this->view(['getMonthsUntilRotation' => $months]));
+    ) {
+        ($this->useView)(($this->view)(['getMonthsUntilRotation' => $months]));
 
-        $this->assertStringContainsString($expected, $this->column('rotation_status'));
-    }
+        expect(($this->column)('rotation_status'))->toContain($expected);
+    })->with([
+        'overdue by several' => [-4, 'Overdue by 4 months'],
+        'overdue by one'     => [-1, 'Overdue by 1 month'],
+        'due now'            => [0, 'Due Now'],
+        'due within a month' => [1, 'Due in 1 month'],
+        'due within three'   => [3, 'Due in 3 months'],
+        'comfortably ahead'  => [12, '12 months remaining'],
+        'one month ahead'    => [4, '4 months remaining'],
+    ]);
+});
 
-    /** @return array<string, array{0: int, 1: string}> */
-    public static function rotationStatusProvider(): array
-    {
-        return [
-            'overdue by several' => [-4, 'Overdue by 4 months'],
-            'overdue by one'     => [-1, 'Overdue by 1 month'],
-            'due now'            => [0, 'Due Now'],
-            'due within a month' => [1, 'Due in 1 month'],
-            'due within three'   => [3, 'Due in 3 months'],
-            'comfortably ahead'  => [12, '12 months remaining'],
-            'one month ahead'    => [4, '4 months remaining'],
-        ];
-    }
-
-    // ── sorting ──────────────────────────────────────────────────────
-    #[DataProvider('sortProvider')]
-    #[Test]
-    public function sorting_by_a_column_orders_by_its_precomputed_meta_key(
+// ── sorting ──────────────────────────────────────────────────────
+describe('sorting', function () {
+    it('orders by the precomputed meta key of the column', function (
         string $orderby,
         string $metaKey,
         string $orderType
-    ): void {
-        $query = new WP_Query(['post_type' => self::POSITION_TYPE, 'orderby' => $orderby]);
+    ) {
+        $query = new WP_Query(['post_type' => POSITION_ADMIN_TYPE, 'orderby' => $orderby]);
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame($metaKey, $query->get('meta_key'));
-        $this->assertSame($orderType, $query->get('orderby'));
-    }
+        expect($query->get('meta_key'))->toBe($metaKey)
+            ->and($query->get('orderby'))->toBe($orderType);
+    })->with([
+        'member'   => ['position_member', '_position_member_name', 'meta_value'],
+        'email'    => ['position_email', '_position_email', 'meta_value'],
+        'date'     => ['rotation_date', '_rotation_date_sortable', 'meta_value'],
+        // Numeric, because the key encodes urgency rather than a name.
+        'status'   => ['rotation_status', '_rotation_sort_key', 'meta_value_num'],
+    ]);
 
-    /** @return array<string, array{0: string, 1: string, 2: string}> */
-    public static function sortProvider(): array
-    {
-        return [
-            'member'   => ['position_member', '_position_member_name', 'meta_value'],
-            'email'    => ['position_email', '_position_email', 'meta_value'],
-            'date'     => ['rotation_date', '_rotation_date_sortable', 'meta_value'],
-            // Numeric, because the key encodes urgency rather than a name.
-            'status'   => ['rotation_status', '_rotation_sort_key', 'meta_value_num'],
-        ];
-    }
-
-    #[Test]
-    public function sorting_is_left_alone_for_another_post_type(): void
-    {
+    it('leaves sorting alone for another post type', function () {
         $query = new WP_Query(['post_type' => 'page', 'orderby' => 'position_member']);
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame('', $query->get('meta_key'));
-    }
+        expect($query->get('meta_key'))->toBe('');
+    });
 
-    #[Test]
-    public function sorting_is_left_alone_when_not_the_main_query(): void
-    {
-        $query = new WP_Query(['post_type' => self::POSITION_TYPE, 'orderby' => 'position_member']);
+    it('leaves sorting alone when not the main query', function () {
+        $query = new WP_Query(['post_type' => POSITION_ADMIN_TYPE, 'orderby' => 'position_member']);
         $query->isMainQuery = false;
 
         $this->admin->handleCustomColumnSorting($query);
 
-        $this->assertSame('', $query->get('meta_key'));
-    }
+        expect($query->get('meta_key'))->toBe('');
+    });
 
-    #[Test]
-    public function searching_is_extended_to_the_current_member_name(): void
-    {
-        $query = new WP_Query(['post_type' => self::POSITION_TYPE, 's' => 'alex']);
+    it('extends searching to the current member name', function () {
+        $query = new WP_Query(['post_type' => POSITION_ADMIN_TYPE, 's' => 'alex']);
         $query->isSearch = true;
 
         $this->admin->extendSearch($query);
 
         // Whatever shape it takes, the search must reach the precomputed
         // member-name meta rather than titles alone.
-        $this->assertNotSame('', serialize($query->query_vars));
-    }
+        expect(serialize($query->query_vars))->not->toBe('');
+    });
 
-    #[Test]
-    public function searching_is_skipped_when_the_query_is_not_a_search(): void
-    {
-        $query = new WP_Query(['post_type' => self::POSITION_TYPE, 's' => 'alex']);
+    it('skips searching when the query is not a search', function () {
+        $query = new WP_Query(['post_type' => POSITION_ADMIN_TYPE, 's' => 'alex']);
         $query->isSearch = false;
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame('', $query->get('meta_query'));
-    }
+        expect($query->get('meta_query'))->toBe('');
+    });
+});
 
-    // ── metadata ─────────────────────────────────────────────────────
-    #[Test]
-    public function saving_a_position_precomputes_its_sort_keys(): void
-    {
-        $this->useView($this->view());
+// ── metadata ─────────────────────────────────────────────────────
+describe('metadata', function () {
+    it('precomputes its sort keys when a position is saved', function () {
+        ($this->useView)(($this->view)());
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $meta = WpState::$postMeta[self::POSITION_ID];
-        $this->assertSame('anonymous alex', $meta['_position_member_name']);
-        $this->assertSame('1', $meta['_position_member_id']);
-        $this->assertSame('treasurer@example.test', $meta['_position_email']);
-    }
+        $meta = WpState::$postMeta[POSITION_ADMIN_ID];
+        expect($meta['_position_member_name'])->toBe('anonymous alex')
+            ->and($meta['_position_member_id'])->toBe('1')
+            ->and($meta['_position_email'])->toBe('treasurer@example.test');
+    });
 
-    #[Test]
-    public function a_job_share_records_every_holders_id(): void
-    {
-        $this->useView($this->view([
-            'getMembers' => [$this->member(1, 'Anonymous Alex'), $this->member(2, 'Anonymous Sam')],
+    it("records every holder's id for a job share", function () {
+        ($this->useView)(($this->view)([
+            'getMembers' => [($this->member)(1, 'Anonymous Alex'), ($this->member)(2, 'Anonymous Sam')],
         ]));
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $this->assertSame('1,2', WpState::$postMeta[self::POSITION_ID]['_position_member_id']);
-    }
+        expect(WpState::$postMeta[POSITION_ADMIN_ID]['_position_member_id'])->toBe('1,2');
+    });
 
-    #[Test]
-    public function a_vacant_position_sorts_after_every_named_holder(): void
-    {
-        $this->useView($this->view(['isVacant' => true, 'getMembers' => []]));
+    it('sorts a vacant position after every named holder', function () {
+        ($this->useView)(($this->view)(['isVacant' => true, 'getMembers' => []]));
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $meta = WpState::$postMeta[self::POSITION_ID];
-        $this->assertSame('zzz_vacant', $meta['_position_member_name']);
-        // ...but first by urgency, because a vacancy needs filling.
-        $this->assertSame(0, $meta['_rotation_sort_key']);
-        $this->assertSame('vacant', $meta['_rotation_status']);
-    }
+        $meta = WpState::$postMeta[POSITION_ADMIN_ID];
+        expect($meta['_position_member_name'])->toBe('zzz_vacant')
+            // ...but first by urgency, because a vacancy needs filling.
+            ->and($meta['_rotation_sort_key'])->toBe(0)
+            ->and($meta['_rotation_status'])->toBe('vacant');
+    });
 
-    #[Test]
-    public function the_archivist_sorts_last_by_urgency(): void
-    {
-        $this->useView($this->view(['getDescription' => 'Archivist']));
+    it('sorts the archivist last by urgency', function () {
+        ($this->useView)(($this->view)(['getDescription' => 'Archivist']));
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $meta = WpState::$postMeta[self::POSITION_ID];
-        $this->assertSame('tenure', $meta['_rotation_status']);
-        $this->assertSame(10000, $meta['_rotation_sort_key']);
-    }
+        $meta = WpState::$postMeta[POSITION_ADMIN_ID];
+        expect($meta['_rotation_status'])->toBe('tenure')
+            ->and($meta['_rotation_sort_key'])->toBe(10000);
+    });
 
-    #[Test]
-    public function an_occupied_position_with_no_date_sorts_near_the_end(): void
-    {
-        $this->useView($this->view(['getRotationDate' => null]));
+    it('sorts an occupied position with no date near the end', function () {
+        ($this->useView)(($this->view)(['getRotationDate' => null]));
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $meta = WpState::$postMeta[self::POSITION_ID];
-        $this->assertSame('unknown', $meta['_rotation_status']);
-        $this->assertSame(9999, $meta['_rotation_sort_key']);
-    }
+        $meta = WpState::$postMeta[POSITION_ADMIN_ID];
+        expect($meta['_rotation_status'])->toBe('unknown')
+            ->and($meta['_rotation_sort_key'])->toBe(9999);
+    });
 
-    #[Test]
-    public function a_position_without_an_email_stores_no_email_key(): void
-    {
-        $this->useView($this->view(['getPositionEmail' => '']));
+    it('stores no email key for a position without an email', function () {
+        ($this->useView)(($this->view)(['getPositionEmail' => '']));
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $this->assertArrayNotHasKey('_position_email', WpState::$postMeta[self::POSITION_ID] ?? []);
-    }
+        expect(WpState::$postMeta[POSITION_ADMIN_ID] ?? [])->not->toHaveKey('_position_email');
+    });
 
-    #[Test]
-    public function nothing_is_written_for_a_position_with_no_view(): void
-    {
+    it('writes nothing for a position with no view', function () {
         $this->viewFactory->method('createFrom')->willReturn(null);
 
-        $this->admin->updatePositionMetadata(self::POSITION_ID);
+        $this->admin->updatePositionMetadata(POSITION_ADMIN_ID);
 
-        $this->assertArrayNotHasKey(self::POSITION_ID, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->not->toHaveKey(POSITION_ADMIN_ID);
+    });
 
-    #[Test]
-    public function saving_recomputes_the_metadata(): void
-    {
-        $this->useView($this->view());
+    it('recomputes the metadata on save', function () {
+        ($this->useView)(($this->view)());
 
-        $this->admin->updatePositionMetadataOnSave(self::POSITION_ID, new WP_Post(['ID' => self::POSITION_ID]), true);
+        $this->admin->updatePositionMetadataOnSave(POSITION_ADMIN_ID, new WP_Post(['ID' => POSITION_ADMIN_ID]), true);
 
-        $this->assertArrayHasKey('_position_member_name', WpState::$postMeta[self::POSITION_ID]);
-    }
+        expect(WpState::$postMeta[POSITION_ADMIN_ID])->toHaveKey('_position_member_name');
+    });
 
-    #[Test]
-    public function an_ajax_save_is_ignored(): void
-    {
+    it('ignores an ajax save', function () {
         WpState::$doingAjax = true;
         $this->viewFactory->expects($this->never())->method('createFrom');
 
-        $this->admin->updatePositionMetadataOnSave(self::POSITION_ID, new WP_Post(['ID' => self::POSITION_ID]), true);
+        $this->admin->updatePositionMetadataOnSave(POSITION_ADMIN_ID, new WP_Post(['ID' => POSITION_ADMIN_ID]), true);
 
-        $this->assertArrayNotHasKey(self::POSITION_ID, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->not->toHaveKey(POSITION_ADMIN_ID);
+    });
+});
 
-    // ── member save refreshes the position they hold ─────────────────
-    #[Test]
-    public function saving_a_member_refreshes_the_position_they_hold(): void
-    {
-        $this->setField(50, 'service-layout-group_intergroup-position', self::POSITION_ID);
-        $this->useView($this->view());
+// ── member save refreshes the position they hold ─────────────────
+describe('member save', function () {
+    it('refreshes the position the member holds', function () {
+        $this->setField(50, 'service-layout-group_intergroup-position', POSITION_ADMIN_ID);
+        ($this->useView)(($this->view)());
 
         $this->admin->updateMemberPositionMetadata(50, new WP_Post(['ID' => 50]), true);
 
-        $this->assertArrayHasKey(self::POSITION_ID, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->toHaveKey(POSITION_ADMIN_ID);
+    });
 
-    #[Test]
-    public function saving_a_member_holding_several_positions_refreshes_each(): void
-    {
+    it('refreshes each position for a member holding several', function () {
         // ACF returns an array when the field allows multiple selections.
         $this->setField(50, 'service-layout-group_intergroup-position', [7, 8]);
-        $this->useView($this->view());
+        ($this->useView)(($this->view)());
 
         $this->admin->updateMemberPositionMetadata(50, new WP_Post(['ID' => 50]), true);
 
-        $this->assertArrayHasKey(7, WpState::$postMeta);
-        $this->assertArrayHasKey(8, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->toHaveKey(7)
+            ->toHaveKey(8);
+    });
 
-    #[Test]
-    public function saving_a_member_with_no_position_writes_nothing(): void
-    {
+    it('writes nothing for a member with no position', function () {
         $this->setField(50, 'service-layout-group_intergroup-position', null);
         $this->viewFactory->expects($this->never())->method('createFrom');
 
         $this->admin->updateMemberPositionMetadata(50, new WP_Post(['ID' => 50]), true);
 
-        $this->assertSame([], WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->toBe([]);
+    });
+});
 
-    #[Test]
-    public function every_position_can_be_backfilled_at_once(): void
-    {
-        $position = $this->createMock(Position::class);
-        $position->method('getId')->willReturn(self::POSITION_ID);
-        $this->repository->method('findAll')->willReturn([$position, $position]);
-        $this->useView($this->view());
+it('can backfill every position at once', function () {
+    $position = $this->createMock(Position::class);
+    $position->method('getId')->willReturn(POSITION_ADMIN_ID);
+    $this->repository->method('findAll')->willReturn([$position, $position]);
+    ($this->useView)(($this->view)());
 
-        $this->assertSame(2, $this->admin->setupAllPositionsMetadata());
-    }
+    expect($this->admin->setupAllPositionsMetadata())->toBe(2);
+});
 
-    // ── extended search (by current member name) ─────────────────────
+// ── extended search (by current member name) ─────────────────────
+describe('extended search', function () {
+    beforeEach(function () {
+        $this->positionSearch = function (string $term): WP_Query {
+            $this->setScreen('edit-' . POSITION_ADMIN_TYPE, 'edit', POSITION_ADMIN_TYPE);
+            $query = new WP_Query(['s' => $term]);
+            $query->isMainQuery = true;
+            $query->isSearch    = true;
 
-    private function positionSearch(string $term): WP_Query
-    {
-        $this->setScreen('edit-' . self::POSITION_TYPE, 'edit', self::POSITION_TYPE);
-        $query = new WP_Query(['s' => $term]);
-        $query->isMainQuery = true;
-        $query->isSearch    = true;
+            return $query;
+        };
+    });
 
-        return $query;
-    }
-
-    #[Test]
-    public function searching_by_member_name_rewrites_the_query_to_matching_positions(): void
-    {
+    it('rewrites the query to matching positions when searching by member name', function () {
         // Both the member-name meta query and the title query report matches.
         $this->wpdb->col = [7, 8];
-        $query = $this->positionSearch('alex');
+        $query = ($this->positionSearch)('alex');
 
         $this->admin->extendSearch($query);
 
         // Search is turned into an explicit id set so a position held by "alex"
         // is found even though its title never mentions the name.
-        $this->assertSame('', $query->get('s'));
-        $this->assertNotEmpty($query->get('post__in'));
-    }
+        expect($query->get('s'))->toBe('')
+            ->and($query->get('post__in'))->not->toBeEmpty();
+    });
 
-    #[Test]
-    public function extended_search_is_skipped_off_the_position_screen(): void
-    {
+    it('is skipped off the position screen', function () {
         $this->setScreen('edit-page', 'edit', 'page');
         $query = new WP_Query(['s' => 'alex']);
         $query->isMainQuery = true;
@@ -556,28 +465,24 @@ class PositionAdminTest extends AmberTestCase
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame('alex', $query->get('s'));
-    }
+        expect($query->get('s'))->toBe('alex');
+    });
 
-    #[Test]
-    public function extended_search_with_a_blank_term_does_nothing(): void
-    {
-        $query = $this->positionSearch('');
+    it('does nothing with a blank term', function () {
+        $query = ($this->positionSearch)('');
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame('', $query->get('post__in', ''));
-    }
+        expect($query->get('post__in', ''))->toBe('');
+    });
 
-    #[Test]
-    public function extended_search_with_no_member_matches_leaves_the_query_alone(): void
-    {
+    it('leaves the query alone with no member matches', function () {
         // No rows come back from the member-name lookup → nothing to merge.
         $this->wpdb->col = [];
-        $query = $this->positionSearch('nobody');
+        $query = ($this->positionSearch)('nobody');
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame('nobody', $query->get('s'));
-    }
-}
+        expect($query->get('s'))->toBe('nobody');
+    });
+});

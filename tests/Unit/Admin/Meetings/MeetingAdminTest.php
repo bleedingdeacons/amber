@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Meetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Meetings\MeetingAdmin;
-use Amber\Tests\AmberTestCase;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -19,7 +15,7 @@ use Unity\Members\Interfaces\MemberRepository;
 use WP_Query;
 use WP_Screen;
 
-/**
+/*
  * Tests for the meeting list-table customisations.
  *
  * MeetingAdmin bolts three columns onto TSML's meeting list — Group, GSRs and
@@ -30,62 +26,46 @@ use WP_Screen;
  * search on the meeting screen, so the gate that decides that is exercised on
  * its own.
  */
-#[CoversClass(\Amber\Admin\Meetings\MeetingAdmin::class)]
-class MeetingAdminTest extends AmberTestCase
-{
-    private const MEETING_TYPE = 'tsml_meeting';
-    private const GROUP_META   = 'group_id';
-    private const GROUP_TYPE   = 'tsml_group';
 
-    private MeetingAdmin $admin;
+covers(MeetingAdmin::class);
 
-    /** @var GroupRepository&MockObject */
-    private $groupRepository;
+const MEETING_TYPE = 'tsml_meeting';
+const MEETING_GROUP_META = 'group_id';
+const MEETING_GROUP_TYPE = 'tsml_group';
 
-    /** @var GroupViewFactory&MockObject */
-    private $groupViewFactory;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturn([
+        'POST_TYPE'       => MEETING_TYPE,
+        'GROUP_META_KEY'  => MEETING_GROUP_META,
+        'GROUP_POST_TYPE' => MEETING_GROUP_TYPE,
+    ]);
 
-    /** @var MemberRepository&MockObject */
-    private $memberRepository;
+    $this->groupRepository  = $this->createMock(GroupRepository::class);
+    $this->groupViewFactory = $this->createMock(GroupViewFactory::class);
+    $this->memberRepository = $this->createMock(MemberRepository::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->admin = new MeetingAdmin(
+        $config,
+        $this->groupRepository,
+        $this->groupViewFactory,
+        $this->memberRepository
+    );
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturn([
-            'POST_TYPE'       => self::MEETING_TYPE,
-            'GROUP_META_KEY'  => self::GROUP_META,
-            'GROUP_POST_TYPE' => self::GROUP_TYPE,
-        ]);
-
-        $this->groupRepository  = $this->createMock(GroupRepository::class);
-        $this->groupViewFactory = $this->createMock(GroupViewFactory::class);
-        $this->memberRepository = $this->createMock(MemberRepository::class);
-
-        $this->admin = new MeetingAdmin(
-            $config,
-            $this->groupRepository,
-            $this->groupViewFactory,
-            $this->memberRepository
-        );
-    }
-
-    private function meetingScreenQuery(string $orderby = '', bool $search = false, string $term = ''): WP_Query
-    {
-        $this->setScreen('edit-' . self::MEETING_TYPE, 'edit', self::MEETING_TYPE);
+    $this->meetingScreenQuery = function (string $orderby = '', bool $search = false, string $term = ''): WP_Query {
+        $this->setScreen('edit-' . MEETING_TYPE, 'edit', MEETING_TYPE);
 
         $query = new WP_Query(['orderby' => $orderby, 's' => $term]);
         $query->isMainQuery = true;
         $query->isSearch    = $search;
 
         return $query;
-    }
+    };
+});
 
-    // ── columns ──────────────────────────────────────────────────────
-    #[Test]
-    public function the_group_gsr_and_email_columns_are_inserted_after_time(): void
-    {
+// ── columns ──────────────────────────────────────────────────────
+describe('columns', function () {
+    it('inserts the group, gsr and email columns after time', function () {
         $columns = $this->admin->addCustomColumns([
             'title'       => 'Title',
             'time'        => 'Time',
@@ -94,107 +74,93 @@ class MeetingAdminTest extends AmberTestCase
         ]);
 
         // TSML's own columns are dropped; ours land immediately after time.
-        $this->assertArrayNotHasKey('data_source', $columns);
-        $this->assertArrayNotHasKey('region', $columns);
+        expect($columns)->not->toHaveKey('data_source')
+            ->not->toHaveKey('region');
         $keys = array_keys($columns);
-        $this->assertSame(['title', 'time', 'group', 'gsrs', 'email'], $keys);
-    }
+        expect($keys)->toBe(['title', 'time', 'group', 'gsrs', 'email']);
+    });
 
-    #[Test]
-    public function the_group_column_is_sortable(): void
-    {
-        $this->assertSame('group', $this->admin->makeSortableColumns([])['group']);
-    }
+    it('makes the group column sortable', function () {
+        expect($this->admin->makeSortableColumns([])['group'])->toBe('group');
+    });
 
-    #[Test]
-    public function the_group_and_email_columns_are_shown_by_default_on_the_meeting_screen(): void
-    {
-        $screen = new WP_Screen(['id' => 'edit-' . self::MEETING_TYPE]);
+    it('shows the group and email columns by default on the meeting screen', function () {
+        $screen = new WP_Screen(['id' => 'edit-' . MEETING_TYPE]);
 
         $hidden = $this->admin->setDefaultHiddenColumns(['group', 'email', 'author'], $screen);
 
-        $this->assertNotContains('group', $hidden);
-        $this->assertNotContains('email', $hidden);
-        $this->assertContains('author', $hidden);
-    }
+        expect($hidden)->not->toContain('group')
+            ->not->toContain('email')
+            ->toContain('author');
+    });
 
-    #[Test]
-    public function default_hidden_columns_are_untouched_on_other_screens(): void
-    {
+    it('leaves default hidden columns untouched on other screens', function () {
         $screen = new WP_Screen(['id' => 'edit-page']);
 
-        $this->assertSame(['group'], $this->admin->setDefaultHiddenColumns(['group'], $screen));
-    }
+        expect($this->admin->setDefaultHiddenColumns(['group'], $screen))->toBe(['group']);
+    });
+});
 
-    // ── group column ─────────────────────────────────────────────────
-    #[Test]
-    public function the_group_column_shows_the_group_title(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+// ── group column ─────────────────────────────────────────────────
+describe('group column', function () {
+    it('shows the group title', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn('Tuesday Group');
         $this->groupRepository->method('findById')->willReturn($group);
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group', 42));
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-    }
+        expect($html)->toContain('Tuesday Group');
+    });
 
-    #[Test]
-    public function the_group_column_shows_na_when_the_meeting_has_no_group(): void
-    {
+    it('shows n/a when the meeting has no group', function () {
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('group', 42));
 
-        $this->assertStringContainsString('N/A', $html);
-    }
+        expect($html)->toContain('N/A');
+    });
 
-    #[Test]
-    public function the_group_column_shows_na_when_the_group_has_no_title(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+    it('shows n/a when the group has no title', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn('');
         $this->groupRepository->method('findById')->willReturn($group);
 
-        $this->assertStringContainsString('N/A', $this->capture(fn () => $this->admin->populateCustomColumns('group', 42)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('group', 42)))->toContain('N/A');
+    });
+});
 
-    // ── email column ─────────────────────────────────────────────────
-    #[Test]
-    public function the_email_column_links_the_group_email(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+// ── email column ─────────────────────────────────────────────────
+describe('email column', function () {
+    it('links the group email', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
         $group = $this->createMock(Group::class);
         $group->method('getEmail')->willReturn('grp@example.test');
         $this->groupRepository->method('findById')->willReturn($group);
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('email', 42));
 
-        $this->assertStringContainsString('mailto:grp@example.test', $html);
-    }
+        expect($html)->toContain('mailto:grp@example.test');
+    });
 
-    #[Test]
-    public function the_email_column_dashes_when_there_is_no_group(): void
-    {
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('email', 42)));
-    }
+    it('dashes when there is no group', function () {
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('email', 42)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_email_column_dashes_when_the_group_has_no_email(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+    it('dashes when the group has no email', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
         $group = $this->createMock(Group::class);
         $group->method('getEmail')->willReturn('');
         $this->groupRepository->method('findById')->willReturn($group);
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('email', 42)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('email', 42)))->toContain('—');
+    });
+});
 
-    // ── GSRs column ──────────────────────────────────────────────────
-    #[Test]
-    public function the_gsrs_column_links_each_gsr_in_the_group(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+// ── GSRs column ──────────────────────────────────────────────────
+describe('gsrs column', function () {
+    it('links each gsr in the group', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
 
         $gsr = $this->createMock(Member::class);
         $gsr->method('isGSR')->willReturn(true);
@@ -214,31 +180,25 @@ class MeetingAdminTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42));
 
-        $this->assertStringContainsString('Anonymous Alex', $html);
-    }
+        expect($html)->toContain('Anonymous Alex');
+    });
 
-    #[Test]
-    public function the_gsrs_column_dashes_without_a_group(): void
-    {
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
-    }
+    it('dashes without a group', function () {
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)))->toContain('—');
+    });
 
-    #[Test]
-    public function the_gsrs_column_dashes_when_the_group_has_no_gsrs(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+    it('dashes when the group has no gsrs', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
 
         $view = $this->createMock(GroupView::class);
         $view->method('getMembers')->willReturn([]);
         $this->groupViewFactory->method('createFrom')->willReturn($view);
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)))->toContain('—');
+    });
 
-    #[Test]
-    public function a_gsr_whose_member_record_is_missing_is_skipped(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
+    it('skips a gsr whose member record is missing', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
 
         $gsr = $this->createMock(Member::class);
         $gsr->method('isGSR')->willReturn(true);
@@ -251,139 +211,127 @@ class MeetingAdminTest extends AmberTestCase
         // findById returns null → the sole GSR drops out → dash.
         $this->memberRepository->method('findById')->willReturn(null);
 
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
-    }
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)))->toContain('—');
+    });
 
-    // ── sorting ──────────────────────────────────────────────────────
-    #[Test]
-    public function sorting_by_group_rewrites_the_query_to_a_meta_sort(): void
-    {
-        $query = $this->meetingScreenQuery('group');
+    it('dashes when the group view is missing', function () {
+        $this->setPostMeta(42, MEETING_GROUP_META, 100);
+        $this->groupViewFactory->method('createFrom')->willReturn(null);
+
+        expect($this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)))->toContain('—');
+    });
+});
+
+// ── sorting ──────────────────────────────────────────────────────
+describe('sorting', function () {
+    it('rewrites the query to a meta sort when sorting by group', function () {
+        $query = ($this->meetingScreenQuery)('group');
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('meta_value_num', $query->get('orderby'));
-        $this->assertNotEmpty($query->get('meta_query'));
-    }
+        expect($query->get('orderby'))->toBe('meta_value_num')
+            ->and($query->get('meta_query'))->not->toBeEmpty();
+    });
 
-    #[Test]
-    public function sorting_is_left_alone_for_a_secondary_query(): void
-    {
-        $this->setScreen('edit-' . self::MEETING_TYPE, 'edit', self::MEETING_TYPE);
+    it('leaves sorting alone for a secondary query', function () {
+        $this->setScreen('edit-' . MEETING_TYPE, 'edit', MEETING_TYPE);
         $query = new WP_Query(['orderby' => 'group']);
         $query->isMainQuery = false;   // e.g. a widget query on the same screen
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('group', $query->get('orderby'));
-    }
+        expect($query->get('orderby'))->toBe('group');
+    });
 
-    #[Test]
-    public function the_gsrs_column_dashes_when_the_group_view_is_missing(): void
-    {
-        $this->setPostMeta(42, self::GROUP_META, 100);
-        $this->groupViewFactory->method('createFrom')->willReturn(null);
-
-        $this->assertStringContainsString('—', $this->capture(fn () => $this->admin->populateCustomColumns('gsrs', 42)));
-    }
-
-    #[Test]
-    public function sorting_is_left_alone_off_the_meeting_screen(): void
-    {
+    it('leaves sorting alone off the meeting screen', function () {
         $this->setScreen('edit-page', 'edit', 'page');
         $query = new WP_Query(['orderby' => 'group']);
         $query->isMainQuery = true;
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('group', $query->get('orderby'));
-    }
+        expect($query->get('orderby'))->toBe('group');
+    });
+});
 
-    // ── search rewrite ───────────────────────────────────────────────
-    #[Test]
-    public function a_group_search_extends_join_where_and_distinct(): void
-    {
-        $query = $this->meetingScreenQuery('', true, 'treasurer');
+// ── search rewrite ───────────────────────────────────────────────
+describe('search rewrite', function () {
+    it('extends join, where and distinct for a group search', function () {
+        $query = ($this->meetingScreenQuery)('', true, 'treasurer');
 
         $join = $this->admin->searchJoin('', $query);
         $where = $this->admin->searchWhere("(wp_posts.post_title LIKE '%treasurer%')", $query);
         $distinct = $this->admin->searchDistinct('', $query);
 
-        $this->assertStringContainsString('group_post', $join);
-        // Not just that the alias is there: the join has to carry a real post
-        // type. It once carried '' and therefore matched nothing.
-        $this->assertStringContainsString("group_post.post_type = '" . self::GROUP_TYPE . "'", $join);
-        $this->assertStringContainsString('group_post.post_title LIKE', $where);
-        $this->assertSame('DISTINCT', $distinct);
-    }
+        expect($join)->toContain('group_post')
+            // Not just that the alias is there: the join has to carry a real post
+            // type. It once carried '' and therefore matched nothing.
+            ->toContain("group_post.post_type = '" . MEETING_GROUP_TYPE . "'")
+            ->and($where)->toContain('group_post.post_title LIKE')
+            ->and($distinct)->toBe('DISTINCT');
+    });
 
-    #[Test]
-    public function the_search_rewrite_is_skipped_when_it_is_not_a_search(): void
-    {
-        $query = $this->meetingScreenQuery('', false);
+    it('is skipped when it is not a search', function () {
+        $query = ($this->meetingScreenQuery)('', false);
 
-        $this->assertSame('JOIN', $this->admin->searchJoin('JOIN', $query));
-        $this->assertSame('WHERE', $this->admin->searchWhere('WHERE', $query));
-        $this->assertSame('', $this->admin->searchDistinct('', $query));
-    }
+        expect($this->admin->searchJoin('JOIN', $query))->toBe('JOIN')
+            ->and($this->admin->searchWhere('WHERE', $query))->toBe('WHERE')
+            ->and($this->admin->searchDistinct('', $query))->toBe('');
+    });
 
-    #[Test]
-    public function a_search_with_no_term_leaves_the_where_untouched(): void
-    {
-        $query = $this->meetingScreenQuery('', true, '');
+    it('leaves the where untouched for a search with no term', function () {
+        $query = ($this->meetingScreenQuery)('', true, '');
 
-        $this->assertSame('WHERE', $this->admin->searchWhere('WHERE', $query));
-    }
+        expect($this->admin->searchWhere('WHERE', $query))->toBe('WHERE');
+    });
+});
 
-    // ── missing GROUP_POST_TYPE ──────────────────────────────────────
-    //
-    // The provider publishes this key; it once did not. A missing key is not
-    // an error PHP stops for -- it lands in the join as post_type = '', which
-    // matches no row, so group-name search returns nothing and still looks
-    // like it worked. These pin the fallback that keeps it working and the
-    // warning that makes it visible.
+// ── missing GROUP_POST_TYPE ──────────────────────────────────────
+//
+// The provider publishes this key; it once did not. A missing key is not
+// an error PHP stops for -- it lands in the join as post_type = '', which
+// matches no row, so group-name search returns nothing and still looks
+// like it worked. These pin the fallback that keeps it working and the
+// warning that makes it visible.
+describe('missing GROUP_POST_TYPE', function () {
+    beforeEach(function () {
+        /** Builds an admin whose meeting config omits GROUP_POST_TYPE. */
+        $this->adminWithoutGroupPostType = function (): MeetingAdmin {
+            $config = $this->createMock(Configuration::class);
+            $config->method('getConfig')->willReturn([
+                'POST_TYPE'      => MEETING_TYPE,
+                'GROUP_META_KEY' => MEETING_GROUP_META,
+            ]);
 
-    /** Builds an admin whose meeting config omits GROUP_POST_TYPE. */
-    private function adminWithoutGroupPostType(): MeetingAdmin
-    {
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturn([
-            'POST_TYPE'      => self::MEETING_TYPE,
-            'GROUP_META_KEY' => self::GROUP_META,
-        ]);
+            return new MeetingAdmin(
+                $config,
+                $this->groupRepository,
+                $this->groupViewFactory,
+                $this->memberRepository
+            );
+        };
+    });
 
-        return new MeetingAdmin(
-            $config,
-            $this->groupRepository,
-            $this->groupViewFactory,
-            $this->memberRepository
-        );
-    }
-
-    #[Test]
-    public function a_missing_group_post_type_falls_back_rather_than_joining_on_nothing(): void
-    {
-        $admin = $this->adminWithoutGroupPostType();
-        $query = $this->meetingScreenQuery('', true, 'treasurer');
+    it('falls back rather than joining on nothing', function () {
+        $admin = ($this->adminWithoutGroupPostType)();
+        $query = ($this->meetingScreenQuery)('', true, 'treasurer');
 
         $join = $admin->searchJoin('', $query);
 
-        $this->assertStringContainsString("group_post.post_type = '" . self::GROUP_TYPE . "'", $join);
-        $this->assertStringNotContainsString("group_post.post_type = ''", $join);
-    }
+        expect($join)->toContain("group_post.post_type = '" . MEETING_GROUP_TYPE . "'")
+            ->not->toContain("group_post.post_type = ''");
+    });
 
-    #[Test]
-    public function the_where_still_references_the_alias_the_join_provides(): void
-    {
+    it('still references the alias the join provides in the where', function () {
         // The two have to agree: searchWhere() names group_post unconditionally,
         // so searchJoin() must always supply it or the SQL is invalid.
-        $admin = $this->adminWithoutGroupPostType();
-        $query = $this->meetingScreenQuery('', true, 'treasurer');
+        $admin = ($this->adminWithoutGroupPostType)();
+        $query = ($this->meetingScreenQuery)('', true, 'treasurer');
 
         $join  = $admin->searchJoin('', $query);
         $where = $admin->searchWhere("(wp_posts.post_title LIKE '%treasurer%')", $query);
 
-        $this->assertStringContainsString('AS group_post', $join);
-        $this->assertStringContainsString('group_post.post_title LIKE', $where);
-    }
-}
+        expect($join)->toContain('AS group_post')
+            ->and($where)->toContain('group_post.post_title LIKE');
+    });
+});

@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Meetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Managers\MeetingReconciler;
 use Amber\Models\ReconciliationResult;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\Contacts\Interfaces\Contact;
 use Unity\Groups\Interfaces\Group;
@@ -19,7 +15,7 @@ use Unity\Locations\Interfaces\Location;
 use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;
 
-/**
+/*
  * Tests for the Groups & Meetings dashboard widget.
  *
  * This is the widest single render in Amber: for every meeting it draws a card
@@ -32,51 +28,37 @@ use Unity\Meetings\Interfaces\MeetingRepository;
  * renderer is walked, then checks the graceful paths: no reconciler, no
  * meetings, and the screen gate on the styles and scripts.
  */
-#[CoversClass(\Amber\Admin\Meetings\MeetingDashboard::class)]
-class MeetingDashboardTest extends AmberTestCase
-{
-    /** @var MeetingRepository&MockObject */
-    private $meetingRepository;
 
-    /** @var GroupRepository&MockObject */
-    private $groupRepository;
+covers(MeetingDashboard::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+beforeEach(function () {
+    $this->meetingRepository = $this->createMock(MeetingRepository::class);
+    $this->groupRepository   = $this->createMock(GroupRepository::class);
 
-        $this->meetingRepository = $this->createMock(MeetingRepository::class);
-        $this->groupRepository   = $this->createMock(GroupRepository::class);
-    }
-
-    private function dashboard(?MeetingReconciler $reconciler = null): MeetingDashboard
-    {
+    $this->dashboard = function (?MeetingReconciler $reconciler = null): MeetingDashboard {
         return new MeetingDashboard($this->meetingRepository, $this->groupRepository, $reconciler);
-    }
+    };
 
-    private function contact(string $name, string $phone): Contact
-    {
+    $this->contact = function (string $name, string $phone): Contact {
         $contact = $this->createMock(Contact::class);
         $contact->method('getName')->willReturn($name);
         $contact->method('getPhone')->willReturn($phone);
 
         return $contact;
-    }
+    };
 
-    private function location(string $name, string $address = ''): Location
-    {
+    $this->location = function (string $name, string $address = ''): Location {
         $location = $this->createMock(Location::class);
         $location->method('getName')->willReturn($name);
         $location->method('getFormattedAddress')->willReturn($address);
 
         return $location;
-    }
+    };
 
     /**
      * @param array<string, mixed> $opts
      */
-    private function meeting(int $id, array $opts = []): Meeting
-    {
+    $this->meeting = function (int $id, array $opts = []): Meeting {
         $defaults = [
             'day'        => 1,
             'time'       => '19:00',
@@ -105,10 +87,9 @@ class MeetingDashboardTest extends AmberTestCase
         );
 
         return $meeting;
-    }
+    };
 
-    private function group(int $id, string $title, string $email = '', array $contacts = []): Group
-    {
+    $this->group = function (int $id, string $title, string $email = '', array $contacts = []): Group {
         $group = $this->createMock(Group::class);
         $group->method('getId')->willReturn($id);
         $group->method('getTitle')->willReturn($title);
@@ -116,11 +97,10 @@ class MeetingDashboardTest extends AmberTestCase
         $group->method('getContacts')->willReturn($contacts);
 
         return $group;
-    }
+    };
 
     /** A reconciler whose result covers every verdict type. */
-    private function fullReconciler(): MeetingReconciler
-    {
+    $this->fullReconciler = function (): MeetingReconciler {
         $result = new ReconciliationResult(
             matches: [
                 ['local_id' => 1, 'national_name' => 'National A', 'national_id' => 10, 'national_address' => '1 High St', 'national_postcode' => 'BS1 1AA', 'national_status' => 'Open', 'score' => 0.95, 'notes' => []],
@@ -143,121 +123,108 @@ class MeetingDashboardTest extends AmberTestCase
         $reconciler->method('reconcile')->willReturn($result);
 
         return $reconciler;
-    }
+    };
+});
 
-    // ── the full render ──────────────────────────────────────────────
-    #[Test]
-    public function every_reconciliation_verdict_paints_its_card(): void
-    {
-        $groupA = $this->group(100, 'Tuesday Group', 'tues@example.test', [
-            $this->contact('Alex', '0117 000 0001'),
-            $this->contact('Sam', ''),          // name only
-            $this->contact('', '0117 000 0003'), // phone only
-            $this->contact('Jo', '0117 000 0004'), // 4th — trimmed by the 3-contact cap
-        ]);
+// ── the full render ──────────────────────────────────────────────
+it('paints a card for every reconciliation verdict', function () {
+    $groupA = ($this->group)(100, 'Tuesday Group', 'tues@example.test', [
+        ($this->contact)('Alex', '0117 000 0001'),
+        ($this->contact)('Sam', ''),          // name only
+        ($this->contact)('', '0117 000 0003'), // phone only
+        ($this->contact)('Jo', '0117 000 0004'), // 4th — trimmed by the 3-contact cap
+    ]);
 
-        $this->meetingRepository->method('findAll')->willReturn([
-            $this->meeting(1, ['day' => 2, 'location' => $this->location('Church Hall', '1 High St, Bristol'), 'groupId' => 100]),
-            $this->meeting(2, ['day' => 2, 'time' => '', 'online' => true, 'onlineLink' => 'https://zoom.example', 'groupId' => 100]),
-            $this->meeting(3, ['day' => 3, 'endTime' => '', 'online' => true, 'onlineLink' => '']),
-            $this->meeting(4, ['day' => 4, 'location' => null, 'groupId' => 200]),
-            $this->meeting(5, ['day' => 5, 'groupId' => 300]),
-            $this->meeting(6, ['day' => 0, 'groupId' => 0]),
-        ]);
+    $this->meetingRepository->method('findAll')->willReturn([
+        ($this->meeting)(1, ['day' => 2, 'location' => ($this->location)('Church Hall', '1 High St, Bristol'), 'groupId' => 100]),
+        ($this->meeting)(2, ['day' => 2, 'time' => '', 'online' => true, 'onlineLink' => 'https://zoom.example', 'groupId' => 100]),
+        ($this->meeting)(3, ['day' => 3, 'endTime' => '', 'online' => true, 'onlineLink' => '']),
+        ($this->meeting)(4, ['day' => 4, 'location' => null, 'groupId' => 200]),
+        ($this->meeting)(5, ['day' => 5, 'groupId' => 300]),
+        ($this->meeting)(6, ['day' => 0, 'groupId' => 0]),
+    ]);
 
-        $this->groupRepository->method('findById')->willReturnMap([
-            [100, $groupA],
-            [200, $this->group(200, 'No-Email Group')],
-            [300, $this->group(300, 'Emailed Group', 'grp@example.test')],
-        ]);
+    $this->groupRepository->method('findById')->willReturnMap([
+        [100, $groupA],
+        [200, ($this->group)(200, 'No-Email Group')],
+        [300, ($this->group)(300, 'Emailed Group', 'grp@example.test')],
+    ]);
 
-        $html = $this->capture(fn () => $this->dashboard($this->fullReconciler())->renderDashboardWidget());
+    $html = $this->capture(fn () => ($this->dashboard)(($this->fullReconciler)())->renderDashboardWidget());
 
+    expect($html)
         // Confident match: plain AAGBDB badge and an Open status pill.
-        $this->assertStringContainsString('recon-matched', $html);
-        $this->assertStringContainsString('status-open', $html);
+        ->toContain('recon-matched')
+        ->toContain('status-open')
         // Partial match carries its caveat.
-        $this->assertStringContainsString('recon-partial', $html);
-        $this->assertStringContainsString('End time mismatch', $html);
+        ->toContain('recon-partial')
+        ->toContain('End time mismatch')
         // Closed national match and its closed pill.
-        $this->assertStringContainsString('recon-closed', $html);
-        $this->assertStringContainsString('status-closed', $html);
+        ->toContain('recon-closed')
+        ->toContain('status-closed')
         // Possible and local-only.
-        $this->assertStringContainsString('recon-possible', $html);
-        $this->assertStringContainsString('recon-missing', $html);
-        $this->assertStringContainsString('No national candidate', $html);
+        ->toContain('recon-possible')
+        ->toContain('recon-missing')
+        ->toContain('No national candidate')
         // Local data made it in.
-        $this->assertStringContainsString('Church Hall', $html);
-        $this->assertStringContainsString('tues@example.test', $html);
-        $this->assertStringContainsString('Alex', $html);
+        ->toContain('Church Hall')
+        ->toContain('tues@example.test')
+        ->toContain('Alex')
         // The 4th contact is past the 3-contact cap.
-        $this->assertStringNotContainsString('0117 000 0004', $html);
+        ->not->toContain('0117 000 0004')
         // Online meeting with a link, and one without.
-        $this->assertStringContainsString('Online Meeting', $html);
-        $this->assertStringContainsString('meeting-online-label', $html);
-    }
+        ->toContain('Online Meeting')
+        ->toContain('meeting-online-label');
+});
 
-    // ── graceful paths ───────────────────────────────────────────────
-    #[Test]
-    public function an_empty_site_says_no_meetings_found(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([]);
+// ── graceful paths ───────────────────────────────────────────────
+it('says no meetings found on an empty site', function () {
+    $this->meetingRepository->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString(
-            'No meetings found',
-            $this->capture(fn () => $this->dashboard()->renderDashboardWidget())
-        );
-    }
+    expect($this->capture(fn () => ($this->dashboard)()->renderDashboardWidget()))
+        ->toContain('No meetings found');
+});
 
-    #[Test]
-    public function without_a_reconciler_the_cards_still_render_with_dashes(): void
-    {
-        // Concordance absent: every national field degrades to an em dash
-        // rather than the widget failing.
-        $this->meetingRepository->method('findAll')->willReturn([
-            $this->meeting(1, ['groupId' => null, 'contacts' => []]),
-        ]);
+it('still renders the cards with dashes without a reconciler', function () {
+    // Concordance absent: every national field degrades to an em dash
+    // rather than the widget failing.
+    $this->meetingRepository->method('findAll')->willReturn([
+        ($this->meeting)(1, ['groupId' => null, 'contacts' => []]),
+    ]);
 
-        $html = $this->capture(fn () => $this->dashboard(null)->renderDashboardWidget());
+    $html = $this->capture(fn () => ($this->dashboard)(null)->renderDashboardWidget());
 
-        $this->assertStringContainsString('meeting-card', $html);
-        $this->assertStringContainsString('National Listing', $html);
-        $this->assertStringNotContainsString('recon-matched', $html);
-    }
+    expect($html)->toContain('meeting-card')
+        ->toContain('National Listing')
+        ->not->toContain('recon-matched');
+});
 
-    #[Test]
-    public function a_reconciler_that_throws_is_swallowed(): void
-    {
-        $reconciler = $this->createMock(MeetingReconciler::class);
-        $reconciler->method('reconcile')->willThrowException(new \RuntimeException('API down'));
+it('swallows a reconciler that throws', function () {
+    $reconciler = $this->createMock(MeetingReconciler::class);
+    $reconciler->method('reconcile')->willThrowException(new \RuntimeException('API down'));
 
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1)]);
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1)]);
 
-        $html = $this->capture(fn () => $this->dashboard($reconciler)->renderDashboardWidget());
+    $html = $this->capture(fn () => ($this->dashboard)($reconciler)->renderDashboardWidget());
 
-        // Reconciliation failed, but the dashboard still drew the card.
-        $this->assertStringContainsString('meeting-card', $html);
-    }
+    // Reconciliation failed, but the dashboard still drew the card.
+    expect($html)->toContain('meeting-card');
+});
 
-    #[Test]
-    public function the_widget_is_registered(): void
-    {
-        $this->dashboard()->registerDashboardWidget();
+it('registers the widget', function () {
+    ($this->dashboard)()->registerDashboardWidget();
 
-        $this->assertArrayHasKey('groups_meetings_dashboard', WpState::$widgets);
-    }
+    expect(WpState::$widgets)->toHaveKey('groups_meetings_dashboard');
+});
 
-    #[Test]
-    public function styles_and_scripts_only_load_on_the_dashboard(): void
-    {
-        $dashboard = $this->dashboard();
+it('loads styles and scripts only on the dashboard', function () {
+    $dashboard = ($this->dashboard)();
 
-        $this->setScreen('dashboard', 'dashboard');
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $dashboard->addDashboardStyles()));
-        $this->assertStringContainsString('<script>', $this->capture(fn () => $dashboard->addDashboardScripts()));
+    $this->setScreen('dashboard', 'dashboard');
+    expect($this->capture(fn () => $dashboard->addDashboardStyles()))->toContain('<style>')
+        ->and($this->capture(fn () => $dashboard->addDashboardScripts()))->toContain('<script>');
 
-        $this->setScreen('edit-post', 'edit', 'post');
-        $this->assertSame('', $this->capture(fn () => $dashboard->addDashboardStyles()));
-        $this->assertSame('', $this->capture(fn () => $dashboard->addDashboardScripts()));
-    }
-}
+    $this->setScreen('edit-post', 'edit', 'post');
+    expect($this->capture(fn () => $dashboard->addDashboardStyles()))->toBe('')
+        ->and($this->capture(fn () => $dashboard->addDashboardScripts()))->toBe('');
+});

@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Members;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Members\DirectoryDashboard;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Scrutiny\Privacy\PersonalDataPolicy;
 use Unity\Core\Interfaces\Configuration;
@@ -21,7 +17,7 @@ use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\PositionView;
 use Unity\Positions\Interfaces\PositionViewFactory;
 
-/**
+/*
  * Tests for the Intergroup Directory dashboard widget.
  *
  * The widget surfaces members' personal email addresses (into data-email, for
@@ -32,47 +28,28 @@ use Unity\Positions\Interfaces\PositionViewFactory;
  * holders, each sorted by name. The empty-state copy for each section matters
  * because an intergroup with no GSRs is a real, common state.
  */
-#[CoversClass(\Amber\Admin\Members\DirectoryDashboard::class)]
-class DirectoryDashboardTest extends AmberTestCase
-{
-    private DirectoryDashboard $dashboard;
 
-    /** @var MemberRepository&MockObject */
-    private $memberRepository;
+covers(DirectoryDashboard::class);
 
-    /** @var GroupFactory&MockObject */
-    private $groupFactory;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-member']);
 
-    /** @var PositionViewFactory&MockObject */
-    private $viewFactory;
+    $this->memberRepository   = $this->createMock(MemberRepository::class);
+    $this->groupFactory       = $this->createMock(GroupFactory::class);
+    $this->viewFactory        = $this->createMock(PositionViewFactory::class);
+    $this->positionRepository = $this->createMock(PositionRepository::class);
 
-    /** @var PositionRepository&MockObject */
-    private $positionRepository;
+    $this->dashboard = new DirectoryDashboard(
+        $config,
+        $this->memberRepository,
+        $this->groupFactory,
+        $this->viewFactory,
+        $this->positionRepository,
+        new PersonalDataPolicy()
+    );
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturn(['POST_TYPE' => 'intergroup-member']);
-
-        $this->memberRepository   = $this->createMock(MemberRepository::class);
-        $this->groupFactory       = $this->createMock(GroupFactory::class);
-        $this->viewFactory        = $this->createMock(PositionViewFactory::class);
-        $this->positionRepository = $this->createMock(PositionRepository::class);
-
-        $this->dashboard = new DirectoryDashboard(
-            $config,
-            $this->memberRepository,
-            $this->groupFactory,
-            $this->viewFactory,
-            $this->positionRepository,
-            new PersonalDataPolicy()
-        );
-    }
-
-    private function gsr(int $id, string $name, string $email = 'm@example.test', ?string $group = 'Tuesday Group'): Member
-    {
+    $this->gsr = function (int $id, string $name, string $email = 'm@example.test', ?string $group = 'Tuesday Group'): Member {
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn($id);
         $member->method('getAnonymousName')->willReturn($name);
@@ -87,10 +64,9 @@ class DirectoryDashboardTest extends AmberTestCase
         }
 
         return $member;
-    }
+    };
 
-    private function filledPosition(int $id, string $title, array $holderNames): PositionView
-    {
+    $this->filledPosition = function (int $id, string $title, array $holderNames): PositionView {
         $members = [];
         foreach ($holderNames as $name) {
             $member = $this->createMock(Member::class);
@@ -112,60 +88,54 @@ class DirectoryDashboardTest extends AmberTestCase
         $this->viewFactory->method('createFrom')->willReturn($view);
 
         return $view;
-    }
+    };
+});
 
-    // ── capability gate ──────────────────────────────────────────────
-    #[Test]
-    public function the_widget_is_registered_for_a_user_who_may_view_personal_data(): void
-    {
+// ── capability gate ──────────────────────────────────────────────
+describe('capability gate', function () {
+    it('registers the widget for a user who may view personal data', function () {
         $this->dashboard->registerDashboardWidget();
 
-        $this->assertArrayHasKey('directory_dashboard', WpState::$widgets);
-    }
+        expect(WpState::$widgets)->toHaveKey('directory_dashboard');
+    });
 
-    #[Test]
-    public function the_widget_is_withheld_from_a_user_who_may_not(): void
-    {
+    it('withholds the widget from a user who may not', function () {
         // The widget leaks personal email into the DOM, so a user without the
         // capability must not get it at all — not an empty shell.
         $this->denyCapability();
 
         $this->dashboard->registerDashboardWidget();
 
-        $this->assertArrayNotHasKey('directory_dashboard', WpState::$widgets);
-    }
+        expect(WpState::$widgets)->not->toHaveKey('directory_dashboard');
+    });
 
-    #[Test]
-    public function neither_styles_nor_scripts_load_without_the_capability(): void
-    {
+    it('loads neither styles nor scripts without the capability', function () {
         $this->setScreen('dashboard', 'dashboard');
         $this->denyCapability();
 
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardScripts()));
-    }
+        expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toBe('')
+            ->and($this->capture(fn () => $this->dashboard->addDashboardScripts()))->toBe('');
+    });
+});
 
-    // ── groups section ───────────────────────────────────────────────
-    #[Test]
-    public function the_groups_section_lists_gsrs_with_a_home_group_sorted_by_name(): void
-    {
+// ── groups section ───────────────────────────────────────────────
+describe('groups section', function () {
+    it('lists gsrs with a home group sorted by name', function () {
         $this->memberRepository->method('findAll')->willReturn([
-            $this->gsr(1, 'Zoe'),
-            $this->gsr(2, 'Alex'),
+            ($this->gsr)(1, 'Zoe'),
+            ($this->gsr)(2, 'Alex'),
         ]);
         $this->positionRepository->method('findAll')->willReturn([]);
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertLessThan(strpos($html, 'Zoe'), strpos($html, 'Alex'));
-        // Personal email is carried in the data attribute for Copy-All.
-        $this->assertStringContainsString('data-email="m@example.test"', $html);
-    }
+        expect($html)->toContain('Tuesday Group')
+            ->and(strpos($html, 'Alex'))->toBeLessThan(strpos($html, 'Zoe'))
+            // Personal email is carried in the data attribute for Copy-All.
+            ->and($html)->toContain('data-email="m@example.test"');
+    });
 
-    #[Test]
-    public function a_member_who_is_not_a_gsr_is_excluded(): void
-    {
+    it('excludes a member who is not a gsr', function () {
         $nonGsr = $this->createMock(Member::class);
         $nonGsr->method('isGsr')->willReturn(false);
         $nonGsr->method('getHomeGroup')->willReturn(5);
@@ -175,25 +145,23 @@ class DirectoryDashboardTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('No members are currently marked as GSR', $html);
-    }
+        expect($html)->toContain('No members are currently marked as GSR');
+    });
+});
 
-    // ── positions section ────────────────────────────────────────────
-    #[Test]
-    public function the_positions_section_lists_filled_positions_with_holders(): void
-    {
+// ── positions section ────────────────────────────────────────────
+describe('positions section', function () {
+    it('lists filled positions with holders', function () {
         $this->memberRepository->method('findAll')->willReturn([]);
-        $this->filledPosition(7, 'Treasurer', ['Anonymous Alex', 'Anonymous Sam']);
+        ($this->filledPosition)(7, 'Treasurer', ['Anonymous Alex', 'Anonymous Sam']);
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Anonymous Alex, Anonymous Sam', $html);
-    }
+        expect($html)->toContain('Treasurer')
+            ->toContain('Anonymous Alex, Anonymous Sam');
+    });
 
-    #[Test]
-    public function a_vacant_position_is_left_out_of_the_positions_section(): void
-    {
+    it('leaves a vacant position out', function () {
         $position = $this->createMock(Position::class);
         $position->method('getId')->willReturn(7);
 
@@ -207,25 +175,21 @@ class DirectoryDashboardTest extends AmberTestCase
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('No filled positions found', $html);
-    }
+        expect($html)->toContain('No filled positions found');
+    });
+});
 
-    // ── styles and scripts ───────────────────────────────────────────
-    #[Test]
-    public function styles_and_scripts_are_emitted_on_the_dashboard(): void
-    {
-        $this->setScreen('dashboard', 'dashboard');
+// ── styles and scripts ───────────────────────────────────────────
+it('emits styles and scripts on the dashboard', function () {
+    $this->setScreen('dashboard', 'dashboard');
 
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
-        $this->assertStringContainsString('<script>', $this->capture(fn () => $this->dashboard->addDashboardScripts()));
-    }
+    expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toContain('<style>')
+        ->and($this->capture(fn () => $this->dashboard->addDashboardScripts()))->toContain('<script>');
+});
 
-    #[Test]
-    public function styles_and_scripts_stay_off_other_admin_screens(): void
-    {
-        $this->setScreen('edit-post', 'edit', 'post');
+it('keeps styles and scripts off other admin screens', function () {
+    $this->setScreen('edit-post', 'edit', 'post');
 
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardScripts()));
-    }
-}
+    expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toBe('')
+        ->and($this->capture(fn () => $this->dashboard->addDashboardScripts()))->toBe('');
+});

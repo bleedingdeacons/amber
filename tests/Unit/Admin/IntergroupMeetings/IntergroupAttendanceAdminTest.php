@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin;
-use Amber\Tests\AmberTestCase;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendance;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendanceRepository;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendance;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceRepository;
 
-/**
+/*
  * Tests for the (older) Meeting Attendance admin page.
  *
  * This is the sibling of {@see IntergroupMeetingAttendanceDashboard}: the same
@@ -24,34 +20,21 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingOfficerAttendanceReposi
  * a missing proxy or blank position, the default-to-first-meeting selector, and
  * the singular/plural record counts.
  */
-#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupAttendanceAdmin::class)]
-class IntergroupAttendanceAdminTest extends AmberTestCase
-{
-    private const PAGE_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
-    private $groupAttendance;
+covers(IntergroupAttendanceAdmin::class);
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
-    private $officerAttendance;
+const ATTENDANCE_ADMIN_SCREEN = 'intergroup_page_intergroup-attendance';
 
-    private IntergroupAttendanceAdmin $page;
+beforeEach(function () {
+    $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
+    $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    $this->page = new IntergroupAttendanceAdmin(
+        $this->groupAttendance,
+        $this->officerAttendance
+    );
 
-        $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
-        $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
-
-        $this->page = new IntergroupAttendanceAdmin(
-            $this->groupAttendance,
-            $this->officerAttendance
-        );
-    }
-
-    private function groupRecord(string $group, string $gsr, bool $proxy, string $proxyName): IntergroupMeetingGroupAttendance
-    {
+    $this->groupRecord = function (string $group, string $gsr, bool $proxy, string $proxyName): IntergroupMeetingGroupAttendance {
         $record = $this->createMock(IntergroupMeetingGroupAttendance::class);
         $record->method('getMeetingGroup')->willReturn($group);
         $record->method('getGsrName')->willReturn($gsr);
@@ -59,130 +42,110 @@ class IntergroupAttendanceAdminTest extends AmberTestCase
         $record->method('getGsrProxyName')->willReturn($proxyName);
 
         return $record;
-    }
+    };
 
-    private function officerRecord(string $position, string $officer): IntergroupMeetingOfficerAttendance
-    {
+    $this->officerRecord = function (string $position, string $officer): IntergroupMeetingOfficerAttendance {
         $record = $this->createMock(IntergroupMeetingOfficerAttendance::class);
         $record->method('getPositionName')->willReturn($position);
         $record->method('getOfficerName')->willReturn($officer);
 
         return $record;
-    }
+    };
 
-    private function availableLabels(array $labels): void
-    {
+    $this->availableLabels = function (array $labels): void {
         $this->wpdb->col = $labels;
-    }
+    };
+});
 
-    // ── selector ─────────────────────────────────────────────────────
-    #[Test]
-    public function with_no_records_the_page_says_so(): void
-    {
-        $this->availableLabels([]);
+// ── selector ─────────────────────────────────────────────────────
+it('says so when there are no records', function () {
+    ($this->availableLabels)([]);
 
-        $this->assertStringContainsString('No attendance records found', $this->capture(fn () => $this->page->renderPage()));
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('No attendance records found');
+});
 
-    #[Test]
-    public function the_first_meeting_is_selected_by_default(): void
-    {
-        $this->availableLabels(['January IG', 'March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('selects the first meeting by default', function () {
+    ($this->availableLabels)(['January IG', 'March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('Meeting Attendance', $html);
-        $this->assertStringContainsString('<option value="January IG" selected', $html);
-    }
+    expect($html)->toContain('Meeting Attendance')
+        ->toContain('<option value="January IG" selected');
+});
 
-    #[Test]
-    public function a_chosen_meeting_from_the_query_string_is_marked_selected(): void
-    {
-        $this->availableLabels(['January IG', 'March IG']);
-        $_GET['meeting_label'] = 'March IG';
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('marks a meeting chosen in the query string as selected', function () {
+    ($this->availableLabels)(['January IG', 'March IG']);
+    $_GET['meeting_label'] = 'March IG';
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('<option value="March IG" selected', $this->capture(fn () => $this->page->renderPage()));
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('<option value="March IG" selected');
+});
 
-    // ── tables ───────────────────────────────────────────────────────
-    #[Test]
-    public function the_group_table_renders_rows_proxies_and_a_plural_summary(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([
-            $this->groupRecord('Tuesday Group', 'Anonymous Alex', false, ''),
-            $this->groupRecord('Friday Group', 'Anonymous Sam', true, 'Anonymous Jo'),
-        ]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+// ── tables ───────────────────────────────────────────────────────
+it('renders group rows, proxies and a plural summary', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([
+        ($this->groupRecord)('Tuesday Group', 'Anonymous Alex', false, ''),
+        ($this->groupRecord)('Friday Group', 'Anonymous Sam', true, 'Anonymous Jo'),
+    ]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertStringContainsString('ig-proxy-yes', $html);
-        $this->assertStringContainsString('ig-proxy-no', $html);
-        $this->assertStringContainsString('Anonymous Jo', $html);
-        $this->assertStringContainsString('2</strong> group records', $html);
-        $this->assertStringContainsString('1</strong> proxy', $html);
-    }
+    expect($html)->toContain('Tuesday Group')
+        ->toContain('ig-proxy-yes')
+        ->toContain('ig-proxy-no')
+        ->toContain('Anonymous Jo')
+        ->toContain('2</strong> group records')
+        ->toContain('1</strong> proxy');
+});
 
-    #[Test]
-    public function an_empty_group_table_is_reported(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('reports an empty group table', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('No group attendance records', $this->capture(fn () => $this->page->renderPage()));
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('No group attendance records');
+});
 
-    #[Test]
-    public function the_officer_table_collapses_names_by_position_and_dashes_a_blank_role(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([
-            $this->officerRecord('Treasurer', 'Anonymous Alex'),
-            $this->officerRecord('Treasurer', 'Anonymous Sam'),
-            $this->officerRecord('', 'Anonymous Jo'),
-        ]);
+it('collapses officer names by position and dashes a blank role', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([
+        ($this->officerRecord)('Treasurer', 'Anonymous Alex'),
+        ($this->officerRecord)('Treasurer', 'Anonymous Sam'),
+        ($this->officerRecord)('', 'Anonymous Jo'),
+    ]);
 
-        $html = $this->capture(fn () => $this->page->renderPage());
+    $html = $this->capture(fn () => $this->page->renderPage());
 
-        $this->assertStringContainsString('Anonymous Alex, Anonymous Sam', $html);
-        $this->assertStringContainsString('ig-empty-cell', $html);
-        $this->assertStringContainsString('3</strong> officer records', $html);
-    }
+    expect($html)->toContain('Anonymous Alex, Anonymous Sam')
+        ->toContain('ig-empty-cell')
+        ->toContain('3</strong> officer records');
+});
 
-    #[Test]
-    public function an_empty_officer_table_is_reported(): void
-    {
-        $this->availableLabels(['March IG']);
-        $this->groupAttendance->method('findAll')->willReturn([]);
-        $this->officerAttendance->method('findAll')->willReturn([]);
+it('reports an empty officer table', function () {
+    ($this->availableLabels)(['March IG']);
+    $this->groupAttendance->method('findAll')->willReturn([]);
+    $this->officerAttendance->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('No officer attendance records', $this->capture(fn () => $this->page->renderPage()));
-    }
+    expect($this->capture(fn () => $this->page->renderPage()))->toContain('No officer attendance records');
+});
 
-    // ── registration and styles ──────────────────────────────────────
-    #[Test]
-    public function the_submenu_page_is_registered_under_intergroup(): void
-    {
-        $this->page->registerSubmenuPage();
+// ── registration and styles ──────────────────────────────────────
+it('registers the submenu page under intergroup', function () {
+    $this->page->registerSubmenuPage();
 
-        $this->assertContains('intergroup-attendance', $this->registeredMenuSlugs());
-    }
+    expect($this->registeredMenuSlugs())->toContain('intergroup-attendance');
+});
 
-    #[Test]
-    public function styles_load_only_on_the_attendance_page(): void
-    {
-        $this->setScreen(self::PAGE_SCREEN);
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->page->addPageStyles()));
+it('loads styles only on the attendance page', function () {
+    $this->setScreen(ATTENDANCE_ADMIN_SCREEN);
+    expect($this->capture(fn () => $this->page->addPageStyles()))->toContain('<style>');
 
-        $this->setScreen('dashboard', 'dashboard');
-        $this->assertSame('', $this->capture(fn () => $this->page->addPageStyles()));
-    }
-}
+    $this->setScreen('dashboard', 'dashboard');
+    expect($this->capture(fn () => $this->page->addPageStyles()))->toBe('');
+});

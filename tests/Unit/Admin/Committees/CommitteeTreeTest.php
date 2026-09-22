@@ -4,20 +4,15 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Committees;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
-use function Brain\Monkey\Functions\when;
-use function Brain\Monkey\Functions\expect;
 use Amber\Admin\Committees\CommitteeTree;
-use Amber\Tests\AmberTestCase;
+use Brain\Monkey\Functions;
 use Unity\Committees\Interfaces\Committee;
 use Unity\Committees\Interfaces\CommitteeRepository;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 
-/**
+/*
  * Tests for the committee tree screen.
  *
  * The cases that matter are the structural ones: that a committee's members
@@ -26,40 +21,41 @@ use Unity\Members\Interfaces\MemberRepository;
  * produces a signpost rather than a blank page. A tree screen that silently
  * shows a person twice, or shows nothing at all, is worse than one that errors.
  */
-#[CoversClass(\Amber\Admin\Committees\CommitteeTree::class)]
-class CommitteeTreeTest extends AmberTestCase
+
+covers(CommitteeTree::class);
+
+/**
+ * The markup of one member's move/copy select, by id.
+ */
+function selectFor(string $html, string $id): string
 {
-    /** @var CommitteeRepository&MockObject */
-    private $committees;
+    $start = strpos($html, 'id="' . $id . '"');
+    expect($start)->toBeInt('no select found with id ' . $id);
 
-    /** @var MemberRepository&MockObject */
-    private $members;
+    $end = strpos($html, '</select>', $start);
+    expect($end)->toBeInt();
 
-    private CommitteeTree $tree;
+    return substr($html, $start, $end - $start);
+}
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(
+        static fn (string $key): array => $key === Committee::class
+            ? ['TAXONOMY' => 'intergroup-committee']
+            : ['POST_TYPE' => 'intergroup-member']
+    );
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(
-            static fn (string $key): array => $key === Committee::class
-                ? ['TAXONOMY' => 'intergroup-committee']
-                : ['POST_TYPE' => 'intergroup-member']
-        );
+    $this->committees = $this->createMock(CommitteeRepository::class);
+    $this->members    = $this->createMock(MemberRepository::class);
 
-        $this->committees = $this->createMock(CommitteeRepository::class);
-        $this->members    = $this->createMock(MemberRepository::class);
+    // wp-mocks does not carry this one. Registered is the normal case; the
+    // unregistered branch overrides it.
+    Functions\when('taxonomy_exists')->justReturn(true);
 
-        // wp-mocks does not carry this one. Registered is the normal case; the
-        // unregistered branch overrides it.
-        when('taxonomy_exists')->justReturn(true);
+    $this->tree = new CommitteeTree($config, $this->committees, $this->members);
 
-        $this->tree = new CommitteeTree($config, $this->committees, $this->members);
-    }
-
-    private function committee(int $id, string $slug, string $name, int $parent = 0): Committee
-    {
+    $this->committee = function (int $id, string $slug, string $name, int $parent = 0): Committee {
         $committee = $this->createMock(Committee::class);
         $committee->method('getId')->willReturn($id);
         $committee->method('getSlug')->willReturn($slug);
@@ -68,19 +64,17 @@ class CommitteeTreeTest extends AmberTestCase
         $committee->method('isRoot')->willReturn($parent === 0);
 
         return $committee;
-    }
+    };
 
-    private function member(int $id, string $name): Member
-    {
+    $this->member = function (int $id, string $name): Member {
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn($id);
         $member->method('getAnonymousName')->willReturn($name);
 
         return $member;
-    }
+    };
 
-    private function render(): string
-    {
+    $this->render = function (): string {
         ob_start();
 
         try {
@@ -93,371 +87,306 @@ class CommitteeTreeTest extends AmberTestCase
         }
 
         return $html;
-    }
+    };
+});
 
-    /**
-     * The taxonomy is defined in the ACF admin UI, so it lives in each site's
-     * database and an environment that never imported it arrives here with
-     * nothing registered. Found by opening the screen on a local site that had
-     * not been updated: it claimed "no committees exist yet" and linked to a
-     * term editor that answers "Invalid taxonomy."
-     */
-    #[Test]
-    public function an_unregistered_taxonomy_says_so_rather_than_blaming_missing_terms(): void
-    {
-        when('taxonomy_exists')->justReturn(false);
+// The taxonomy is defined in the ACF admin UI, so it lives in each site's
+// database and an environment that never imported it arrives here with
+// nothing registered. Found by opening the screen on a local site that had
+// not been updated: it claimed "no committees exist yet" and linked to a
+// term editor that answers "Invalid taxonomy."
+it('says an unregistered taxonomy is unregistered rather than blaming missing terms', function () {
+    Functions\when('taxonomy_exists')->justReturn(false);
 
-        $this->committees->expects($this->never())->method('roots');
+    $this->committees->expects($this->never())->method('roots');
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('is not registered on this site', $html);
-        $this->assertStringContainsString('intergroup-committee', $html);
-        $this->assertStringContainsString('ACF → Tools → Import', $html);
-
+    expect($html)->toContain('is not registered on this site')
+        ->toContain('intergroup-committee')
+        ->toContain('ACF → Tools → Import')
         // Pointing at the term editor here would send somebody to WordPress's
         // bare "Invalid taxonomy." error.
-        $this->assertStringNotContainsString('edit-tags.php', $html);
-    }
+        ->not->toContain('edit-tags.php');
+});
 
-    #[Test]
-    public function an_empty_taxonomy_points_at_the_term_editor_instead_of_rendering_a_tree(): void
-    {
-        $this->committees->method('roots')->willReturn([]);
-        $this->committees->expects($this->never())->method('findAll');
+it('points an empty taxonomy at the term editor instead of rendering a tree', function () {
+    $this->committees->method('roots')->willReturn([]);
+    $this->committees->expects($this->never())->method('findAll');
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('No committees exist yet', $html);
-        $this->assertStringContainsString('edit-tags.php?taxonomy=intergroup-committee', $html);
-        $this->assertStringNotContainsString('amber-committee-tree', $html);
-    }
+    expect($html)->toContain('No committees exist yet')
+        ->toContain('edit-tags.php?taxonomy=intergroup-committee')
+        ->not->toContain('amber-committee-tree');
+});
 
-    #[Test]
-    public function it_renders_a_committee_with_its_name_and_slug(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+it('renders a committee with its name and slug', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('data-committee="12"', $html);
-        $this->assertStringContainsString('Intergroup', $html);
-        $this->assertStringContainsString('intergroup', $html);
-        $this->assertStringContainsString('0 members', $html);
-    }
+    expect($html)->toContain('data-committee="12"')
+        ->toContain('Intergroup')
+        ->toContain('intergroup')
+        ->toContain('0 members');
+});
 
-    /**
-     * The rollup is deliberately off. memberIdsIn() includes descendants by
-     * default, which on a tree would print the same person under every
-     * ancestor and destroy the one thing the screen is for.
-     */
-    #[Test]
-    public function members_are_looked_up_without_the_descendant_rollup(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+// The rollup is deliberately off. memberIdsIn() includes descendants by
+// default, which on a tree would print the same person under every
+// ancestor and destroy the one thing the screen is for.
+it('looks members up without the descendant rollup', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup]);
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup]);
 
-        $this->committees->expects($this->atLeastOnce())
-            ->method('memberIdsIn')
-            ->with($this->anything(), false)
-            ->willReturn([]);
+    $this->committees->expects($this->atLeastOnce())
+        ->method('memberIdsIn')
+        ->with($this->anything(), false)
+        ->willReturn([]);
 
-        $this->members->method('findAll')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $this->render();
-    }
+    ($this->render)();
+});
 
-    #[Test]
-    public function a_child_committee_is_nested_under_its_parent(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
-        $comms      = $this->committee(13, 'electronic-communications', 'Electronic Communications', 12);
+it('nests a child committee under its parent', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
+    $comms      = ($this->committee)(13, 'electronic-communications', 'Electronic Communications', 12);
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $parentAt = strpos($html, 'data-committee="12"');
-        $childAt  = strpos($html, 'data-committee="13"');
+    $parentAt = strpos($html, 'data-committee="12"');
+    $childAt  = strpos($html, 'data-committee="13"');
 
-        $this->assertIsInt($parentAt);
-        $this->assertIsInt($childAt);
-        $this->assertGreaterThan($parentAt, $childAt, 'the child must render inside the parent');
-        $this->assertStringContainsString('Electronic Communications', $html);
-    }
+    expect($parentAt)->toBeInt()
+        ->and($childAt)->toBeInt()
+        ->and($childAt)->toBeGreaterThan($parentAt, 'the child must render inside the parent')
+        ->and($html)->toContain('Electronic Communications');
+});
 
-    #[Test]
-    public function a_member_is_draggable_and_carries_the_committee_it_sits_in(): void
-    {
-        $comms = $this->committee(13, 'electronic-communications', 'Electronic Communications');
+it('makes a member draggable and has it carry the committee it sits in', function () {
+    $comms = ($this->committee)(13, 'electronic-communications', 'Electronic Communications');
 
-        $this->committees->method('roots')->willReturn([$comms]);
-        $this->committees->method('findAll')->willReturn([$comms]);
-        $this->committees->method('memberIdsIn')->willReturnCallback(
-            static fn (int|string $c, bool $d = true): array => $c === 13 ? [31] : []
-        );
-        $this->members->method('findAll')->willReturn([$this->member(31, 'Bill W')]);
+    $this->committees->method('roots')->willReturn([$comms]);
+    $this->committees->method('findAll')->willReturn([$comms]);
+    $this->committees->method('memberIdsIn')->willReturnCallback(
+        static fn (int|string $c, bool $d = true): array => $c === 13 ? [31] : []
+    );
+    $this->members->method('findAll')->willReturn([($this->member)(31, 'Bill W')]);
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('draggable="true"', $html);
-        $this->assertStringContainsString('data-member="31"', $html);
-        $this->assertStringContainsString('data-source="13"', $html);
-        $this->assertStringContainsString('Bill W', $html);
-        $this->assertStringContainsString('1 member', $html);
-    }
+    expect($html)->toContain('draggable="true"')
+        ->toContain('data-member="31"')
+        ->toContain('data-source="13"')
+        ->toContain('Bill W')
+        ->toContain('1 member');
+});
 
-    /**
-     * Members have no post_title worth showing — their names live in ACF — so a
-     * blank anonymous name is a real state, not a broken one, and must still
-     * produce a chip somebody can drag.
-     */
-    #[Test]
-    public function a_member_with_no_anonymous_name_still_renders(): void
-    {
-        $comms = $this->committee(13, 'comms', 'Comms');
+// Members have no post_title worth showing — their names live in ACF — so a
+// blank anonymous name is a real state, not a broken one, and must still
+// produce a chip somebody can drag.
+it('still renders a member with no anonymous name', function () {
+    $comms = ($this->committee)(13, 'comms', 'Comms');
 
-        $this->committees->method('roots')->willReturn([$comms]);
-        $this->committees->method('findAll')->willReturn([$comms]);
-        $this->committees->method('memberIdsIn')->willReturn([31]);
-        $this->members->method('findAll')->willReturn([$this->member(31, '')]);
+    $this->committees->method('roots')->willReturn([$comms]);
+    $this->committees->method('findAll')->willReturn([$comms]);
+    $this->committees->method('memberIdsIn')->willReturn([31]);
+    $this->members->method('findAll')->willReturn([($this->member)(31, '')]);
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('(no anonymous name)', $html);
-        $this->assertStringContainsString('data-member="31"', $html);
-    }
+    expect($html)->toContain('(no anonymous name)')
+        ->toContain('data-member="31"');
+});
 
-    /**
-     * Drag and drop alone would put the screen out of reach without a pointer,
-     * so every member carries a select that does the same two things.
-     */
-    #[Test]
-    public function every_member_gets_a_keyboard_reachable_move_and_copy_control(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
-        $comms      = $this->committee(13, 'comms', 'Comms', 12);
+// Drag and drop alone would put the screen out of reach without a pointer,
+// so every member carries a select that does the same two things.
+it('gives every member a keyboard reachable move and copy control', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
+    $comms      = ($this->committee)(13, 'comms', 'Comms', 12);
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
-        $this->committees->method('memberIdsIn')->willReturnCallback(
-            static fn (int|string $c, bool $d = true): array => $c === 13 ? [31] : []
-        );
-        $this->members->method('findAll')->willReturn([$this->member(31, 'Bill W')]);
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+    $this->committees->method('memberIdsIn')->willReturnCallback(
+        static fn (int|string $c, bool $d = true): array => $c === 13 ? [31] : []
+    );
+    $this->members->method('findAll')->willReturn([($this->member)(31, 'Bill W')]);
 
-        $html = $this->render();
+    $html = ($this->render)();
 
-        $this->assertStringContainsString('<optgroup label="Move to">', $html);
-        $this->assertStringContainsString('<optgroup label="Also add to">', $html);
+    expect($html)->toContain('<optgroup label="Move to">')
+        ->toContain('<optgroup label="Also add to">');
 
-        // Scoped to the one select belonging to the member sitting in Comms.
-        // Document-wide these assertions would be wrong: the same committee is
-        // legitimately offered to the unassigned member further down the page.
-        $select = $this->selectFor($html, 'amber-move-31-13');
+    // Scoped to the one select belonging to the member sitting in Comms.
+    // Document-wide these assertions would be wrong: the same committee is
+    // legitimately offered to the unassigned member further down the page.
+    $select = selectFor($html, 'amber-move-31-13');
 
-        $this->assertStringContainsString('value="move:12"', $select);
-        $this->assertStringContainsString('value="copy:12"', $select);
-
+    expect($select)->toContain('value="move:12"')
+        ->toContain('value="copy:12"')
         // Moving someone to the committee they are already in is a no-op, so it
         // is not offered — in either group.
-        $this->assertStringNotContainsString('value="move:13"', $select);
-        $this->assertStringNotContainsString('value="copy:13"', $select);
-
+        ->not->toContain('value="move:13"')
+        ->not->toContain('value="copy:13"')
         // Unassigned is a destination for move and never for copy.
-        $this->assertStringContainsString('value="move:0"', $select);
-        $this->assertStringNotContainsString('value="copy:0"', $select);
-    }
+        ->toContain('value="move:0"')
+        ->not->toContain('value="copy:0"');
+});
 
-    /**
-     * The markup of one member's move/copy select, by id.
-     */
-    private function selectFor(string $html, string $id): string
-    {
-        $start = strpos($html, 'id="' . $id . '"');
-        $this->assertIsInt($start, 'no select found with id ' . $id);
+// The seventh argument to add_submenu_page() is a positional offset into
+// the parent's existing submenu, so "after Intergroup Meetings" has to be
+// found rather than hard-coded -- four other Amber classes add to that menu
+// on their own hooks and the order depends on load order.
+it('slots the page in directly after intergroup meetings', function () {
+    $GLOBALS['submenu']['intergroup'] = [
+        0 => ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+        1 => ['Members', 'edit_posts', 'edit.php?post_type=intergroup-member'],
+        // A gap, as remove_submenu_page() leaves behind.
+        5 => ['Intergroup Meetings', 'edit_posts', 'edit.php?post_type=intergroup-meeting'],
+        6 => ['Privacy Policy', 'edit_posts', 'edit.php?post_type=privacy-policy'],
+    ];
 
-        $end = strpos($html, '</select>', $start);
-        $this->assertIsInt($end);
+    $position = null;
+    Functions\expect('add_submenu_page')->once()->andReturnUsing(
+        function (...$args) use (&$position) {
+            $position = $args[6] ?? null;
+            return 'amber-committees';
+        }
+    );
 
-        return substr($html, $start, $end - $start);
-    }
+    $this->tree->registerPage();
 
-    /**
-     * The seventh argument to add_submenu_page() is a positional offset into
-     * the parent's existing submenu, so "after Intergroup Meetings" has to be
-     * found rather than hard-coded -- four other Amber classes add to that menu
-     * on their own hooks and the order depends on load order.
-     */
-    #[Test]
-    public function it_slots_the_page_in_directly_after_intergroup_meetings(): void
-    {
-        $GLOBALS['submenu']['intergroup'] = [
-            0 => ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
-            1 => ['Members', 'edit_posts', 'edit.php?post_type=intergroup-member'],
-            // A gap, as remove_submenu_page() leaves behind.
-            5 => ['Intergroup Meetings', 'edit_posts', 'edit.php?post_type=intergroup-meeting'],
-            6 => ['Privacy Policy', 'edit_posts', 'edit.php?post_type=privacy-policy'],
-        ];
+    // Third entry by offset, not by key: the keys are 0, 1, 5, 6.
+    expect($position)->toBe(3);
 
-        $position = null;
-        expect('add_submenu_page')->once()->andReturnUsing(
-            function (...$args) use (&$position) {
-                $position = $args[6] ?? null;
-                return 'amber-committees';
-            }
-        );
+    unset($GLOBALS['submenu']);
+});
 
-        $this->tree->registerPage();
+it('appends when intergroup meetings is not there', function () {
+    $GLOBALS['submenu']['intergroup'] = [
+        ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
+    ];
 
-        // Third entry by offset, not by key: the keys are 0, 1, 5, 6.
-        $this->assertSame(3, $position);
+    $position = 'untouched';
+    Functions\expect('add_submenu_page')->once()->andReturnUsing(
+        function (...$args) use (&$position) {
+            $position = $args[6] ?? null;
+            return 'amber-committees';
+        }
+    );
 
-        unset($GLOBALS['submenu']);
-    }
+    $this->tree->registerPage();
 
-    #[Test]
-    public function it_appends_when_intergroup_meetings_is_not_there(): void
-    {
-        $GLOBALS['submenu']['intergroup'] = [
-            ['Positions', 'edit_posts', 'edit.php?post_type=intergroup-position'],
-        ];
+    expect($position)->toBeNull('appending beats guessing at a number');
 
-        $position = 'untouched';
-        expect('add_submenu_page')->once()->andReturnUsing(
-            function (...$args) use (&$position) {
-                $position = $args[6] ?? null;
-                return 'amber-committees';
-            }
-        );
+    unset($GLOBALS['submenu']);
+});
 
-        $this->tree->registerPage();
+it('splits the screen into a tree pane and a member pane', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
 
-        $this->assertNull($position, 'appending beats guessing at a number');
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        unset($GLOBALS['submenu']);
-    }
+    $html = ($this->render)();
 
-    #[Test]
-    public function it_splits_the_screen_into_a_tree_pane_and_a_member_pane(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+    expect($html)->toContain('amber-tree-pane')
+        ->toContain('amber-member-pane')
+        ->toContain('role="tree"')
+        ->toContain('role="treeitem"');
+});
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+// The first root opens by default, so the screen is never blank on arrival,
+// and every other panel ships hidden rather than being fetched on click.
+it('selects the first root and hides the rest', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
+    $comms      = ($this->committee)(13, 'comms', 'Comms', 12);
 
-        $html = $this->render();
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('amber-tree-pane', $html);
-        $this->assertStringContainsString('amber-member-pane', $html);
-        $this->assertStringContainsString('role="tree"', $html);
-        $this->assertStringContainsString('role="treeitem"', $html);
-    }
+    $html = ($this->render)();
 
-    /**
-     * The first root opens by default, so the screen is never blank on arrival,
-     * and every other panel ships hidden rather than being fetched on click.
-     */
-    #[Test]
-    public function the_first_root_is_selected_and_the_rest_are_hidden(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
-        $comms      = $this->committee(13, 'comms', 'Comms', 12);
+    expect($html)->toContain('aria-selected="true" data-committee="12"')
+        ->toContain('aria-selected="false" data-committee="13"')
+        ->toContain('<div class="amber-member-panel" data-committee="12">')
+        ->toContain('<div class="amber-member-panel" data-committee="13" hidden>');
+});
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+it('shows the full path of a nested committee', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
+    $comms      = ($this->committee)(13, 'comms', 'Comms', 12);
 
-        $html = $this->render();
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('aria-selected="true" data-committee="12"', $html);
-        $this->assertStringContainsString('aria-selected="false" data-committee="13"', $html);
-        $this->assertStringContainsString('<div class="amber-member-panel" data-committee="12">', $html);
-        $this->assertStringContainsString('<div class="amber-member-panel" data-committee="13" hidden>', $html);
-    }
+    expect(($this->render)())->toContain('Intergroup › Comms');
+});
 
-    #[Test]
-    public function a_nested_committee_shows_its_full_path(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
-        $comms      = $this->committee(13, 'comms', 'Comms', 12);
+// Unassigned is not a committee, so it gets its own tree rather than
+// sitting alongside the real roots in the accessibility tree.
+it('keeps unassigned outside the committee tree', function () {
+    $intergroup = ($this->committee)(12, 'intergroup', 'Intergroup');
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup, $comms]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+    $this->committees->method('roots')->willReturn([$intergroup]);
+    $this->committees->method('findAll')->willReturn([$intergroup]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('Intergroup › Comms', $this->render());
-    }
+    $html = ($this->render)();
 
-    /**
-     * Unassigned is not a committee, so it gets its own tree rather than
-     * sitting alongside the real roots in the accessibility tree.
-     */
-    #[Test]
-    public function unassigned_sits_outside_the_committee_tree(): void
-    {
-        $intergroup = $this->committee(12, 'intergroup', 'Intergroup');
+    expect($html)->toContain('amber-tree-loose')
+        ->toContain('amber-tree-unassigned')
+        ->toContain('data-committee="0"');
+});
 
-        $this->committees->method('roots')->willReturn([$intergroup]);
-        $this->committees->method('findAll')->willReturn([$intergroup]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+// A term hierarchy can be edited into a loop in wp-admin, and an unbounded
+// walk up the parents would hang the whole screen rather than mis-draw one
+// subtitle.
+it('does not hang the path walk on a cyclic hierarchy', function () {
+    $a = ($this->committee)(1, 'a', 'A', 2);
+    $b = ($this->committee)(2, 'b', 'B', 1);
 
-        $html = $this->render();
+    $this->committees->method('roots')->willReturn([$a]);
+    $this->committees->method('findAll')->willReturn([$a, $b]);
+    $this->committees->method('memberIdsIn')->willReturn([]);
+    $this->members->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString('amber-tree-loose', $html);
-        $this->assertStringContainsString('amber-tree-unassigned', $html);
-        $this->assertStringContainsString('data-committee="0"', $html);
-    }
+    $html = ($this->render)();
 
-    /**
-     * A term hierarchy can be edited into a loop in wp-admin, and an unbounded
-     * walk up the parents would hang the whole screen rather than mis-draw one
-     * subtitle.
-     */
-    #[Test]
-    public function a_cyclic_hierarchy_does_not_hang_the_path_walk(): void
-    {
-        $a = $this->committee(1, 'a', 'A', 2);
-        $b = $this->committee(2, 'b', 'B', 1);
+    expect($html)->toContain('amber-panel-path');
+});
 
-        $this->committees->method('roots')->willReturn([$a]);
-        $this->committees->method('findAll')->willReturn([$a, $b]);
-        $this->committees->method('memberIdsIn')->willReturn([]);
-        $this->members->method('findAll')->willReturn([]);
+it('escapes names', function () {
+    $comms = ($this->committee)(13, 'comms', 'Comms');
 
-        $html = $this->render();
+    $this->committees->method('roots')->willReturn([$comms]);
+    $this->committees->method('findAll')->willReturn([$comms]);
+    $this->committees->method('memberIdsIn')->willReturn([31]);
+    $this->members->method('findAll')->willReturn(
+        [($this->member)(31, '<script>alert(1)</script>')]
+    );
 
-        $this->assertStringContainsString('amber-panel-path', $html);
-    }
+    $html = ($this->render)();
 
-    #[Test]
-    public function names_are_escaped(): void
-    {
-        $comms = $this->committee(13, 'comms', 'Comms');
-
-        $this->committees->method('roots')->willReturn([$comms]);
-        $this->committees->method('findAll')->willReturn([$comms]);
-        $this->committees->method('memberIdsIn')->willReturn([31]);
-        $this->members->method('findAll')->willReturn(
-            [$this->member(31, '<script>alert(1)</script>')]
-        );
-
-        $html = $this->render();
-
-        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
-    }
-}
+    expect($html)->not->toContain('<script>alert(1)</script>');
+});
