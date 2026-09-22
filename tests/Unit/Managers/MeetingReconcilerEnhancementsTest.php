@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Managers;
 
-use PHPUnit\Framework\Attributes\Test;
 use Amber\Managers\MeetingReconciler;
 use Concordance\Api\ApiCache;
 use Concordance\Models\GroupListing;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
 use Unity\Meetings\Interfaces\MeetingRepository;
 
-/**
+/*
  * Unit tests for the new MeetingReconciler features:
  *  - composite (name + address) scoring
  *  - postcode and town address similarity
@@ -25,168 +23,42 @@ use Unity\Meetings\Interfaces\MeetingRepository;
  * (fetchNationalGroups is private), so we cover the building blocks here
  * and let the existing tests cover the orchestration shape.
  */
-class MeetingReconcilerEnhancementsTest extends TestCase
+
+// This file runs on plain PHPUnit rather than AmberTestCase, and builds its
+// fixtures with Mockery. Keeping the integration trait means Mockery is closed
+// and verified after every test, as it was before the conversion.
+uses(MockeryPHPUnitIntegration::class);
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Build a Mockery GroupListing with the given fields.
+ *
+ * postcode, address1 and meetingStatus are not promoted to getters on
+ * GroupListing — they live in the raw API payload behind getRawValue().
+ * This helper used to stub getPostcode()/getAddress1()/getMeetingStatus()
+ * instead, which Mockery is happy to invent even though the real class has
+ * no such methods. That is exactly what hid the fatal: the tests passed
+ * against methods that do not exist, while production died with "Call to
+ * undefined method" on any national match. Stub the real accessor so these
+ * fixtures cannot diverge from the class again.
+ *
+ * @param array<string, string> $fields
+ */
+function stubListing(array $fields): GroupListing
 {
-    use MockeryPHPUnitIntegration;
+    $listing = Mockery::mock(GroupListing::class);
+    $listing->shouldReceive('getTown')->andReturn($fields['town'] ?? '');
+    $listing->shouldReceive('getRawValue')
+        ->andReturnUsing(static fn (string $key, mixed $default = null): mixed => $fields[$key] ?? $default);
 
-    private MeetingReconciler $reconciler;
+    return $listing;
+}
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $meetingRepo = Mockery::mock(MeetingRepository::class);
-        $apiCache    = Mockery::mock(ApiCache::class);
-        $this->reconciler = new MeetingReconciler($meetingRepo, $apiCache);
-    }
-
-    // ── Address similarity ─────────────────────────────────────────────
-    #[Test]
-    public function address_similarity_full_postcode_match_scores_one(): void
-    {
-        $listing = $this->stubListing(['postcode' => 'SL2 4HL']);
-        $score = $this->invoke('addressSimilarity', [
-            'Wexham Park Hospital, Slough, SL2 4HL',
-            $listing,
-        ]);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    #[Test]
-    public function address_similarity_outward_only_scores_partial(): void
-    {
-        $listing = $this->stubListing(['postcode' => 'SL2 4HL']);
-        $score = $this->invoke('addressSimilarity', [
-            'Some other site, SL2 9XX',
-            $listing,
-        ]);
-
-        $this->assertSame(0.7, $score);
-    }
-
-    #[Test]
-    public function address_similarity_falls_back_to_town_when_postcode_absent(): void
-    {
-        $listing = $this->stubListing(['postcode' => '', 'town' => 'Slough']);
-        $score = $this->invoke('addressSimilarity', [
-            'Town Hall, Slough',
-            $listing,
-        ]);
-
-        $this->assertSame(0.6, $score);
-    }
-
-    #[Test]
-    public function address_similarity_returns_zero_when_no_signal(): void
-    {
-        $listing = $this->stubListing(['postcode' => 'SL2 4HL', 'town' => 'Slough']);
-        $score = $this->invoke('addressSimilarity', [
-            'Different Place, Bristol, BS1 1AA',
-            $listing,
-        ]);
-
-        $this->assertSame(0.0, $score);
-    }
-
-    #[Test]
-    public function address_similarity_normalises_postcode_spacing(): void
-    {
-        // Local address has no space between out/in code; should still match.
-        $listing = $this->stubListing(['postcode' => 'SL2 4HL']);
-        $score = $this->invoke('addressSimilarity', [
-            'Wexham Park Hospital, SL24HL',
-            $listing,
-        ]);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    // ── Postcode extraction ────────────────────────────────────────────
-    #[Test]
-    public function extract_postcodes_finds_uk_postcodes_in_freetext(): void
-    {
-        $found = $this->invoke('extractPostcodes', ['Some Place, Slough, SL2 4HL']);
-        $this->assertSame(['SL2 4HL'], $found);
-    }
-
-    #[Test]
-    public function extract_postcodes_handles_mixed_case_and_spacing(): void
-    {
-        $found = $this->invoke('extractPostcodes', ['near sl24hl right there']);
-        $this->assertSame(['SL2 4HL'], $found);
-    }
-
-    #[Test]
-    public function extract_postcodes_returns_empty_when_none_present(): void
-    {
-        $found = $this->invoke('extractPostcodes', ['No postcode in this string']);
-        $this->assertSame([], $found);
-    }
-
-    // ── Open-status detection ──────────────────────────────────────────
-    #[Test]
-    public function open_status_recognises_open_and_open_again_case_insensitively(): void
-    {
-        $this->assertTrue($this->invoke('isOpenStatus', ['Open']));
-        $this->assertTrue($this->invoke('isOpenStatus', ['open again']));
-        $this->assertTrue($this->invoke('isOpenStatus', ['OPEN AGAIN']));
-        $this->assertTrue($this->invoke('isOpenStatus', ['']));
-    }
-
-    #[Test]
-    public function open_status_rejects_closed_and_suspended(): void
-    {
-        $this->assertFalse($this->invoke('isOpenStatus', ['Closed']));
-        $this->assertFalse($this->invoke('isOpenStatus', ['Suspended']));
-        $this->assertFalse($this->invoke('isOpenStatus', ['Temporarily Closed']));
-    }
-
-    // ── End-time discrepancy with tolerance ────────────────────────────
-    #[Test]
-    public function end_time_discrepancy_ignores_small_differences(): void
-    {
-        // 5 minutes apart — under the 15 minute tolerance.
-        $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '20:35']));
-    }
-
-    #[Test]
-    public function end_time_discrepancy_flags_differences_over_tolerance(): void
-    {
-        // 30 minutes apart.
-        $this->assertTrue($this->invoke('endTimeDiscrepancy', ['20:00', '20:30']));
-    }
-
-    #[Test]
-    public function end_time_discrepancy_returns_false_when_one_side_empty(): void
-    {
-        $this->assertFalse($this->invoke('endTimeDiscrepancy', ['', '20:30']));
-        $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '']));
-    }
-
-    #[Test]
-    public function end_time_discrepancy_returns_false_when_identical(): void
-    {
-        $this->assertFalse($this->invoke('endTimeDiscrepancy', ['20:30', '20:30']));
-    }
-
-    // ── Postcode normalisation ─────────────────────────────────────────
-    #[Test]
-    public function normalise_postcode_inserts_space_before_inward_code(): void
-    {
-        $this->assertSame('SL2 4HL', $this->invoke('normalisePostcode', ['SL24HL']));
-        $this->assertSame('SL2 4HL', $this->invoke('normalisePostcode', ['  sl2 4hl  ']));
-        $this->assertSame('BS1 5AA', $this->invoke('normalisePostcode', ['BS1  5AA']));
-    }
-
-    #[Test]
-    public function postcode_outward_returns_first_half(): void
-    {
-        $this->assertSame('SL2', $this->invoke('postcodeOutward', ['SL2 4HL']));
-        $this->assertSame('BS1', $this->invoke('postcodeOutward', ['BS1 5AA']));
-    }
-
-    // ── Helpers ────────────────────────────────────────────────────────
+beforeEach(function () {
+    $meetingRepo = Mockery::mock(MeetingRepository::class);
+    $apiCache    = Mockery::mock(ApiCache::class);
+    $this->reconciler = new MeetingReconciler($meetingRepo, $apiCache);
 
     /**
      * Invoke a private method on the reconciler under test.
@@ -194,33 +66,130 @@ class MeetingReconcilerEnhancementsTest extends TestCase
      * @param mixed[] $args
      * @return mixed
      */
-    private function invoke(string $method, array $args)
-    {
+    $this->invoke = function (string $method, array $args) {
         $ref = (new \ReflectionClass(MeetingReconciler::class))->getMethod($method);
         return $ref->invoke($this->reconciler, ...$args);
-    }
+    };
+});
 
-    /**
-     * Build a Mockery GroupListing with the given fields.
-     *
-     * postcode, address1 and meetingStatus are not promoted to getters on
-     * GroupListing — they live in the raw API payload behind getRawValue().
-     * This helper used to stub getPostcode()/getAddress1()/getMeetingStatus()
-     * instead, which Mockery is happy to invent even though the real class has
-     * no such methods. That is exactly what hid the fatal: the tests passed
-     * against methods that do not exist, while production died with "Call to
-     * undefined method" on any national match. Stub the real accessor so these
-     * fixtures cannot diverge from the class again.
-     *
-     * @param array<string, string> $fields
-     */
-    private function stubListing(array $fields): GroupListing
-    {
-        $listing = Mockery::mock(GroupListing::class);
-        $listing->shouldReceive('getTown')->andReturn($fields['town'] ?? '');
-        $listing->shouldReceive('getRawValue')
-            ->andReturnUsing(static fn (string $key, mixed $default = null): mixed => $fields[$key] ?? $default);
+// ── Address similarity ─────────────────────────────────────────────
+describe('addressSimilarity', function () {
+    it('scores one for a full postcode match', function () {
+        $listing = stubListing(['postcode' => 'SL2 4HL']);
+        $score = ($this->invoke)('addressSimilarity', [
+            'Wexham Park Hospital, Slough, SL2 4HL',
+            $listing,
+        ]);
 
-        return $listing;
-    }
-}
+        expect($score)->toBe(1.0);
+    });
+
+    it('scores partial for an outward only match', function () {
+        $listing = stubListing(['postcode' => 'SL2 4HL']);
+        $score = ($this->invoke)('addressSimilarity', [
+            'Some other site, SL2 9XX',
+            $listing,
+        ]);
+
+        expect($score)->toBe(0.7);
+    });
+
+    it('falls back to the town when the postcode is absent', function () {
+        $listing = stubListing(['postcode' => '', 'town' => 'Slough']);
+        $score = ($this->invoke)('addressSimilarity', [
+            'Town Hall, Slough',
+            $listing,
+        ]);
+
+        expect($score)->toBe(0.6);
+    });
+
+    it('returns zero when there is no signal', function () {
+        $listing = stubListing(['postcode' => 'SL2 4HL', 'town' => 'Slough']);
+        $score = ($this->invoke)('addressSimilarity', [
+            'Different Place, Bristol, BS1 1AA',
+            $listing,
+        ]);
+
+        expect($score)->toBe(0.0);
+    });
+
+    it('normalises postcode spacing', function () {
+        // Local address has no space between out/in code; should still match.
+        $listing = stubListing(['postcode' => 'SL2 4HL']);
+        $score = ($this->invoke)('addressSimilarity', [
+            'Wexham Park Hospital, SL24HL',
+            $listing,
+        ]);
+
+        expect($score)->toBe(1.0);
+    });
+});
+
+// ── Postcode extraction ────────────────────────────────────────────
+describe('extractPostcodes', function () {
+    it('finds uk postcodes in freetext', function () {
+        $found = ($this->invoke)('extractPostcodes', ['Some Place, Slough, SL2 4HL']);
+        expect($found)->toBe(['SL2 4HL']);
+    });
+
+    it('handles mixed case and spacing', function () {
+        $found = ($this->invoke)('extractPostcodes', ['near sl24hl right there']);
+        expect($found)->toBe(['SL2 4HL']);
+    });
+
+    it('returns empty when none are present', function () {
+        $found = ($this->invoke)('extractPostcodes', ['No postcode in this string']);
+        expect($found)->toBe([]);
+    });
+});
+
+// ── Open-status detection ──────────────────────────────────────────
+describe('isOpenStatus', function () {
+    it('recognises open and open again case insensitively', function () {
+        expect(($this->invoke)('isOpenStatus', ['Open']))->toBeTrue()
+            ->and(($this->invoke)('isOpenStatus', ['open again']))->toBeTrue()
+            ->and(($this->invoke)('isOpenStatus', ['OPEN AGAIN']))->toBeTrue()
+            ->and(($this->invoke)('isOpenStatus', ['']))->toBeTrue();
+    });
+
+    it('rejects closed and suspended', function () {
+        expect(($this->invoke)('isOpenStatus', ['Closed']))->toBeFalse()
+            ->and(($this->invoke)('isOpenStatus', ['Suspended']))->toBeFalse()
+            ->and(($this->invoke)('isOpenStatus', ['Temporarily Closed']))->toBeFalse();
+    });
+});
+
+// ── End-time discrepancy with tolerance ────────────────────────────
+describe('endTimeDiscrepancy', function () {
+    it('ignores small differences', function () {
+        // 5 minutes apart — under the 15 minute tolerance.
+        expect(($this->invoke)('endTimeDiscrepancy', ['20:30', '20:35']))->toBeFalse();
+    });
+
+    it('flags differences over the tolerance', function () {
+        // 30 minutes apart.
+        expect(($this->invoke)('endTimeDiscrepancy', ['20:00', '20:30']))->toBeTrue();
+    });
+
+    it('returns false when one side is empty', function () {
+        expect(($this->invoke)('endTimeDiscrepancy', ['', '20:30']))->toBeFalse()
+            ->and(($this->invoke)('endTimeDiscrepancy', ['20:30', '']))->toBeFalse();
+    });
+
+    it('returns false when identical', function () {
+        expect(($this->invoke)('endTimeDiscrepancy', ['20:30', '20:30']))->toBeFalse();
+    });
+});
+
+// ── Postcode normalisation ─────────────────────────────────────────
+it('inserts a space before the inward code when normalising a postcode', function () {
+    expect(($this->invoke)('normalisePostcode', ['SL24HL']))->toBe('SL2 4HL')
+        ->and(($this->invoke)('normalisePostcode', ['  sl2 4hl  ']))->toBe('SL2 4HL')
+        ->and(($this->invoke)('normalisePostcode', ['BS1  5AA']))->toBe('BS1 5AA');
+});
+
+it('returns the first half as the postcode outward', function () {
+    expect(($this->invoke)('postcodeOutward', ['SL2 4HL']))->toBe('SL2')
+        ->and(($this->invoke)('postcodeOutward', ['BS1 5AA']))->toBe('BS1');
+});

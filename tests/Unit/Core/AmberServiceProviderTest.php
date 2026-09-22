@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Core;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
 use Amber\Admin\DeveloperDashboard;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingAdmin;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
@@ -25,9 +23,8 @@ use Amber\Managers\MeetingReconciler;
 use Amber\Managers\PositionShortcodeRenderer;
 use Amber\Managers\PostTitleSyncer;
 use Amber\Services\ShortcodeService;
-use Amber\Tests\AmberTestCase;
 
-/**
+/*
  * Tests for the container wiring.
  *
  * AmberServiceProvider is the one place that knows how every Amber service is
@@ -37,73 +34,66 @@ use Amber\Tests\AmberTestCase;
  * runs each stored factory, proving both that the service is registered and
  * that its factory constructs the concrete type it promises.
  */
-#[CoversClass(\Amber\Core\AmberServiceProvider::class)]
-class AmberServiceProviderTest extends AmberTestCase
-{
-    /**
-     * Every id the provider is expected to register, mapped to the concrete
-     * class its factory must return. IntergroupAttendanceAdmin is the one id
-     * whose implementation class differs from its key.
-     */
-    private const SERVICES = [
-        PostTitleSyncer::class            => PostTitleSyncer::class,
-        IntergroupManager::class          => IntergroupManager::class,
-        PositionShortcodeRenderer::class  => PositionShortcodeRenderer::class,
-        ShortcodeService::class           => ShortcodeService::class,
-        FrontPageManager::class           => FrontPageManager::class,
-        MemberAdmin::class                => MemberAdmin::class,
-        AnonymousNameValidator::class     => AnonymousNameValidator::class,
-        PositionAdmin::class              => PositionAdmin::class,
-        PositionNameValidator::class      => PositionNameValidator::class,
-        MeetingAdmin::class               => MeetingAdmin::class,
-        IntergroupMeetingAdmin::class     => IntergroupMeetingAdmin::class,
-        PositionDashboard::class          => PositionDashboard::class,
-        DirectoryDashboard::class         => DirectoryDashboard::class,
-        MeetingDashboard::class           => MeetingDashboard::class,
-        IntergroupMeetingDashboard::class => IntergroupMeetingDashboard::class,
-        ReportsAdmin::class               => ReportsAdmin::class,
-        DeveloperDashboard::class         => DeveloperDashboard::class,
-    ];
 
-    #[Test]
-    public function it_registers_every_amber_service(): void
-    {
-        $container = $this->mockContainer();
+covers(AmberServiceProvider::class);
 
-        (new AmberServiceProvider())->register($container);
+/**
+ * Every id the provider is expected to register, mapped to the concrete
+ * class its factory must return. IntergroupAttendanceAdmin is the one id
+ * whose implementation class differs from its key.
+ */
+const AMBER_SERVICES = [
+    PostTitleSyncer::class            => PostTitleSyncer::class,
+    IntergroupManager::class          => IntergroupManager::class,
+    PositionShortcodeRenderer::class  => PositionShortcodeRenderer::class,
+    ShortcodeService::class           => ShortcodeService::class,
+    FrontPageManager::class           => FrontPageManager::class,
+    MemberAdmin::class                => MemberAdmin::class,
+    AnonymousNameValidator::class     => AnonymousNameValidator::class,
+    PositionAdmin::class              => PositionAdmin::class,
+    PositionNameValidator::class      => PositionNameValidator::class,
+    MeetingAdmin::class               => MeetingAdmin::class,
+    IntergroupMeetingAdmin::class     => IntergroupMeetingAdmin::class,
+    PositionDashboard::class          => PositionDashboard::class,
+    DirectoryDashboard::class         => DirectoryDashboard::class,
+    MeetingDashboard::class           => MeetingDashboard::class,
+    IntergroupMeetingDashboard::class => IntergroupMeetingDashboard::class,
+    ReportsAdmin::class               => ReportsAdmin::class,
+    DeveloperDashboard::class         => DeveloperDashboard::class,
+];
 
-        foreach (array_keys(self::SERVICES) as $id) {
-            $this->assertTrue($container->has($id), "$id was not registered");
-        }
+it('registers every amber service', function () {
+    $container = $this->mockContainer();
 
-        // The reconciler is registered too, but only built when Concordance is
-        // present, so it is exercised separately below.
-        $this->assertTrue($container->has(MeetingReconciler::class));
+    (new AmberServiceProvider())->register($container);
+
+    foreach (array_keys(AMBER_SERVICES) as $id) {
+        expect($container->has($id))->toBeTrue("$id was not registered");
     }
 
-    #[Test]
-    public function every_factory_builds_the_concrete_service_it_promises(): void
-    {
-        $container = $this->mockContainer();
+    // The reconciler is registered too, but only built when Concordance is
+    // present, so it is exercised separately below.
+    expect($container->has(MeetingReconciler::class))->toBeTrue();
+});
 
-        (new AmberServiceProvider())->register($container);
+it('builds the concrete service every factory promises', function () {
+    $container = $this->mockContainer();
 
-        foreach (self::SERVICES as $id => $concrete) {
-            $service = $container->build($id);
+    (new AmberServiceProvider())->register($container);
 
-            $this->assertInstanceOf($concrete, $service, "$id built the wrong type");
-        }
+    foreach (AMBER_SERVICES as $id => $concrete) {
+        $service = $container->build($id);
+
+        expect($service)->toBeInstanceOf($concrete, "$id built the wrong type");
     }
+});
 
-    #[Test]
-    public function the_meeting_dashboard_is_built_without_a_reconciler_when_concordance_is_absent(): void
-    {
-        // function_exists('concordance') is false under test, so the dashboard
-        // factory must skip the reconciler rather than fatal trying to reach it.
-        $container = $this->mockContainer();
+it('builds the meeting dashboard without a reconciler when concordance is absent', function () {
+    // function_exists('concordance') is false under test, so the dashboard
+    // factory must skip the reconciler rather than fatal trying to reach it.
+    $container = $this->mockContainer();
 
-        (new AmberServiceProvider())->register($container);
+    (new AmberServiceProvider())->register($container);
 
-        $this->assertInstanceOf(MeetingDashboard::class, $container->build(MeetingDashboard::class));
-    }
-}
+    expect($container->build(MeetingDashboard::class))->toBeInstanceOf(MeetingDashboard::class);
+});

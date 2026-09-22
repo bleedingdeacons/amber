@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Members;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\Members\MemberAdmin;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\Group;
@@ -23,7 +18,7 @@ use Unity\Positions\Interfaces\PositionFactory;
 use WP_Post;
 use WP_Query;
 
-/**
+/*
  * Tests for the members list table.
  *
  * This class decorates the WordPress members list: extra columns, sorting,
@@ -36,53 +31,37 @@ use WP_Query;
  * order by a value that lives behind a factory), so those writes are
  * asserted directly.
  */
-#[CoversClass(\Amber\Admin\Members\MemberAdmin::class)]
-class MemberAdminTest extends AmberTestCase
-{
-    private const MEMBER_TYPE = 'intergroup-member';
-    private const POSITION_TYPE = 'intergroup-position';
-    private const GROUP_TYPE = 'tsml_group';
 
-    private MemberAdmin $admin;
+covers(MemberAdmin::class);
 
-    /** @var MemberRepository&MockObject */
-    private $members;
+const MEMBER_ADMIN_TYPE = 'intergroup-member';
+const MEMBER_ADMIN_POSITION_TYPE = 'intergroup-position';
+const MEMBER_ADMIN_GROUP_TYPE = 'tsml_group';
 
-    /** @var PositionFactory&MockObject */
-    private $positions;
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(static function (string $key): array {
+        return match ($key) {
+            Member::class => [
+                'POST_TYPE'                  => MEMBER_ADMIN_TYPE,
+                'FIELD_INTERGROUP_POSITION'  => 'service-layout-group_intergroup-position',
+                'FIELD_HOME_GROUP'           => 'home-layout-group_home-group',
+                'FIELD_HOMEGROUP_GSR'        => 'home-layout-group_homegroup-gsr',
+            ],
+            Position::class => ['POST_TYPE' => MEMBER_ADMIN_POSITION_TYPE],
+            Group::class    => ['POST_TYPE' => MEMBER_ADMIN_GROUP_TYPE],
+            default         => [],
+        };
+    });
 
-    /** @var GroupFactory&MockObject */
-    private $groups;
+    $this->members = $this->createMock(MemberRepository::class);
+    $this->positions = $this->createMock(PositionFactory::class);
+    $this->groups = $this->createMock(GroupFactory::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(static function (string $key): array {
-            return match ($key) {
-                Member::class => [
-                    'POST_TYPE'                  => self::MEMBER_TYPE,
-                    'FIELD_INTERGROUP_POSITION'  => 'service-layout-group_intergroup-position',
-                    'FIELD_HOME_GROUP'           => 'home-layout-group_home-group',
-                    'FIELD_HOMEGROUP_GSR'        => 'home-layout-group_homegroup-gsr',
-                ],
-                Position::class => ['POST_TYPE' => self::POSITION_TYPE],
-                Group::class    => ['POST_TYPE' => self::GROUP_TYPE],
-                default         => [],
-            };
-        });
-
-        $this->members = $this->createMock(MemberRepository::class);
-        $this->positions = $this->createMock(PositionFactory::class);
-        $this->groups = $this->createMock(GroupFactory::class);
-
-        $this->admin = new MemberAdmin($config, $this->positions, $this->members, $this->groups);
-    }
+    $this->admin = new MemberAdmin($config, $this->positions, $this->members, $this->groups);
 
     /** A member with the getters the list table reads. */
-    private function member(array $overrides = []): Member
-    {
+    $this->member = function (array $overrides = []): Member {
         $defaults = [
             'getId' => 42,
             'isGsr' => false,
@@ -100,364 +79,304 @@ class MemberAdminTest extends AmberTestCase
         }
 
         return $member;
-    }
+    };
 
-    private function position(string $longName = 'Treasurer'): Position
-    {
+    $this->position = function (string $longName = 'Treasurer'): Position {
         $position = $this->createMock(Position::class);
         $position->method('getLongName')->willReturn($longName);
 
         return $position;
-    }
+    };
 
-    private function group(string $title = 'Tuesday Group', array $meetings = []): Group
-    {
+    $this->group = function (string $title = 'Tuesday Group', array $meetings = []): Group {
         $group = $this->createMock(Group::class);
         $group->method('getTitle')->willReturn($title);
         $group->method('getMeetings')->willReturn($meetings);
 
         return $group;
-    }
+    };
 
-    private function column(string $name, int $postId = 42): string
-    {
+    $this->column = function (string $name, int $postId = 42): string {
         return $this->capture(fn () => $this->admin->populateCustomColumns($name, $postId));
-    }
+    };
+});
 
-    // ── registration ─────────────────────────────────────────────────
-    #[Test]
-    public function it_registers_its_list_table_hooks(): void
-    {
-        $this->assertHookAdded('manage_' . self::MEMBER_TYPE . '_posts_columns');
-        $this->assertHookAdded('manage_' . self::MEMBER_TYPE . '_posts_custom_column');
-        $this->assertHookAdded('manage_edit-' . self::MEMBER_TYPE . '_sortable_columns');
-        $this->assertHookAdded('save_post_' . self::MEMBER_TYPE);
-        $this->assertHookAdded('restrict_manage_posts');
-        $this->assertHookAdded('pre_get_posts');
-    }
+// ── registration ─────────────────────────────────────────────────
+it('registers its list table hooks', function () {
+    $this->assertHookAdded('manage_' . MEMBER_ADMIN_TYPE . '_posts_columns');
+    $this->assertHookAdded('manage_' . MEMBER_ADMIN_TYPE . '_posts_custom_column');
+    $this->assertHookAdded('manage_edit-' . MEMBER_ADMIN_TYPE . '_sortable_columns');
+    $this->assertHookAdded('save_post_' . MEMBER_ADMIN_TYPE);
+    $this->assertHookAdded('restrict_manage_posts');
+    $this->assertHookAdded('pre_get_posts');
+});
 
-    // ── columns ──────────────────────────────────────────────────────
-    #[Test]
-    public function the_custom_columns_are_inserted_after_the_title(): void
-    {
+// ── columns ──────────────────────────────────────────────────────
+describe('columns', function () {
+    it('inserts the custom columns after the title', function () {
         $columns = $this->admin->addCustomColumns(['cb' => '', 'title' => 'Title', 'date' => 'Date']);
 
         $keys = array_keys($columns);
-        $this->assertSame('cb', $keys[0]);
-        $this->assertSame('title', $keys[1]);
-        // The title is relabelled, since a member's title is their pseudonym.
-        $this->assertSame('Anonymous Name', $columns['title']);
+        expect($keys[0])->toBe('cb')
+            ->and($keys[1])->toBe('title')
+            // The title is relabelled, since a member's title is their pseudonym.
+            ->and($columns['title'])->toBe('Anonymous Name');
 
         foreach (['service_position', 'rotation_date', 'gsr_status', 'homegroup', 'twelfth', 'responder', 'certification'] as $added) {
-            $this->assertArrayHasKey($added, $columns);
+            expect($columns)->toHaveKey($added);
         }
         // Pre-existing columns survive.
-        $this->assertArrayHasKey('date', $columns);
-    }
+        expect($columns)->toHaveKey('date');
+    });
 
-    #[Test]
-    public function a_column_for_a_member_that_cannot_be_loaded_reads_not_applicable(): void
-    {
+    it('reads not applicable for a member that cannot be loaded', function () {
         $this->members->method('findById')->willReturn(null);
 
-        $this->assertStringContainsString('N/A', $this->column('gsr_status'));
-    }
+        expect(($this->column)('gsr_status'))->toContain('N/A');
+    });
 
-    #[Test]
-    public function the_gsr_column_marks_a_gsr(): void
-    {
-        $this->members->method('findById')->willReturn($this->member(['isGsr' => true]));
+    it('marks a gsr in the gsr column', function () {
+        $this->members->method('findById')->willReturn(($this->member)(['isGsr' => true]));
 
-        $this->assertStringContainsString('Yes', $this->column('gsr_status'));
-    }
+        expect(($this->column)('gsr_status'))->toContain('Yes');
+    });
 
-    #[Test]
-    public function the_gsr_column_marks_a_non_gsr(): void
-    {
-        $this->members->method('findById')->willReturn($this->member(['isGsr' => false]));
+    it('marks a non gsr in the gsr column', function () {
+        $this->members->method('findById')->willReturn(($this->member)(['isGsr' => false]));
 
-        $this->assertStringContainsString('No', $this->column('gsr_status'));
-    }
+        expect(($this->column)('gsr_status'))->toContain('No');
+    });
 
-    #[Test]
-    public function the_twelfth_and_responder_columns_report_their_flags(): void
-    {
+    it('reports the twelfth and responder flags', function () {
         $this->members->method('findById')->willReturn(
-            $this->member(['isTwelfthStepper' => true, 'isTelephoneResponder' => true])
+            ($this->member)(['isTwelfthStepper' => true, 'isTelephoneResponder' => true])
         );
 
-        $this->assertStringContainsString('Yes', $this->column('twelfth'));
-        $this->assertStringContainsString('Yes', $this->column('responder'));
-    }
+        expect(($this->column)('twelfth'))->toContain('Yes')
+            ->and(($this->column)('responder'))->toContain('Yes');
+    });
 
-    #[Test]
-    public function the_service_position_column_links_to_the_position(): void
-    {
-        $this->members->method('findById')->willReturn($this->member(['getIntergroupPosition' => 7]));
-        $this->positions->method('createFromSource')->willReturn($this->position('Intergroup Treasurer'));
+    it('links to the position in the service position column', function () {
+        $this->members->method('findById')->willReturn(($this->member)(['getIntergroupPosition' => 7]));
+        $this->positions->method('createFromSource')->willReturn(($this->position)('Intergroup Treasurer'));
 
-        $html = $this->column('service_position');
+        $html = ($this->column)('service_position');
 
-        $this->assertStringContainsString('Intergroup Treasurer', $html);
-        $this->assertStringContainsString('<a href=', $html);
-    }
+        expect($html)->toContain('Intergroup Treasurer')
+            ->toContain('<a href=');
+    });
 
-    #[Test]
-    public function a_member_with_no_position_shows_not_applicable(): void
-    {
-        $this->members->method('findById')->willReturn($this->member());
+    it('shows not applicable for a member with no position', function () {
+        $this->members->method('findById')->willReturn(($this->member)());
         $this->positions->method('createFromSource')->willReturn(null);
 
-        $this->assertStringContainsString('N/A', $this->column('service_position'));
-    }
+        expect(($this->column)('service_position'))->toContain('N/A');
+    });
 
-    #[Test]
-    public function the_rotation_column_shows_the_date_or_a_dash(): void
-    {
+    it('shows the date or a dash in the rotation column', function () {
         $this->members->method('findById')->willReturn(
-            $this->member(['getIntergroupPositionRotation' => '01/01/2027'])
+            ($this->member)(['getIntergroupPositionRotation' => '01/01/2027'])
         );
-        $this->assertStringContainsString('01/01/2027', $this->column('rotation_date'));
-    }
+        expect(($this->column)('rotation_date'))->toContain('01/01/2027');
+    });
 
-    #[Test]
-    public function the_homegroup_column_links_via_the_groups_first_meeting(): void
-    {
+    it("links the homegroup column via the group's first meeting", function () {
         // Groups have no edit screen of their own, so the link goes to a
         // meeting the group holds.
         $meeting = $this->createMock(Meeting::class);
         $meeting->method('getId')->willReturn(99);
 
-        $this->members->method('findById')->willReturn($this->member(['getHomeGroup' => 3]));
-        $this->groups->method('createFromSource')->willReturn($this->group('Tuesday Group', [$meeting]));
+        $this->members->method('findById')->willReturn(($this->member)(['getHomeGroup' => 3]));
+        $this->groups->method('createFromSource')->willReturn(($this->group)('Tuesday Group', [$meeting]));
 
-        $html = $this->column('homegroup');
+        $html = ($this->column)('homegroup');
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertStringContainsString('post=99', $html);
-    }
+        expect($html)->toContain('Tuesday Group')
+            ->toContain('post=99');
+    });
 
-    #[Test]
-    public function a_homegroup_with_no_meetings_renders_as_plain_text(): void
-    {
-        $this->members->method('findById')->willReturn($this->member(['getHomeGroup' => 3]));
-        $this->groups->method('createFromSource')->willReturn($this->group('Tuesday Group', []));
+    it('renders a homegroup with no meetings as plain text', function () {
+        $this->members->method('findById')->willReturn(($this->member)(['getHomeGroup' => 3]));
+        $this->groups->method('createFromSource')->willReturn(($this->group)('Tuesday Group', []));
 
-        $html = $this->column('homegroup');
+        $html = ($this->column)('homegroup');
 
-        $this->assertStringContainsString('Tuesday Group', $html);
-        $this->assertStringNotContainsString('<a href=', $html);
-    }
+        expect($html)->toContain('Tuesday Group')
+            ->not->toContain('<a href=');
+    });
 
-    #[Test]
-    public function an_unknown_homegroup_shows_not_applicable(): void
-    {
-        $this->members->method('findById')->willReturn($this->member(['getHomeGroup' => 0]));
+    it('shows not applicable for an unknown homegroup', function () {
+        $this->members->method('findById')->willReturn(($this->member)(['getHomeGroup' => 0]));
         $this->groups->method('createFromSource')->willReturn(null);
 
-        $this->assertStringContainsString('N/A', $this->column('homegroup'));
-    }
+        expect(($this->column)('homegroup'))->toContain('N/A');
+    });
+});
 
-    // ── certification column ─────────────────────────────────────────
-    #[Test]
-    public function a_non_responder_shows_a_dash_rather_than_none(): void
-    {
+// ── certification column ─────────────────────────────────────────
+describe('certification column', function () {
+    it('shows a dash rather than none for a non responder', function () {
         // The backing field is hidden for non-responders, so every one of
         // them reads as None; showing "None" would imply a responder who has
         // not started.
         $this->members->method('findById')->willReturn(
-            $this->member(['isTelephoneResponder' => false])
+            ($this->member)(['isTelephoneResponder' => false])
         );
 
-        $html = $this->column('certification');
+        $html = ($this->column)('certification');
 
-        $this->assertStringContainsString('—', $html);
-        $this->assertStringNotContainsString('None', $html);
-    }
+        expect($html)->toContain('—')
+            ->not->toContain('None');
+    });
 
-    #[DataProvider('certificationColourProvider')]
-    #[Test]
-    public function each_certification_stage_gets_its_colour(
+    it('gives each certification stage its colour', function (
         ResponderCertification $stage,
         string $expectedColour
-    ): void {
-        $this->members->method('findById')->willReturn($this->member([
+    ) {
+        $this->members->method('findById')->willReturn(($this->member)([
             'isTelephoneResponder' => true,
             'getResponderCertification' => $stage,
         ]));
 
-        $html = $this->column('certification');
+        $html = ($this->column)('certification');
 
-        $this->assertStringContainsString($stage->label(), $html);
-        $this->assertStringContainsString($expectedColour, $html);
-    }
+        expect($html)->toContain($stage->label())
+            ->toContain($expectedColour);
+    })->with([
+        'certified reads as a pass'   => [ResponderCertification::Certified, 'green'],
+        'applied is in progress'      => [ResponderCertification::Applied, '#996800'],
+        'in training is in progress'  => [ResponderCertification::InTraining, '#996800'],
+        'pending is in progress'      => [ResponderCertification::Pending, '#996800'],
+        'none is neutral'             => [ResponderCertification::None, 'gray'],
+    ]);
+});
 
-    /** @return array<string, array{0: ResponderCertification, 1: string}> */
-    public static function certificationColourProvider(): array
-    {
-        return [
-            'certified reads as a pass'   => [ResponderCertification::Certified, 'green'],
-            'applied is in progress'      => [ResponderCertification::Applied, '#996800'],
-            'in training is in progress'  => [ResponderCertification::InTraining, '#996800'],
-            'pending is in progress'      => [ResponderCertification::Pending, '#996800'],
-            'none is neutral'             => [ResponderCertification::None, 'gray'],
-        ];
-    }
-
-    // ── sorting ──────────────────────────────────────────────────────
-    #[Test]
-    public function the_sortable_columns_are_declared(): void
-    {
+// ── sorting ──────────────────────────────────────────────────────
+describe('sorting', function () {
+    it('declares the sortable columns', function () {
         $sortable = $this->admin->makeSortableColumns([]);
 
         foreach (['gsr_status', 'service_position', 'rotation_date', 'homegroup'] as $column) {
-            $this->assertArrayHasKey($column, $sortable);
+            expect($sortable)->toHaveKey($column);
         }
-    }
+    });
 
-    /**
-     * Each sortable column maps to a precomputed meta key, because the value
-     * shown lives behind a factory and WordPress cannot order by it.
-     */
-    #[DataProvider('sortProvider')]
-    #[Test]
-    public function sorting_by_a_column_orders_by_its_precomputed_meta_key(
+    // Each sortable column maps to a precomputed meta key, because the value
+    // shown lives behind a factory and WordPress cannot order by it.
+    it('orders by the precomputed meta key of the column', function (
         string $orderby,
         string $metaKey,
         string $orderType
-    ): void {
-        $query = new WP_Query(['post_type' => self::MEMBER_TYPE, 'orderby' => $orderby]);
+    ) {
+        $query = new WP_Query(['post_type' => MEMBER_ADMIN_TYPE, 'orderby' => $orderby]);
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame($metaKey, $query->get('meta_key'));
-        $this->assertSame($orderType, $query->get('orderby'));
-    }
+        expect($query->get('meta_key'))->toBe($metaKey)
+            ->and($query->get('orderby'))->toBe($orderType);
+    })->with([
+        'gsr'      => ['gsr_status', '_member_gsr_sort', 'meta_value_num'],
+        'position' => ['service_position', '_member_position_sort_name', 'meta_value'],
+        'rotation' => ['rotation_date', '_member_rotation_date_sort', 'meta_value'],
+        'homegroup' => ['homegroup', '_member_homegroup_sort_name', 'meta_value'],
+    ]);
 
-    /** @return array<string, array{0: string, 1: string, 2: string}> */
-    public static function sortProvider(): array
-    {
-        return [
-            'gsr'      => ['gsr_status', '_member_gsr_sort', 'meta_value_num'],
-            'position' => ['service_position', '_member_position_sort_name', 'meta_value'],
-            'rotation' => ['rotation_date', '_member_rotation_date_sort', 'meta_value'],
-            'homegroup' => ['homegroup', '_member_homegroup_sort_name', 'meta_value'],
-        ];
-    }
-
-    #[Test]
-    public function sorting_is_left_alone_for_another_post_type(): void
-    {
+    it('leaves sorting alone for another post type', function () {
         $query = new WP_Query(['post_type' => 'page', 'orderby' => 'gsr_status']);
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('', $query->get('meta_key'));
-    }
+        expect($query->get('meta_key'))->toBe('');
+    });
 
-    #[Test]
-    public function sorting_is_left_alone_when_not_the_main_query(): void
-    {
-        $query = new WP_Query(['post_type' => self::MEMBER_TYPE, 'orderby' => 'gsr_status']);
+    it('leaves sorting alone when not the main query', function () {
+        $query = new WP_Query(['post_type' => MEMBER_ADMIN_TYPE, 'orderby' => 'gsr_status']);
         $query->isMainQuery = false;
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('', $query->get('meta_key'));
-    }
+        expect($query->get('meta_key'))->toBe('');
+    });
 
-    #[Test]
-    public function an_unrecognised_sort_column_is_passed_through_untouched(): void
-    {
-        $query = new WP_Query(['post_type' => self::MEMBER_TYPE, 'orderby' => 'title']);
+    it('passes an unrecognised sort column through untouched', function () {
+        $query = new WP_Query(['post_type' => MEMBER_ADMIN_TYPE, 'orderby' => 'title']);
 
         $this->admin->handleCustomSorting($query);
 
-        $this->assertSame('title', $query->get('orderby'));
-        $this->assertSame('', $query->get('meta_key'));
-    }
+        expect($query->get('orderby'))->toBe('title')
+            ->and($query->get('meta_key'))->toBe('');
+    });
+});
 
-    // ── GSR filter ───────────────────────────────────────────────────
-    #[Test]
-    public function the_gsr_filter_dropdown_is_rendered_for_members_only(): void
-    {
-        $html = $this->capture(fn () => $this->admin->addGsrFilterDropdown(self::MEMBER_TYPE));
+// ── GSR filter ───────────────────────────────────────────────────
+describe('GSR filter', function () {
+    it('renders the gsr filter dropdown for members only', function () {
+        $html = $this->capture(fn () => $this->admin->addGsrFilterDropdown(MEMBER_ADMIN_TYPE));
 
-        $this->assertStringContainsString('<select name="gsr_filter">', $html);
-        $this->assertStringContainsString('Is GSR', $html);
-        $this->assertStringContainsString('Not GSR', $html);
+        expect($html)->toContain('<select name="gsr_filter">')
+            ->toContain('Is GSR')
+            ->toContain('Not GSR')
+            ->and($this->capture(fn () => $this->admin->addGsrFilterDropdown('page')))->toBe('');
+    });
 
-        $this->assertSame('', $this->capture(fn () => $this->admin->addGsrFilterDropdown('page')));
-    }
-
-    #[Test]
-    public function the_dropdown_remembers_the_current_selection(): void
-    {
+    it('remembers the current selection in the dropdown', function () {
         $_GET['gsr_filter'] = 'yes';
 
-        $html = $this->capture(fn () => $this->admin->addGsrFilterDropdown(self::MEMBER_TYPE));
+        $html = $this->capture(fn () => $this->admin->addGsrFilterDropdown(MEMBER_ADMIN_TYPE));
 
-        $this->assertStringContainsString('selected="selected"', $html);
-    }
+        expect($html)->toContain('selected="selected"');
+    });
 
-    #[Test]
-    public function filtering_to_gsrs_adds_an_equality_meta_query(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+    it('adds an equality meta query when filtering to gsrs', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $_GET['gsr_filter'] = 'yes';
         $query = new WP_Query([]);
 
         $this->admin->filterByGsrStatus($query);
 
         $metaQuery = $query->get('meta_query');
-        $this->assertSame('home-layout-group_homegroup-gsr', $metaQuery[0]['key']);
-        $this->assertSame('=', $metaQuery[0]['compare']);
-    }
+        expect($metaQuery[0]['key'])->toBe('home-layout-group_homegroup-gsr')
+            ->and($metaQuery[0]['compare'])->toBe('=');
+    });
 
-    #[Test]
-    public function filtering_to_non_gsrs_also_matches_members_with_no_value(): void
-    {
+    it('also matches members with no value when filtering to non gsrs', function () {
         // A member who has never been a GSR has no row at all, so a plain
         // "!= 1" would miss them.
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $_GET['gsr_filter'] = 'no';
         $query = new WP_Query([]);
 
         $this->admin->filterByGsrStatus($query);
 
         $metaQuery = $query->get('meta_query');
-        $this->assertSame('OR', $metaQuery[0]['relation']);
-        $this->assertSame('NOT EXISTS', $metaQuery[0][1]['compare']);
-    }
+        expect($metaQuery[0]['relation'])->toBe('OR')
+            ->and($metaQuery[0][1]['compare'])->toBe('NOT EXISTS');
+    });
 
-    #[Test]
-    public function no_filter_is_applied_without_a_selection(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+    it('applies no filter without a selection', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $query = new WP_Query([]);
 
         $this->admin->filterByGsrStatus($query);
 
-        $this->assertSame('', $query->get('meta_query'));
-    }
+        expect($query->get('meta_query'))->toBe('');
+    });
 
-    #[Test]
-    public function the_filter_is_skipped_on_another_screen(): void
-    {
+    it('skips the filter on another screen', function () {
         $this->setScreen('edit-page', 'edit', 'page');
         $_GET['gsr_filter'] = 'yes';
         $query = new WP_Query([]);
 
         $this->admin->filterByGsrStatus($query);
 
-        $this->assertSame('', $query->get('meta_query'));
-    }
+        expect($query->get('meta_query'))->toBe('');
+    });
+});
 
-    // ── extended search ──────────────────────────────────────────────
-    #[Test]
-    public function search_is_extended_to_members_linked_to_matching_positions(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+// ── extended search ──────────────────────────────────────────────
+describe('extended search', function () {
+    it('extends search to members linked to matching positions', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $query = new WP_Query(['s' => 'treasurer']);
         $query->isSearch = true;
 
@@ -469,141 +388,123 @@ class MemberAdminTest extends AmberTestCase
 
         // The term is cleared and replaced by an explicit id list, so the
         // extra matches are not filtered back out by the title search.
-        $this->assertSame('', $query->get('s'));
-        $this->assertNotEmpty($query->get('post__in'));
-    }
+        expect($query->get('s'))->toBe('')
+            ->and($query->get('post__in'))->not->toBeEmpty();
+    });
 
-    #[Test]
-    public function search_is_left_alone_when_nothing_extra_matches(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+    it('leaves search alone when nothing extra matches', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $query = new WP_Query(['s' => 'nothing']);
         $query->isSearch = true;
         $this->wpdb->col = [];
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame('nothing', $query->get('s'), 'WordPress keeps its own title search.');
-    }
+        expect($query->get('s'))->toBe('nothing', 'WordPress keeps its own title search.');
+    });
 
-    #[Test]
-    public function search_is_skipped_for_an_empty_term(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+    it('skips search for an empty term', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $query = new WP_Query(['s' => '']);
         $query->isSearch = true;
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame([], $this->wpdb->queries, 'No term, no lookups.');
-    }
+        expect($this->wpdb->queries)->toBe([], 'No term, no lookups.');
+    });
 
-    #[Test]
-    public function search_is_skipped_when_the_query_is_not_a_search(): void
-    {
-        $this->setScreen('edit-member', 'edit', self::MEMBER_TYPE);
+    it('skips search when the query is not a search', function () {
+        $this->setScreen('edit-member', 'edit', MEMBER_ADMIN_TYPE);
         $query = new WP_Query(['s' => 'treasurer']);
         $query->isSearch = false;
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame([], $this->wpdb->queries);
-    }
+        expect($this->wpdb->queries)->toBe([]);
+    });
 
-    #[Test]
-    public function search_is_skipped_on_another_post_type_screen(): void
-    {
+    it('skips search on another post type screen', function () {
         $this->setScreen('edit-page', 'edit', 'page');
         $query = new WP_Query(['s' => 'treasurer']);
         $query->isSearch = true;
 
         $this->admin->extendSearch($query);
 
-        $this->assertSame([], $this->wpdb->queries);
-    }
+        expect($this->wpdb->queries)->toBe([]);
+    });
+});
 
-    // ── sort metadata ────────────────────────────────────────────────
-    #[Test]
-    public function saving_a_member_precomputes_every_sort_key(): void
-    {
+// ── sort metadata ────────────────────────────────────────────────
+describe('sort metadata', function () {
+    it('precomputes every sort key when saving a member', function () {
         $meeting = $this->createMock(Meeting::class);
         $meeting->method('getId')->willReturn(99);
 
-        $this->members->method('findById')->willReturn($this->member([
+        $this->members->method('findById')->willReturn(($this->member)([
             'isGsr' => true,
             'getIntergroupPosition' => 7,
             'getIntergroupPositionRotation' => '01/03/2027',
             'getHomeGroup' => 3,
         ]));
-        $this->positions->method('createFromSource')->willReturn($this->position('Treasurer'));
-        $this->groups->method('createFromSource')->willReturn($this->group('Tuesday Group', [$meeting]));
+        $this->positions->method('createFromSource')->willReturn(($this->position)('Treasurer'));
+        $this->groups->method('createFromSource')->willReturn(($this->group)('Tuesday Group', [$meeting]));
 
         $this->admin->updateMemberMetadata(42);
 
         $meta = WpState::$postMeta[42];
-        $this->assertSame(1, $meta['_member_gsr_sort']);
-        $this->assertSame('treasurer', $meta['_member_position_sort_name'], 'lower-cased for a stable sort');
-        // d/m/Y is reordered so a string sort is a chronological sort.
-        $this->assertSame('2027-03-01', $meta['_member_rotation_date_sort']);
-        $this->assertSame('tuesday group', $meta['_member_homegroup_sort_name']);
-    }
+        expect($meta['_member_gsr_sort'])->toBe(1)
+            ->and($meta['_member_position_sort_name'])->toBe('treasurer', 'lower-cased for a stable sort')
+            // d/m/Y is reordered so a string sort is a chronological sort.
+            ->and($meta['_member_rotation_date_sort'])->toBe('2027-03-01')
+            ->and($meta['_member_homegroup_sort_name'])->toBe('tuesday group');
+    });
 
-    #[Test]
-    public function a_member_with_nothing_set_sorts_last(): void
-    {
-        $this->members->method('findById')->willReturn($this->member());
+    it('sorts a member with nothing set last', function () {
+        $this->members->method('findById')->willReturn(($this->member)());
         $this->positions->method('createFromSource')->willReturn(null);
         $this->groups->method('createFromSource')->willReturn(null);
 
         $this->admin->updateMemberMetadata(42);
 
         $meta = WpState::$postMeta[42];
-        $this->assertSame(0, $meta['_member_gsr_sort']);
-        // A sentinel that sorts after every real name.
-        $this->assertSame('zzz_none', $meta['_member_position_sort_name']);
-        $this->assertSame('zzz_none', $meta['_member_rotation_date_sort']);
-        $this->assertSame('zzz_none', $meta['_member_homegroup_sort_name']);
-    }
+        expect($meta['_member_gsr_sort'])->toBe(0)
+            // A sentinel that sorts after every real name.
+            ->and($meta['_member_position_sort_name'])->toBe('zzz_none')
+            ->and($meta['_member_rotation_date_sort'])->toBe('zzz_none')
+            ->and($meta['_member_homegroup_sort_name'])->toBe('zzz_none');
+    });
 
-    #[Test]
-    public function an_unparseable_rotation_date_is_stored_as_given(): void
-    {
+    it('stores an unparseable rotation date as given', function () {
         $this->members->method('findById')->willReturn(
-            $this->member(['getIntergroupPositionRotation' => 'sometime soon'])
+            ($this->member)(['getIntergroupPositionRotation' => 'sometime soon'])
         );
         $this->positions->method('createFromSource')->willReturn(null);
         $this->groups->method('createFromSource')->willReturn(null);
 
         $this->admin->updateMemberMetadata(42);
 
-        $this->assertSame('sometime soon', WpState::$postMeta[42]['_member_rotation_date_sort']);
-    }
+        expect(WpState::$postMeta[42]['_member_rotation_date_sort'])->toBe('sometime soon');
+    });
 
-    #[Test]
-    public function metadata_is_not_written_for_a_member_that_cannot_be_loaded(): void
-    {
+    it('writes no metadata for a member that cannot be loaded', function () {
         $this->members->method('findById')->willReturn(null);
 
         $this->admin->updateMemberMetadata(42);
 
-        $this->assertArrayNotHasKey(42, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->not->toHaveKey(42);
+    });
 
-    #[Test]
-    public function saving_recomputes_the_sort_keys(): void
-    {
-        $this->members->method('findById')->willReturn($this->member());
+    it('recomputes the sort keys on save', function () {
+        $this->members->method('findById')->willReturn(($this->member)());
         $this->positions->method('createFromSource')->willReturn(null);
         $this->groups->method('createFromSource')->willReturn(null);
 
         $this->admin->updateMemberMetadataOnSave(42, new WP_Post(['ID' => 42]), true);
 
-        $this->assertArrayHasKey('_member_gsr_sort', WpState::$postMeta[42]);
-    }
+        expect(WpState::$postMeta[42])->toHaveKey('_member_gsr_sort');
+    });
 
-    #[Test]
-    public function an_ajax_save_is_ignored(): void
-    {
+    it('ignores an ajax save', function () {
         // ACF fires save_post over AJAX mid-edit; recomputing then would use
         // half-written field values.
         WpState::$doingAjax = true;
@@ -611,20 +512,18 @@ class MemberAdminTest extends AmberTestCase
 
         $this->admin->updateMemberMetadataOnSave(42, new WP_Post(['ID' => 42]), true);
 
-        $this->assertArrayNotHasKey(42, WpState::$postMeta);
-    }
+        expect(WpState::$postMeta)->not->toHaveKey(42);
+    });
 
-    #[Test]
-    public function every_member_can_be_backfilled_at_once(): void
-    {
+    it('can backfill every member at once', function () {
         $this->members->method('findAll')->willReturn([
-            $this->member(['getId' => 1]),
-            $this->member(['getId' => 2]),
+            ($this->member)(['getId' => 1]),
+            ($this->member)(['getId' => 2]),
         ]);
-        $this->members->method('findById')->willReturn($this->member());
+        $this->members->method('findById')->willReturn(($this->member)());
         $this->positions->method('createFromSource')->willReturn(null);
         $this->groups->method('createFromSource')->willReturn(null);
 
-        $this->assertSame(2, $this->admin->setupAllMembersMetadata());
-    }
-}
+        expect($this->admin->setupAllMembersMetadata())->toBe(2);
+    });
+});

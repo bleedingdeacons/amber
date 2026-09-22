@@ -223,10 +223,10 @@ composer install
 
 | Command | Description |
 |---|---|
-| `composer test` | Run the PHPUnit test suite |
+| `composer test` | Run the Pest test suite |
 | `composer phpstan` | Run PHPStan static analysis |
 
-The suite uses **PHPUnit** with **Mockery** for mocking. Line coverage is
+The suite is written in [**Pest**](https://pestphp.com) (on PHPUnit) with **Mockery** for mocking. Line coverage is
 reported to [Coveralls](https://coveralls.io/github/bleedingdeacons/amber?branch=main)
 on every CI run — see the coverage badge at the top of this file.
 

@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Shortcodes;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
 use Amber\Services\ShortcodeService;
 use Amber\Shortcodes\GeneralShortcodes;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use DateTime;
 use DateTimeZone;
 
-/**
+/*
  * Tests for the general-purpose shortcodes and their registrar.
  *
  * These tags are shared verbatim with the Confur plugin, so the registrar
@@ -25,163 +22,123 @@ use DateTimeZone;
  * extends it, and renders hours-or-days remaining, so its boundaries (past,
  * within a day, whole days, bad input) are exercised one by one.
  */
-#[CoversClass(\Amber\Shortcodes\GeneralShortcodes::class)]
-#[CoversClass(\Amber\Services\ShortcodeService::class)]
-class GeneralShortcodesTest extends AmberTestCase
-{
-    private GeneralShortcodes $shortcodes;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->shortcodes = new GeneralShortcodes();
+covers(GeneralShortcodes::class, ShortcodeService::class);
+
+beforeEach(function () {
+    $this->shortcodes = new GeneralShortcodes();
+});
+
+// ── registrar ────────────────────────────────────────────────────
+it('registers every general shortcode through the service', function () {
+    (new ShortcodeService())->registerShortcodes();
+
+    foreach (['open_new_link', 'open_email', 'pdf_link', 'days_remaining'] as $tag) {
+        expect(WpState::$shortcodes)->toHaveKey($tag);
     }
+});
 
-    // ── registrar ────────────────────────────────────────────────────
-    #[Test]
-    public function the_service_registers_every_general_shortcode(): void
-    {
-        (new ShortcodeService())->registerShortcodes();
+it('leaves a tag another plugin already registered untouched', function () {
+    // Confur got there first; Amber must not clobber its callback.
+    $sentinel = static fn (): string => 'confur';
+    WpState::$shortcodes['open_email'] = $sentinel;
 
-        foreach (['open_new_link', 'open_email', 'pdf_link', 'days_remaining'] as $tag) {
-            $this->assertArrayHasKey($tag, WpState::$shortcodes);
-        }
-    }
+    (new ShortcodeService())->registerShortcodes();
 
-    #[Test]
-    public function a_tag_another_plugin_already_registered_is_left_untouched(): void
-    {
-        // Confur got there first; Amber must not clobber its callback.
-        $sentinel = static fn (): string => 'confur';
-        WpState::$shortcodes['open_email'] = $sentinel;
+    expect(WpState::$shortcodes['open_email'])->toBe($sentinel);
+});
 
-        (new ShortcodeService())->registerShortcodes();
+// ── open_new_link ────────────────────────────────────────────────
+it('builds a new tab link with openBlank', function () {
+    $html = $this->shortcodes->openBlank(['href' => 'https://example.test', 'class' => 'btn'], 'Visit');
 
-        $this->assertSame($sentinel, WpState::$shortcodes['open_email']);
-    }
+    expect($html)->toContain('href="https://example.test"')
+        ->toContain('target="_blank"')
+        ->toContain('>Visit<');
+});
 
-    // ── open_new_link ────────────────────────────────────────────────
-    #[Test]
-    public function open_blank_builds_a_new_tab_link(): void
-    {
-        $html = $this->shortcodes->openBlank(['href' => 'https://example.test', 'class' => 'btn'], 'Visit');
+// ── open_email ───────────────────────────────────────────────────
+it('wraps the address with linkEmail', function () {
+    $html = $this->shortcodes->linkEmail(['address' => 'sec@example.test', 'subject' => 'Hello'], 'Email us');
 
-        $this->assertStringContainsString('href="https://example.test"', $html);
-        $this->assertStringContainsString('target="_blank"', $html);
-        $this->assertStringContainsString('>Visit<', $html);
-    }
+    expect($html)->toContain('mailto:sec@example.test')
+        ->toContain('Email us');
+});
 
-    // ── open_email ───────────────────────────────────────────────────
-    #[Test]
-    public function link_email_wraps_the_address(): void
-    {
-        $html = $this->shortcodes->linkEmail(['address' => 'sec@example.test', 'subject' => 'Hello'], 'Email us');
+it('returns the content unchanged from linkEmail without an address', function () {
+    expect($this->shortcodes->linkEmail(['address' => ''], 'just text'))->toBe('just text');
+});
 
-        $this->assertStringContainsString('mailto:sec@example.test', $html);
-        $this->assertStringContainsString('Email us', $html);
-    }
+// ── pdf_link ─────────────────────────────────────────────────────
+it('wraps the download anchor in a pdf link', function () {
+    $html = $this->shortcodes->generatePdfLink(['url' => 'https://example.test/a.pdf', 'name' => 'minutes.pdf'], 'Minutes');
 
-    #[Test]
-    public function link_email_without_an_address_returns_its_content_unchanged(): void
-    {
-        $this->assertSame('just text', $this->shortcodes->linkEmail(['address' => ''], 'just text'));
-    }
+    expect($html)->toContain('<div>')
+        ->toContain('download="minutes.pdf"');
+});
 
-    // ── pdf_link ─────────────────────────────────────────────────────
-    #[Test]
-    public function a_pdf_link_wraps_the_download_anchor(): void
-    {
-        $html = $this->shortcodes->generatePdfLink(['url' => 'https://example.test/a.pdf', 'name' => 'minutes.pdf'], 'Minutes');
+it('reports missing parameters for a pdf link', function () {
+    expect($this->shortcodes->generatePdfLink(['url' => '', 'name' => '']))
+        ->toContain('Missing required parameters');
+});
 
-        $this->assertStringContainsString('<div>', $html);
-        $this->assertStringContainsString('download="minutes.pdf"', $html);
-    }
+// ── days_remaining ───────────────────────────────────────────────
+describe('days_remaining', function () {
+    it('asks for an end date when none is given', function () {
+        expect($this->shortcodes->generateDaysRemaining(['end_date' => '']))->toBe('Please provide an end date.');
+    });
 
-    #[Test]
-    public function a_pdf_link_reports_missing_parameters(): void
-    {
-        $this->assertStringContainsString(
-            'Missing required parameters',
-            $this->shortcodes->generatePdfLink(['url' => '', 'name' => ''])
-        );
-    }
+    it('rejects an unparseable date', function () {
+        expect($this->shortcodes->generateDaysRemaining(['end_date' => 'not-a-date']))
+            ->toContain('Invalid date format');
+    });
 
-    // ── days_remaining ───────────────────────────────────────────────
-    #[Test]
-    public function days_remaining_asks_for_an_end_date_when_none_is_given(): void
-    {
-        $this->assertSame('Please provide an end date.', $this->shortcodes->generateDaysRemaining(['end_date' => '']));
-    }
+    it('reports a date in the past', function () {
+        expect($this->shortcodes->generateDaysRemaining(['end_date' => '2000-01-01']))
+            ->toBe('The date has already passed.');
+    });
 
-    #[Test]
-    public function days_remaining_rejects_an_unparseable_date(): void
-    {
-        $this->assertStringContainsString(
-            'Invalid date format',
-            $this->shortcodes->generateDaysRemaining(['end_date' => 'not-a-date'])
-        );
-    }
-
-    #[Test]
-    public function days_remaining_reports_a_date_in_the_past(): void
-    {
-        $this->assertSame(
-            'The date has already passed.',
-            $this->shortcodes->generateDaysRemaining(['end_date' => '2000-01-01'])
-        );
-    }
-
-    #[Test]
-    public function days_remaining_counts_whole_days_for_a_far_off_date(): void
-    {
+    it('counts whole days for a far off date', function () {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+10 days')->format('Y-m-d');
 
         $html = $this->shortcodes->generateDaysRemaining(['end_date' => $future]);
 
-        $this->assertStringContainsString('days remaining', $html);
-        $this->assertStringContainsString('Deadline:', $html);
-    }
+        expect($html)->toContain('days remaining')
+            ->toContain('Deadline:');
+    });
 
-    #[Test]
-    public function days_remaining_counts_hours_when_under_a_day_away(): void
-    {
+    it('counts hours when under a day away', function () {
         // A datetime a few hours out exercises the hours branch and the
         // HH:MM parse/format path.
         $soon = (new DateTime('now', new DateTimeZone('UTC')))->modify('+3 hours')->format('Y-m-d H:i');
 
         $html = $this->shortcodes->generateDaysRemaining(['end_date' => $soon]);
 
-        $this->assertStringContainsString('hours remaining', $html);
-    }
+        expect($html)->toContain('hours remaining');
+    });
 
-    #[Test]
-    public function days_remaining_can_extend_the_deadline(): void
-    {
+    it('can extend the deadline', function () {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+2 days')->format('Y-m-d');
 
         $html = $this->shortcodes->generateDaysRemaining(['end_date' => $future, 'extend_by' => 5]);
 
-        $this->assertStringContainsString('extended by 5 days', $html);
-    }
+        expect($html)->toContain('extended by 5 days');
+    });
 
-    #[Test]
-    public function days_remaining_extension_uses_the_singular_for_one_day(): void
-    {
+    it('uses the singular for a one day extension', function () {
         $future = (new DateTime('now', new DateTimeZone('UTC')))->modify('+2 days')->format('Y-m-d');
 
         $html = $this->shortcodes->generateDaysRemaining(['end_date' => $future, 'extend_by' => 1]);
 
-        $this->assertStringContainsString('extended by 1 day', $html);
-    }
+        expect($html)->toContain('extended by 1 day');
+    });
 
-    #[Test]
-    public function days_remaining_accepts_a_relative_date_via_the_generic_parser(): void
-    {
+    it('accepts a relative date via the generic parser', function () {
         // "+5 days" matches none of the strict formats, so it falls through to
         // the generic DateTime parser rather than being rejected.
         $html = $this->shortcodes->generateDaysRemaining(['end_date' => '+5 days']);
 
-        $this->assertStringContainsString('remaining', $html);
-        $this->assertStringNotContainsString('Invalid date format', $html);
-    }
-}
+        expect($html)->toContain('remaining')
+            ->not->toContain('Invalid date format');
+    });
+});

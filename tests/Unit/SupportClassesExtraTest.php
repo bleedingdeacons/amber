@@ -4,18 +4,15 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
 use Amber\Common\Functions;
 use Amber\Core\HelpPage;
 use Amber\Managers\FrontPageManager;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\Locations\Interfaces\Location;
 use Unity\Meetings\Interfaces\Meeting;
 use Unity\Meetings\Interfaces\MeetingRepository;
 
-/**
+/*
  * Tests for the remaining front-end helpers.
  *
  * Functions is the tiny mailto/tel/anchor toolkit the shortcodes lean on.
@@ -25,137 +22,114 @@ use Unity\Meetings\Interfaces\MeetingRepository;
  * notice if its template is missing. None of these are large, but together
  * they are a good chunk of otherwise-uncovered front-of-house code.
  */
-#[CoversClass(\Amber\Common\Functions::class)]
-#[CoversClass(\Amber\Managers\FrontPageManager::class)]
-#[CoversClass(\Amber\Core\HelpPage::class)]
-class SupportClassesExtraTest extends AmberTestCase
-{
-    // ── Functions ────────────────────────────────────────────────────
-    #[Test]
-    public function email_to_builds_a_plain_mailto(): void
-    {
-        $this->assertSame('mailto:sec@example.test', Functions::emailTo('sec@example.test'));
-    }
 
-    #[Test]
-    public function email_to_appends_an_encoded_subject(): void
-    {
-        $this->assertSame(
-            'mailto:sec@example.test?subject=Hello+There',
-            Functions::emailTo('sec@example.test', 'Hello There')
-        );
-    }
+covers(Functions::class, FrontPageManager::class, HelpPage::class);
 
-    #[Test]
-    public function phone_to_builds_a_tel_link(): void
-    {
-        $this->assertSame('tel:0117 000 0000', Functions::phoneTo('0117 000 0000'));
-    }
+// ── Functions ────────────────────────────────────────────────────
+describe('Functions', function () {
+    it('builds a plain mailto with emailTo', function () {
+        expect(Functions::emailTo('sec@example.test'))->toBe('mailto:sec@example.test');
+    });
 
-    #[Test]
-    public function link_to_builds_a_safe_new_tab_anchor(): void
-    {
+    it('appends an encoded subject with emailTo', function () {
+        expect(Functions::emailTo('sec@example.test', 'Hello There'))
+            ->toBe('mailto:sec@example.test?subject=Hello+There');
+    });
+
+    it('builds a tel link with phoneTo', function () {
+        expect(Functions::phoneTo('0117 000 0000'))->toBe('tel:0117 000 0000');
+    });
+
+    it('builds a safe new tab anchor with linkTo', function () {
         $html = Functions::linkTo('https://example.test', 'btn', 'Visit');
 
-        $this->assertStringContainsString('rel="noreferrer noopener"', $html);
-        $this->assertStringContainsString('href="https://example.test"', $html);
-        $this->assertStringContainsString('>Visit<', $html);
-    }
+        expect($html)->toContain('rel="noreferrer noopener"')
+            ->toContain('href="https://example.test"')
+            ->toContain('>Visit<');
+    });
 
-    #[Test]
-    public function the_email_anchor_composes_the_mailto_and_the_link(): void
-    {
+    it('composes the mailto and the link in the email anchor', function () {
         $html = Functions::createEmailAnchor('sec@example.test', 'Hi', 'btn', 'Email');
 
-        $this->assertStringContainsString('mailto:sec@example.test?subject=Hi', $html);
-        $this->assertStringContainsString('>Email<', $html);
-    }
+        expect($html)->toContain('mailto:sec@example.test?subject=Hi')
+            ->toContain('>Email<');
+    });
+});
 
-    // ── FrontPageManager ─────────────────────────────────────────────
+// ── FrontPageManager ─────────────────────────────────────────────
+describe('FrontPageManager', function () {
+    beforeEach(function () {
+        $this->meeting = function (string $time, string $name, bool $online = false, ?Location $location = null): Meeting {
+            $meeting = $this->createMock(Meeting::class);
+            $meeting->method('getTime')->willReturn($time);
+            $meeting->method('getName')->willReturn($name);
+            $meeting->method('getUrl')->willReturn('https://example.test/' . $name);
+            $meeting->method('isOnline')->willReturn($online);
+            $meeting->method('getLocation')->willReturn($location);
 
-    private function meeting(string $time, string $name, bool $online = false, ?Location $location = null): Meeting
-    {
-        $meeting = $this->createMock(Meeting::class);
-        $meeting->method('getTime')->willReturn($time);
-        $meeting->method('getName')->willReturn($name);
-        $meeting->method('getUrl')->willReturn('https://example.test/' . $name);
-        $meeting->method('isOnline')->willReturn($online);
-        $meeting->method('getLocation')->willReturn($location);
+            return $meeting;
+        };
+    });
 
-        return $meeting;
-    }
-
-    #[Test]
-    public function todays_meetings_are_listed_in_start_time_order(): void
-    {
+    it("lists today's meetings in start time order", function () {
         $repo = $this->createMock(MeetingRepository::class);
         $repo->method('findByDay')->willReturn([
-            $this->meeting('19:30', 'Evening'),
-            $this->meeting('08:00', 'Morning'),
+            ($this->meeting)('19:30', 'Evening'),
+            ($this->meeting)('08:00', 'Morning'),
         ]);
 
         $html = (new FrontPageManager($repo))->render();
 
         // Sorted lexically on zero-padded HH:MM, so Morning precedes Evening.
-        $this->assertLessThan(strpos($html, 'Evening'), strpos($html, 'Morning'));
-    }
+        expect(strpos($html, 'Morning'))->toBeLessThan(strpos($html, 'Evening'));
+    });
 
-    #[Test]
-    public function an_online_meeting_is_labelled_online(): void
-    {
+    it('labels an online meeting online', function () {
         $repo = $this->createMock(MeetingRepository::class);
-        $repo->method('findByDay')->willReturn([$this->meeting('19:00', 'Zoom', true)]);
+        $repo->method('findByDay')->willReturn([($this->meeting)('19:00', 'Zoom', true)]);
 
-        $this->assertStringContainsString('Online', (new FrontPageManager($repo))->render());
-    }
+        expect((new FrontPageManager($repo))->render())->toContain('Online');
+    });
 
-    #[Test]
-    public function an_in_person_meeting_shows_its_location(): void
-    {
+    it('shows the location of an in person meeting', function () {
         $location = $this->createMock(Location::class);
         $location->method('getName')->willReturn('Church Hall');
 
         $repo = $this->createMock(MeetingRepository::class);
-        $repo->method('findByDay')->willReturn([$this->meeting('19:00', 'Hall', false, $location)]);
+        $repo->method('findByDay')->willReturn([($this->meeting)('19:00', 'Hall', false, $location)]);
 
-        $this->assertStringContainsString('Church Hall', (new FrontPageManager($repo))->render());
-    }
+        expect((new FrontPageManager($repo))->render())->toContain('Church Hall');
+    });
 
-    #[Test]
-    public function a_meeting_with_no_location_renders_an_empty_attendance_cell(): void
-    {
+    it('renders an empty attendance cell for a meeting with no location', function () {
         $repo = $this->createMock(MeetingRepository::class);
-        $repo->method('findByDay')->willReturn([$this->meeting('19:00', 'Nowhere', false, null)]);
+        $repo->method('findByDay')->willReturn([($this->meeting)('19:00', 'Nowhere', false, null)]);
 
         $html = (new FrontPageManager($repo))->render();
 
-        $this->assertStringContainsString('attendance-option', $html);
-        $this->assertStringContainsString('Nowhere', $html);
-    }
+        expect($html)->toContain('attendance-option')
+            ->toContain('Nowhere');
+    });
 
-    #[Test]
-    public function an_empty_day_says_no_meetings_are_scheduled(): void
-    {
+    it('says no meetings are scheduled on an empty day', function () {
         $repo = $this->createMock(MeetingRepository::class);
         $repo->method('findByDay')->willReturn([]);
 
-        $this->assertStringContainsString('No meetings scheduled for today', (new FrontPageManager($repo))->render());
-    }
+        expect((new FrontPageManager($repo))->render())->toContain('No meetings scheduled for today');
+    });
 
-    #[Test]
-    public function the_shortcode_is_registered_on_construction(): void
-    {
+    it('registers the shortcode on construction', function () {
         $repo = $this->createMock(MeetingRepository::class);
 
         new FrontPageManager($repo);
 
-        $this->assertArrayHasKey('todays_meetings', WpState::$shortcodes);
-    }
+        expect(WpState::$shortcodes)->toHaveKey('todays_meetings');
+    });
+});
 
-    // ── HelpPage ─────────────────────────────────────────────────────
-    #[Test]
-    public function the_help_page_renders_its_template(): void
-    {
+// ── HelpPage ─────────────────────────────────────────────────────
+describe('HelpPage', function () {
+    it('renders its template', function () {
         // Point the plugin dir at the real Amber root so the bundled template
         // is found and included.
         if (!defined('AMBER_PLUGIN_DIR')) {
@@ -164,30 +138,24 @@ class SupportClassesExtraTest extends AmberTestCase
 
         $html = $this->capture(static fn () => HelpPage::render());
 
-        $this->assertNotSame('', $html);
-    }
+        expect($html)->not->toBe('');
+    });
 
-    #[Test]
-    public function the_help_tab_script_is_emitted(): void
-    {
+    it('emits the help tab script', function () {
         $script = $this->capture(static fn () => HelpPage::enqueueHelpTabScript());
 
-        $this->assertStringContainsString('<script>', $script);
-        $this->assertStringContainsString('page=amber-help', $script);
-    }
+        expect($script)->toContain('<script>')
+            ->toContain('page=amber-help');
+    });
 
-    /**
-     * window.open() returns null when a popup blocker or an extension refuses
-     * the window. preventDefault() has already run by then, so without an
-     * explicit fallback the Help link would be inert — and the next line would
-     * throw on the null handle rather than failing quietly.
-     */
-    #[Test]
-    public function the_help_tab_script_falls_back_to_the_current_tab_when_the_window_is_blocked(): void
-    {
+    // window.open() returns null when a popup blocker or an extension refuses
+    // the window. preventDefault() has already run by then, so without an
+    // explicit fallback the Help link would be inert — and the next line would
+    // throw on the null handle rather than failing quietly.
+    it('falls back to the current tab when the help window is blocked', function () {
         $script = $this->capture(static fn () => HelpPage::enqueueHelpTabScript());
 
-        $this->assertStringContainsString('if (!existing) {', $script);
-        $this->assertStringContainsString('window.location.href = helpUrl;', $script);
-    }
-}
+        expect($script)->toContain('if (!existing) {')
+            ->toContain('window.location.href = helpUrl;');
+    });
+});

@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\IntergroupMeetings;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard;
-use Amber\Tests\AmberTestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeeting;
 use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingGroupAttendance;
@@ -19,7 +15,7 @@ use Unity\IntergroupMeetings\Interfaces\IntergroupMeetingRepository;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
 
-/**
+/*
  * Tests for the Intergroup Meetings dashboard widget.
  *
  * The widget reads the archived attendance tables and draws one card per
@@ -31,42 +27,23 @@ use Unity\Members\Interfaces\MemberRepository;
  * title/date label has four shapes (both, title-only, date-only, neither) that
  * decide whether the card is even identifiable.
  */
-#[CoversClass(\Amber\Admin\IntergroupMeetings\IntergroupMeetingDashboard::class)]
-class IntergroupMeetingDashboardTest extends AmberTestCase
-{
-    /** @var IntergroupMeetingRepository&MockObject */
-    private $meetingRepository;
 
-    /** @var IntergroupMeetingGroupAttendanceRepository&MockObject */
-    private $groupAttendance;
+covers(IntergroupMeetingDashboard::class);
 
-    /** @var IntergroupMeetingOfficerAttendanceRepository&MockObject */
-    private $officerAttendance;
+beforeEach(function () {
+    $this->meetingRepository = $this->createMock(IntergroupMeetingRepository::class);
+    $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
+    $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
+    $this->memberRepository  = $this->createMock(MemberRepository::class);
 
-    /** @var MemberRepository&MockObject */
-    private $memberRepository;
+    $this->dashboard = new IntergroupMeetingDashboard(
+        $this->meetingRepository,
+        $this->groupAttendance,
+        $this->officerAttendance,
+        $this->memberRepository
+    );
 
-    private IntergroupMeetingDashboard $dashboard;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->meetingRepository = $this->createMock(IntergroupMeetingRepository::class);
-        $this->groupAttendance   = $this->createMock(IntergroupMeetingGroupAttendanceRepository::class);
-        $this->officerAttendance = $this->createMock(IntergroupMeetingOfficerAttendanceRepository::class);
-        $this->memberRepository  = $this->createMock(MemberRepository::class);
-
-        $this->dashboard = new IntergroupMeetingDashboard(
-            $this->meetingRepository,
-            $this->groupAttendance,
-            $this->officerAttendance,
-            $this->memberRepository
-        );
-    }
-
-    private function meeting(int $id, string $title, string $date, int $groups = 0, int $officers = 0): IntergroupMeeting
-    {
+    $this->meeting = function (int $id, string $title, string $date, int $groups = 0, int $officers = 0): IntergroupMeeting {
         $meeting = $this->createMock(IntergroupMeeting::class);
         $meeting->method('getId')->willReturn($id);
         $meeting->method('getTitle')->willReturn($title);
@@ -75,171 +52,146 @@ class IntergroupMeetingDashboardTest extends AmberTestCase
         $meeting->method('getOfficersAttending')->willReturn(array_fill(0, $officers, 'o'));
 
         return $meeting;
-    }
+    };
 
-    private function member(int $id, string $name): Member
-    {
+    $this->member = function (int $id, string $name): Member {
         $member = $this->createMock(Member::class);
         $member->method('getId')->willReturn($id);
         $member->method('getAnonymousName')->willReturn($name);
 
         return $member;
-    }
+    };
 
-    private function groupRecord(string $group, string $gsrName): IntergroupMeetingGroupAttendance
-    {
+    $this->groupRecord = function (string $group, string $gsrName): IntergroupMeetingGroupAttendance {
         $record = $this->createMock(IntergroupMeetingGroupAttendance::class);
         $record->method('getMeetingGroup')->willReturn($group);
         $record->method('getGsrName')->willReturn($gsrName);
 
         return $record;
-    }
+    };
 
-    private function officerRecord(string $position, string $officerName): IntergroupMeetingOfficerAttendance
-    {
+    $this->officerRecord = function (string $position, string $officerName): IntergroupMeetingOfficerAttendance {
         $record = $this->createMock(IntergroupMeetingOfficerAttendance::class);
         $record->method('getPositionName')->willReturn($position);
         $record->method('getOfficerName')->willReturn($officerName);
 
         return $record;
-    }
+    };
+});
 
-    // ── empty state ──────────────────────────────────────────────────
-    #[Test]
-    public function an_empty_archive_says_so(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([]);
+// ── empty state ──────────────────────────────────────────────────
+it('says so when the archive is empty', function () {
+    $this->meetingRepository->method('findAll')->willReturn([]);
 
-        $this->assertStringContainsString(
-            'No intergroup meetings found',
-            $this->capture(fn () => $this->dashboard->renderDashboardWidget())
-        );
-    }
+    expect($this->capture(fn () => $this->dashboard->renderDashboardWidget()))
+        ->toContain('No intergroup meetings found');
+});
 
-    // ── header label shapes ──────────────────────────────────────────
-    #[Test]
-    public function meetings_are_ordered_newest_first_with_a_title_and_date_label(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([
-            $this->meeting(1, 'January IG', '2026-01-10'),
-            $this->meeting(2, 'March IG', '2026-03-10'),
-        ]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+// ── header label shapes ──────────────────────────────────────────
+it('orders meetings newest first with a title and date label', function () {
+    $this->meetingRepository->method('findAll')->willReturn([
+        ($this->meeting)(1, 'January IG', '2026-01-10'),
+        ($this->meeting)(2, 'March IG', '2026-03-10'),
+    ]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+    $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('January IG', $html);
-        $this->assertStringContainsString('March IG', $html);
-        // Formatted and sorted so March (later) precedes January.
-        $this->assertLessThan(strpos($html, 'January'), strpos($html, 'March'));
-        $this->assertStringContainsString('March 10, 2026', $html);
-    }
+    expect($html)->toContain('January IG')
+        ->toContain('March IG');
+    // Formatted and sorted so March (later) precedes January.
+    expect(strpos($html, 'March'))->toBeLessThan(strpos($html, 'January'))
+        ->and($html)->toContain('March 10, 2026');
+});
 
-    #[Test]
-    public function a_meeting_with_neither_title_nor_date_is_flagged(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, '', '')]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+it('flags a meeting with neither title nor date', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, '', '')]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $this->assertStringContainsString('No Title or Date', $this->capture(fn () => $this->dashboard->renderDashboardWidget()));
-    }
+    expect($this->capture(fn () => $this->dashboard->renderDashboardWidget()))->toContain('No Title or Date');
+});
 
-    #[Test]
-    public function the_eligible_badge_totals_groups_and_officers(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10', 3, 2)]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+it('totals groups and officers in the eligible badge', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, 'IG', '2026-01-10', 3, 2)]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+    $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('3 groups, 2 officers', $html);
-        $this->assertStringContainsString('>5<', $html);
-    }
+    expect($html)->toContain('3 groups, 2 officers')
+        ->toContain('>5<');
+});
 
-    // ── group attendees ──────────────────────────────────────────────
-    #[Test]
-    public function group_attendees_link_known_gsrs_and_show_unknown_ones_as_text(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
-        $this->memberRepository->method('findAll')->willReturn([$this->member(7, 'Anonymous Alex')]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([
-            $this->groupRecord('Tuesday Group', 'Anonymous Alex, Anonymous Sam'),
-            $this->groupRecord('Solo Group', ''),
-        ]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+// ── group attendees ──────────────────────────────────────────────
+it('links known gsrs and shows unknown ones as text', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, 'IG', '2026-01-10')]);
+    $this->memberRepository->method('findAll')->willReturn([($this->member)(7, 'Anonymous Alex')]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([
+        ($this->groupRecord)('Tuesday Group', 'Anonymous Alex, Anonymous Sam'),
+        ($this->groupRecord)('Solo Group', ''),
+    ]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+    $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        // Known GSR is linked; unknown one is plain; a group with no GSR just names the group.
-        // &#038;, not &: WordPress encodes the separator in an href. The bare
-        // & described output this dashboard has never produced, and passed
-        // only while the test double returned its input untouched.
-        $this->assertStringContainsString('<a href="https://example.test/wp-admin/post.php?post=7&#038;action=edit">Anonymous Alex</a>', $html);
-        $this->assertStringContainsString('Anonymous Sam', $html);
-        $this->assertStringContainsString('Solo Group', $html);
-    }
+    // Known GSR is linked; unknown one is plain; a group with no GSR just names the group.
+    // &#038;, not &: WordPress encodes the separator in an href. The bare
+    // & described output this dashboard has never produced, and passed
+    // only while the test double returned its input untouched.
+    expect($html)->toContain('<a href="https://example.test/wp-admin/post.php?post=7&#038;action=edit">Anonymous Alex</a>')
+        ->toContain('Anonymous Sam')
+        ->toContain('Solo Group');
+});
 
-    #[Test]
-    public function a_meeting_with_no_group_records_dashes_the_groups_cell(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+it('dashes the groups cell for a meeting with no group records', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, 'IG', '2026-01-10')]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+    $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('—', $html);
-    }
+    expect($html)->toContain('—');
+});
 
-    // ── officers ─────────────────────────────────────────────────────
-    #[Test]
-    public function officers_link_known_members_and_fall_back_to_the_position_alone(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
-        $this->memberRepository->method('findAll')->willReturn([$this->member(9, 'Anonymous Jo')]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([
-            $this->officerRecord('Treasurer', 'Anonymous Jo'),
-            $this->officerRecord('Secretary', ''),
-        ]);
+// ── officers ─────────────────────────────────────────────────────
+it('links known officers and falls back to the position alone', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, 'IG', '2026-01-10')]);
+    $this->memberRepository->method('findAll')->willReturn([($this->member)(9, 'Anonymous Jo')]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([
+        ($this->officerRecord)('Treasurer', 'Anonymous Jo'),
+        ($this->officerRecord)('Secretary', ''),
+    ]);
 
-        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+    $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
-        $this->assertStringContainsString('Treasurer', $html);
-        $this->assertStringContainsString('Anonymous Jo', $html);
+    expect($html)->toContain('Treasurer')
+        ->toContain('Anonymous Jo')
         // Officer position with no named holder still lists the role.
-        $this->assertStringContainsString('Secretary', $html);
-    }
+        ->toContain('Secretary');
+});
 
-    #[Test]
-    public function a_meeting_with_no_officer_records_says_none(): void
-    {
-        $this->meetingRepository->method('findAll')->willReturn([$this->meeting(1, 'IG', '2026-01-10')]);
-        $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
-        $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
+it('says none for a meeting with no officer records', function () {
+    $this->meetingRepository->method('findAll')->willReturn([($this->meeting)(1, 'IG', '2026-01-10')]);
+    $this->groupAttendance->method('findByIntergroupMeeting')->willReturn([]);
+    $this->officerAttendance->method('findByIntergroupMeeting')->willReturn([]);
 
-        $this->assertStringContainsString('None', $this->capture(fn () => $this->dashboard->renderDashboardWidget()));
-    }
+    expect($this->capture(fn () => $this->dashboard->renderDashboardWidget()))->toContain('None');
+});
 
-    // ── registration and styles ──────────────────────────────────────
-    #[Test]
-    public function the_widget_is_registered(): void
-    {
-        $this->dashboard->registerDashboardWidget();
+// ── registration and styles ──────────────────────────────────────
+it('registers the widget', function () {
+    $this->dashboard->registerDashboardWidget();
 
-        $this->assertArrayHasKey('intergroup_meetings_dashboard', WpState::$widgets);
-    }
+    expect(WpState::$widgets)->toHaveKey('intergroup_meetings_dashboard');
+});
 
-    #[Test]
-    public function styles_load_only_on_the_dashboard(): void
-    {
-        $this->setScreen('dashboard', 'dashboard');
-        $this->assertStringContainsString('<style>', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
+it('loads styles only on the dashboard', function () {
+    $this->setScreen('dashboard', 'dashboard');
+    expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toContain('<style>');
 
-        $this->setScreen('edit-post', 'edit', 'post');
-        $this->assertSame('', $this->capture(fn () => $this->dashboard->addDashboardStyles()));
-    }
-}
+    $this->setScreen('edit-post', 'edit', 'post');
+    expect($this->capture(fn () => $this->dashboard->addDashboardStyles()))->toBe('');
+});

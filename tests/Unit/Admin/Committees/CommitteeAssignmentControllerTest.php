@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Amber\Tests\Unit\Admin\Committees;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use function Brain\Monkey\Functions\when;
 use Amber\Admin\Committees\CommitteeAssignmentController;
-use Amber\Tests\AmberTestCase;
+use Brain\Monkey\Functions;
 use Unity\Committees\Interfaces\Committee;
 use Unity\Core\Interfaces\Configuration;
 
-/**
+/*
  * Tests for the committee assignment endpoint.
  *
  * This is the only thing in the suite that writes committee membership, and it
@@ -21,35 +18,29 @@ use Unity\Core\Interfaces\Configuration;
  * Unassigned. The happy paths matter mostly for one thing — that a move removes
  * the source and a copy does not.
  */
-#[CoversClass(\Amber\Admin\Committees\CommitteeAssignmentController::class)]
-class CommitteeAssignmentControllerTest extends AmberTestCase
+
+covers(CommitteeAssignmentController::class);
+
+/**
+ * Stands in for the exit() inside wp_send_json_*.
+ */
+class StopAjax extends \RuntimeException
 {
-    private CommitteeAssignmentController $controller;
+}
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+beforeEach(function () {
+    $config = $this->createMock(Configuration::class);
+    $config->method('getConfig')->willReturnCallback(
+        static fn (string $key): array => $key === Committee::class
+            ? ['TAXONOMY' => 'intergroup-committee']
+            : ['POST_TYPE' => 'intergroup-member']
+    );
 
-        $config = $this->createMock(Configuration::class);
-        $config->method('getConfig')->willReturnCallback(
-            static fn (string $key): array => $key === Committee::class
-                ? ['TAXONOMY' => 'intergroup-committee']
-                : ['POST_TYPE' => 'intergroup-member']
-        );
+    $this->controller = new CommitteeAssignmentController($config);
 
-        $this->controller = new CommitteeAssignmentController($config);
+    Functions\when('check_ajax_referer')->justReturn(true);
 
-        when('check_ajax_referer')->justReturn(true);
-
-        $_POST = [];
-    }
-
-    protected function tearDown(): void
-    {
-        $_POST = [];
-
-        parent::tearDown();
-    }
+    $_POST = [];
 
     /**
      * wp_send_json_* halt the request in WordPress. Brain Monkey's stubs simply
@@ -58,18 +49,17 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
      * @param array<string, mixed> $post
      * @return array{success: bool, data: mixed}
      */
-    private function dispatch(array $post): array
-    {
+    $this->dispatch = function (array $post): array {
         $_POST = $post;
 
         $sent = ['success' => false, 'data' => null];
 
-        when('wp_send_json_success')->alias(function ($data = null) use (&$sent): void {
+        Functions\when('wp_send_json_success')->alias(function ($data = null) use (&$sent): void {
             $sent = ['success' => true, 'data' => $data];
             throw new StopAjax();
         });
 
-        when('wp_send_json_error')->alias(function ($data = null) use (&$sent): void {
+        Functions\when('wp_send_json_error')->alias(function ($data = null) use (&$sent): void {
             $sent = ['success' => false, 'data' => $data];
             throw new StopAjax();
         });
@@ -81,162 +71,141 @@ class CommitteeAssignmentControllerTest extends AmberTestCase
         }
 
         return $sent;
-    }
+    };
+});
 
-    #[Test]
-    public function it_refuses_a_caller_without_the_capability(): void
-    {
-        when('current_user_can')->justReturn(false);
+afterEach(function () {
+    $_POST = [];
+});
 
-        $result = $this->dispatch(['member' => 31, 'target' => 13, 'source' => 12]);
+it('refuses a caller without the capability', function () {
+    Functions\when('current_user_can')->justReturn(false);
 
-        $this->assertFalse($result['success']);
-        $this->assertStringContainsString('not allowed', $result['data']['message']);
-    }
+    $result = ($this->dispatch)(['member' => 31, 'target' => 13, 'source' => 12]);
 
-    #[Test]
-    public function it_refuses_an_id_that_is_not_a_member(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-position');
+    expect($result['success'])->toBeFalse()
+        ->and($result['data']['message'])->toContain('not allowed');
+});
 
-        $result = $this->dispatch(['member' => 88, 'target' => 13, 'source' => 12]);
+it('refuses an id that is not a member', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-position');
 
-        $this->assertFalse($result['success']);
-        $this->assertSame('That is not a member.', $result['data']['message']);
-    }
+    $result = ($this->dispatch)(['member' => 88, 'target' => 13, 'source' => 12]);
 
-    #[Test]
-    public function it_refuses_a_copy_to_unassigned(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-member');
+    expect($result['success'])->toBeFalse()
+        ->and($result['data']['message'])->toBe('That is not a member.');
+});
 
-        $result = $this->dispatch(['member' => 31, 'target' => 0, 'source' => 12, 'mode' => 'copy']);
+it('refuses a copy to unassigned', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-member');
 
-        $this->assertFalse($result['success']);
-        $this->assertStringContainsString('cannot be copied to Unassigned', $result['data']['message']);
-    }
+    $result = ($this->dispatch)(['member' => 31, 'target' => 0, 'source' => 12, 'mode' => 'copy']);
 
-    #[Test]
-    public function a_move_drops_the_source_and_adds_the_target(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-member');
-        when('wp_get_object_terms')->justReturn([12, 99]);
+    expect($result['success'])->toBeFalse()
+        ->and($result['data']['message'])->toContain('cannot be copied to Unassigned');
+});
 
-        $written = null;
-        when('wp_set_object_terms')->alias(
-            function (int $id, array $terms, string $tax, bool $append) use (&$written) {
-                $written = ['id' => $id, 'terms' => $terms, 'tax' => $tax, 'append' => $append];
-                return $terms;
-            }
-        );
+it('drops the source and adds the target on a move', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-member');
+    Functions\when('wp_get_object_terms')->justReturn([12, 99]);
 
-        $result = $this->dispatch(['member' => 31, 'target' => 13, 'source' => 12, 'mode' => 'move']);
+    $written = null;
+    Functions\when('wp_set_object_terms')->alias(
+        function (int $id, array $terms, string $tax, bool $append) use (&$written) {
+            $written = ['id' => $id, 'terms' => $terms, 'tax' => $tax, 'append' => $append];
+            return $terms;
+        }
+    );
 
-        $this->assertTrue($result['success']);
-        $this->assertSame(31, $written['id']);
-        $this->assertSame('intergroup-committee', $written['tax']);
-        $this->assertFalse($written['append'], 'the whole set is written, not appended');
+    $result = ($this->dispatch)(['member' => 31, 'target' => 13, 'source' => 12, 'mode' => 'move']);
 
-        sort($written['terms']);
-        $this->assertSame([13, 99], $written['terms'], 'source dropped, unrelated membership kept');
-    }
+    expect($result['success'])->toBeTrue()
+        ->and($written['id'])->toBe(31)
+        ->and($written['tax'])->toBe('intergroup-committee')
+        ->and($written['append'])->toBeFalse('the whole set is written, not appended');
 
-    #[Test]
-    public function a_copy_keeps_the_source(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-member');
-        when('wp_get_object_terms')->justReturn([12]);
+    sort($written['terms']);
+    expect($written['terms'])->toBe([13, 99], 'source dropped, unrelated membership kept');
+});
 
-        $written = null;
-        when('wp_set_object_terms')->alias(
-            function (int $id, array $terms) use (&$written) {
-                $written = $terms;
-                return $terms;
-            }
-        );
+it('keeps the source on a copy', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-member');
+    Functions\when('wp_get_object_terms')->justReturn([12]);
 
-        $result = $this->dispatch(['member' => 31, 'target' => 13, 'source' => 12, 'mode' => 'copy']);
+    $written = null;
+    Functions\when('wp_set_object_terms')->alias(
+        function (int $id, array $terms) use (&$written) {
+            $written = $terms;
+            return $terms;
+        }
+    );
 
-        $this->assertTrue($result['success']);
+    $result = ($this->dispatch)(['member' => 31, 'target' => 13, 'source' => 12, 'mode' => 'copy']);
 
-        sort($written);
-        $this->assertSame([12, 13], $written);
-    }
+    expect($result['success'])->toBeTrue();
 
-    /**
-     * Dragging someone onto a committee they are already in should not write a
-     * duplicate row.
-     */
-    #[Test]
-    public function an_existing_membership_is_not_duplicated(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-member');
-        when('wp_get_object_terms')->justReturn([13]);
+    sort($written);
+    expect($written)->toBe([12, 13]);
+});
 
-        $written = null;
-        when('wp_set_object_terms')->alias(
-            function (int $id, array $terms) use (&$written) {
-                $written = $terms;
-                return $terms;
-            }
-        );
+// Dragging someone onto a committee they are already in should not write a
+// duplicate row.
+it('does not duplicate an existing membership', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-member');
+    Functions\when('wp_get_object_terms')->justReturn([13]);
 
-        $this->dispatch(['member' => 31, 'target' => 13, 'source' => 0, 'mode' => 'copy']);
+    $written = null;
+    Functions\when('wp_set_object_terms')->alias(
+        function (int $id, array $terms) use (&$written) {
+            $written = $terms;
+            return $terms;
+        }
+    );
 
-        $this->assertSame([13], $written);
-    }
+    ($this->dispatch)(['member' => 31, 'target' => 13, 'source' => 0, 'mode' => 'copy']);
 
-    /**
-     * A move to Unassigned is the one case that legitimately writes an empty
-     * set, and it must not be mistaken for a failure.
-     */
-    #[Test]
-    public function a_move_to_unassigned_clears_the_only_membership(): void
-    {
-        when('current_user_can')->justReturn(true);
-        when('get_post_type')->justReturn('intergroup-member');
-        when('wp_get_object_terms')->justReturn([12]);
+    expect($written)->toBe([13]);
+});
 
-        $written = null;
-        when('wp_set_object_terms')->alias(
-            function (int $id, array $terms) use (&$written) {
-                $written = $terms;
-                return $terms;
-            }
-        );
+// A move to Unassigned is the one case that legitimately writes an empty
+// set, and it must not be mistaken for a failure.
+it('clears the only membership on a move to unassigned', function () {
+    Functions\when('current_user_can')->justReturn(true);
+    Functions\when('get_post_type')->justReturn('intergroup-member');
+    Functions\when('wp_get_object_terms')->justReturn([12]);
 
-        $result = $this->dispatch(['member' => 31, 'target' => 0, 'source' => 12, 'mode' => 'move']);
+    $written = null;
+    Functions\when('wp_set_object_terms')->alias(
+        function (int $id, array $terms) use (&$written) {
+            $written = $terms;
+            return $terms;
+        }
+    );
 
-        $this->assertTrue($result['success']);
-        $this->assertSame([], $written);
-    }
+    $result = ($this->dispatch)(['member' => 31, 'target' => 0, 'source' => 12, 'mode' => 'move']);
 
-    /*
-     * There is deliberately no test for a forged target id.
-     *
-     * wp_set_object_terms() validates every id against the taxonomy and returns
-     * a WP_Error for anything that is not one of its terms, which is what makes
-     * the endpoint safe against a hand-crafted POST — the controller never has
-     * to enumerate valid committees itself. But bleedingdeacons/wp-mocks
-     * declares the stub as `: array`, and Patchwork replaces a function's body
-     * while keeping its signature, so returning a WP_Error from it is a
-     * TypeError inside the stub rather than a value the controller ever sees.
-     *
-     * The guard is right for production and unreachable from this suite. The
-     * same limitation, for the same reason, is documented in
-     * tsml-for-unity's TsmlCommitteeRepositoryTest against
-     * wp_get_object_terms(). Don't delete either for being uncovered.
-     */
-}
+    expect($result['success'])->toBeTrue()
+        ->and($written)->toBe([]);
+});
 
-/**
- * Stands in for the exit() inside wp_send_json_*.
+/*
+ * There is deliberately no test for a forged target id.
+ *
+ * wp_set_object_terms() validates every id against the taxonomy and returns
+ * a WP_Error for anything that is not one of its terms, which is what makes
+ * the endpoint safe against a hand-crafted POST — the controller never has
+ * to enumerate valid committees itself. But bleedingdeacons/wp-mocks
+ * declares the stub as `: array`, and Patchwork replaces a function's body
+ * while keeping its signature, so returning a WP_Error from it is a
+ * TypeError inside the stub rather than a value the controller ever sees.
+ *
+ * The guard is right for production and unreachable from this suite. The
+ * same limitation, for the same reason, is documented in
+ * tsml-for-unity's TsmlCommitteeRepositoryTest against
+ * wp_get_object_terms(). Don't delete either for being uncovered.
  */
-class StopAjax extends \RuntimeException
-{
-}
