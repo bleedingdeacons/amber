@@ -331,7 +331,7 @@ if (!defined('ABSPATH')) {
                 <a href="#" class="logo">
                     <span>Intergroup Admin</span>
                 </a>
-                <span class="version">v2.0.4 · Bristol &amp; District Intergroup</span>
+                <span class="version">v2.0.5 · Bristol &amp; District Intergroup</span>
             </header>
 
             <div class="ahp-body">
