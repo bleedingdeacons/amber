@@ -59,6 +59,7 @@ beforeEach(function () {
 
         if ($group !== null) {
             $groupObj = $this->createMock(Group::class);
+            $groupObj->method('getId')->willReturn(100 + $id);
             $groupObj->method('getTitle')->willReturn($group);
             $this->groupFactory->method('createFromSource')->willReturn($groupObj);
         }
@@ -68,8 +69,9 @@ beforeEach(function () {
 
     $this->filledPosition = function (int $id, string $title, array $holderNames): PositionView {
         $members = [];
-        foreach ($holderNames as $name) {
+        foreach ($holderNames as $memberId => $name) {
             $member = $this->createMock(Member::class);
+            $member->method('getId')->willReturn($memberId);
             $member->method('getAnonymousName')->willReturn($name);
             $members[] = $member;
         }
@@ -135,6 +137,18 @@ describe('groups section', function () {
             ->and($html)->toContain('data-email="m@example.test"');
     });
 
+    it('links each gsr to their member and their group', function () {
+        $this->memberRepository->method('findAll')->willReturn([
+            ($this->gsr)(1, 'Alex'),
+        ]);
+        $this->positionRepository->method('findAll')->willReturn([]);
+
+        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+
+        expect($html)->toContain('post.php?post=1&#038;action=edit" class="gsr-member-name">Alex</a>')
+            ->toContain('post.php?post=101&#038;action=edit" class="gsr-member-group">Tuesday Group</a>');
+    });
+
     it('excludes a member who is not a gsr', function () {
         $nonGsr = $this->createMock(Member::class);
         $nonGsr->method('isGsr')->willReturn(false);
@@ -153,12 +167,22 @@ describe('groups section', function () {
 describe('positions section', function () {
     it('lists filled positions with holders', function () {
         $this->memberRepository->method('findAll')->willReturn([]);
-        ($this->filledPosition)(7, 'Treasurer', ['Anonymous Alex', 'Anonymous Sam']);
+        ($this->filledPosition)(7, 'Treasurer', [11 => 'Anonymous Alex', 12 => 'Anonymous Sam']);
 
         $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
 
         expect($html)->toContain('Treasurer')
-            ->toContain('Anonymous Alex, Anonymous Sam');
+            ->toContain('data-holder="Anonymous Alex, Anonymous Sam"');
+    });
+
+    it('links each holder to their member', function () {
+        $this->memberRepository->method('findAll')->willReturn([]);
+        ($this->filledPosition)(7, 'Treasurer', [11 => 'Anonymous Alex', 12 => 'Anonymous Sam']);
+
+        $html = $this->capture(fn () => $this->dashboard->renderDashboardWidget());
+
+        expect($html)->toContain('post.php?post=11&#038;action=edit">Anonymous Alex</a>, <a ')
+            ->toContain('post.php?post=12&#038;action=edit">Anonymous Sam</a>');
     });
 
     it('leaves a vacant position out', function () {
