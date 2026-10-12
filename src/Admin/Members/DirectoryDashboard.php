@@ -165,8 +165,9 @@ class DirectoryDashboard
                 $personalEmail = $member->getPersonalEmail() ?: '';
 
                 $homegroupId = $member->getHomeGroup();
-                $homegroup   = $this->groupFactory->createFromSource($homegroupId);
-                $groupName   = $homegroup ? $homegroup->getTitle() : null;
+                $homegroup     = $this->groupFactory->createFromSource($homegroupId);
+                $groupName     = $homegroup ? $homegroup->getTitle() : null;
+                $groupEditLink = $homegroup ? get_edit_post_link($homegroup->getId()) : null;
 
                 echo '<li class="gsr-member-item" data-name="' . esc_attr($anonymousName) . '" data-email="' . esc_attr($personalEmail) . '">';
 
@@ -177,7 +178,11 @@ class DirectoryDashboard
                 }
 
                 if (!empty($groupName)) {
-                    echo '<span class="gsr-member-group">' . esc_html($groupName) . '</span>';
+                    if ($groupEditLink) {
+                        echo '<a href="' . esc_url($groupEditLink) . '" class="gsr-member-group">' . esc_html($groupName) . '</a>';
+                    } else {
+                        echo '<span class="gsr-member-group">' . esc_html($groupName) . '</span>';
+                    }
                 }
 
                 echo '</li>';
@@ -257,9 +262,18 @@ class DirectoryDashboard
                     echo '<span class="directory-position-name">' . esc_html($positionTitle) . '</span>';
                 }
 
-                // Member name(s)
+                // Member name(s), each linked to its member
+                $holderLinks = [];
+                foreach ($members as $member) {
+                    $memberEditLink = get_edit_post_link($member->getId());
+                    $memberName     = esc_html($member->getAnonymousName());
+                    $holderLinks[]  = $memberEditLink
+                        ? '<a href="' . esc_url($memberEditLink) . '">' . $memberName . '</a>'
+                        : $memberName;
+                }
+
                 echo '<span class="directory-position-holder">';
-                echo esc_html(implode(', ', $memberNames));
+                echo implode(', ', $holderLinks);
                 echo '</span>';
 
                 echo '</li>';
@@ -436,6 +450,18 @@ class DirectoryDashboard
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+
+            a.gsr-member-group,
+            .directory-position-holder a {
+                color: inherit;
+                text-decoration: none;
+            }
+
+            a.gsr-member-group:hover,
+            .directory-position-holder a:hover {
+                color: #135e96;
+                text-decoration: underline;
             }
 
             /* ── Positions section (simple list) ── */
