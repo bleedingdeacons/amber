@@ -452,16 +452,27 @@ class DirectoryDashboard
                 white-space: nowrap;
             }
 
-            a.gsr-member-group,
-            .directory-position-holder a {
+            a.gsr-member-group {
                 color: inherit;
                 text-decoration: none;
             }
 
-            a.gsr-member-group:hover,
-            .directory-position-holder a:hover {
+            a.gsr-member-group:hover {
                 color: #135e96;
                 text-decoration: underline;
+            }
+
+            .directory-position-holder a {
+                color: #2271b1;
+                font-weight: 500;
+                text-decoration: underline;
+                text-underline-offset: 2px;
+            }
+
+            .directory-position-holder a:hover,
+            .directory-position-holder a:focus {
+                color: #135e96;
+                text-decoration-thickness: 2px;
             }
 
             /* ── Positions section (simple list) ── */
