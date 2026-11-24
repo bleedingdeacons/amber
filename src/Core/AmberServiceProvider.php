@@ -20,6 +20,7 @@ use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberAdmin;
 use Amber\Admin\Members\MemberPasswordAdmin;
+use Amber\Admin\Members\MemberValuesMetaBox;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
@@ -126,6 +127,13 @@ class AmberServiceProvider
                 $c->get(PositionFactory::class),
                 $c->get(MemberRepository::class),
                 $c->get(GroupFactory::class)
+            );
+        });
+
+        $container->register(MemberValuesMetaBox::class, function (ContainerInterface $c) {
+            return new MemberValuesMetaBox(
+                $c->get(Configuration::class),
+                $c->get(MemberRepository::class)
             );
         });
 

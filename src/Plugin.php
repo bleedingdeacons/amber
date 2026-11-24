@@ -19,6 +19,7 @@ use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberPasswordAdmin;
 use Amber\Admin\Members\MemberAdmin;
+use Amber\Admin\Members\MemberValuesMetaBox;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\PersonalEmailValidator;
 use Amber\Admin\Positions\PositionAdmin;
@@ -119,6 +120,7 @@ class Plugin
             self::$container->get(PositionAdmin::class);
             self::$container->get(PositionNameValidator::class);
             self::$container->get(MemberAdmin::class);
+            self::$container->get(MemberValuesMetaBox::class);
             self::$container->get(AnonymousNameValidator::class);
             self::$container->get(PersonalEmailValidator::class);
             self::$container->get(MeetingAdmin::class);
