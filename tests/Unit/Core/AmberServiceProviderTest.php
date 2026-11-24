@@ -13,6 +13,7 @@ use Amber\Admin\Meetings\MeetingDashboard;
 use Amber\Admin\Members\AnonymousNameValidator;
 use Amber\Admin\Members\DirectoryDashboard;
 use Amber\Admin\Members\MemberAdmin;
+use Amber\Admin\Members\MemberValuesMetaBox;
 use Amber\Admin\Positions\PositionAdmin;
 use Amber\Admin\Positions\PositionDashboard;
 use Amber\Admin\Positions\PositionNameValidator;
@@ -49,6 +50,7 @@ const AMBER_SERVICES = [
     ShortcodeService::class           => ShortcodeService::class,
     FrontPageManager::class           => FrontPageManager::class,
     MemberAdmin::class                => MemberAdmin::class,
+    MemberValuesMetaBox::class        => MemberValuesMetaBox::class,
     AnonymousNameValidator::class     => AnonymousNameValidator::class,
     PositionAdmin::class              => PositionAdmin::class,
     PositionNameValidator::class      => PositionNameValidator::class,
